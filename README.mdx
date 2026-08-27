@@ -2,15 +2,16 @@
 
 <a href="https://StoryKo.de/"><img src="https://StoryKo.de/assets/img/DevGX.png" alt="DevGX — Developer Experience Exponentiation" width="600" /></a>
 
-# KRUBIK / KRUBOT
+<!-- # KRUBIK / KRUBOT
 
-<!-- ## The Hyper-DX Narrative Engine for Bots, Messengers, and Developer Joy.
+< !-- ## The Hyper-DX Narrative Engine for Bots, Messengers, and Developer Joy.
 
 **This is not just another bot library.**  
 **This is the first strike in a global revolution for the joy of developers' work and life.**<br>
 **To solidify a deep, penetrating, and unbreakable connection between Human ✸ System ✸ LLMs** -->
 
-## The Galactic Singularity Engine for building Intelligent bots on Laravel
+## Krubot: The Opinionated Shared Brain 🧠 ⚡️
+### Craft a cross-platform storyteller for your WebApp & Bot empire, from one Async_Core Elegant Codebase ***to rule them all 💍***
 
 **Build less boilerplate. Ship more meaning.**<br>
 **Develop Story for Telegram, Bale, Rubika Bots Once!**
@@ -19,13 +20,13 @@
 **This is the *First Strike* in a global revolution for the joy of developers' work and life.**
 
 **To solidify a deep, penetrating, and unbreakable connection between ::**<br>
-**Human ✸ System ✸ LLMs**
+**Human ✸ Universe ✸ LLMs**
 
 <br>
 
 [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](#requirements)
 [![Laravel](https://img.shields.io/badge/Laravel-12%2B-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](#requirements)
-[![DX](https://img.shields.io/badge/DX-Hyper--Optimized-FF00FF?style=for-the-badge)](#the-manifesto)
+[![DX](https://img.shields.io/badge/DX-Ultra--Optimized-F0FF00?style=for-the-badge)](#the-manifesto)
 [![Narrative Programming](https://img.shields.io/badge/Programming-Narrative%20Avant--Garde-00E38C?style=for-the-badge)](#what-is-narrative-programming)
 [![License](https://img.shields.io/badge/License-MIT+-8A2BE2?style=for-the-badge)](./KLicense.md)
 
@@ -63,8 +64,12 @@
 > For the short tactical version and faster briefing, head to:: ⚡️📜⚙️ <br>
 > | Portal | Language |
 > |:--|:--|
-> | <a href="https://DevGX.ir" target="_blank"><b>DevGX.ir</b></a> | Persian 🇮🇷 |
-> | <a href="https://StoryKo.de" target="_blank"><b>StoryKo.de</b></a> | Global 🌍️ |
+> | <a href="https://DevGX.ir/Krubot" target="_blank"><b>DevGX.ir</b></a> | Persian 🇮🇷 |
+> | <a href="https://StoryKo.de/Krubot" target="_blank"><b>StoryKo.de</b></a> | Global 🌍️ |
+
+<br>
+So take your <b><i>Heart-Pillars</i></b> and let's go...<br>
+🫀💊
 </div>
 
 
@@ -86,16 +91,26 @@ It was forged around a different belief:
 
 > **Developer Experience [Dev✸✸] is not a cosmetic luxury. It is critical foundation.**
 
-KrubiK turns bot development into a clean, composable, joyful workflow:
+*KrubiK turns bot development into a clean, composable, joyful workflow:*
+
+> [!IMPORTANT] <br> 
+> Inject a Star ⭐ — fuel the flame 🔥🔥 into the War against Cognitive Overhead ⛓️‍💥🪚, and help more developers discover Ultra-DX 🌪🛸
 
 ```php
 // To Activate, Just Drop The Code In :: app/Nexus/GamePanelNexus.php
 namespace App\Nexus;
 
+#[WebApp('game.dashboard')]
 class GamePanelNexus
 {
+    public function index(): string
+    {
+        return 'I Now Can Answer to WebRequests<br>'
+        . 'Welcome to /webapps/game/dashboard/ !';
+    }
+
     #[OnCommand('panel')]
-    public function showDashboard(Krubot $bot): void
+    public function showDashboard(#[WarLord] Krubot $bot): void
     {
         // Super-Speed Fail-safe resolver for userData
         $isActive = $bot->userStorage()->get('subscribed', false);
@@ -187,6 +202,270 @@ class GamePanelNexus
         $bot
         ->reply('You\'ve Chosen a Great Game to Engage ✨️🎮️ :: ***' . $product->name . '***')
         ->send();
+
+    }
+
+    /**
+     * The WebAction endpoint that receives the product ID.
+     * The name '.order_vip_product' is relative to 'game.dashboard'.
+     * The final resolved URI will be /webapps/game/dashboard/order_vip_product
+     *
+     * The sexy WebAction endpoint that receives the product ID.
+     * Notice how '$productId' is just requested. The system will provide it, as demand.
+     * 
+     * via PureJS:: `fetch('/webapps/game/dashboard/order_vip_product', {productId: 13, quantity: 3})`
+     * or via sendData:: `[Telegram|Bale].WebApp.sendData(JSON.stringify({action: 'order_vip_product', productId: 13, quantity: 3}))`
+    */
+    #[WebAction('.order_vip_product', methods: ['POST'])]
+    public function orderVipProduct(Krubot $bot, int $productId, int $quantity = 1, string $optionalDumbMsg = 'H! There'): array
+    {
+        $tgUser = $bot->user();
+        
+        /** @var Product|null $product */
+        $product = Product::query()->where('id', $productId)->where('is_vip', true)->first();
+
+        if (!$product) {
+            return ['status' => 'error', 'message' => 'Invalid or non-VIP product selected.'];
+        }
+        
+        $totalCost = $product->price * $quantity;
+        
+        // --- Database transaction logic ---
+        
+        $orderId = 'ORD-' . strtoupper(uniqid());
+        $myArticle = Article::headline($optionalDumbMsg, 3)
+            ->bold("✅ Order Confirmed: {$orderId}")
+            ->line("Greetings, {$tgUser->firstName()}! Your divine order from the web store has been processed:")
+            ->separator('-')
+            ->line("Item: " . $product->name)
+            ->line("Quantity: " . $quantity)
+            ->line("Total Cost: " . number_format($totalCost) . " Gold Coins")
+            ->separator('-')
+            ->italic("Thank you for your patronage. May your path be everlit.");
+            
+        $bot->reply((string) $myArticle)->send();
+
+        return [
+            'status' => 'success',
+            'message' => "Order for {$product->name} placed successfully!",
+            'order_id' => $orderId,
+            'total_cost' => $totalCost
+        ];
+    }
+
+    /**
+     * Renders a page listing all available VIP products.
+     *
+     * it will be: /webapps/seperate-address/vip_store (no '.' in first char)
+     */
+    #[WebPage('seperate-address.x-vip_store')]
+    public function showVipStorePage(): \Illuminate\View\View
+    {
+        $products = Product::where('is_vip', true)->get();
+
+        // Pass the products to a Blade view
+        return view('vip-store', ['products' => $products]);
+    }
+
+    /**
+     * Renders a divine product page using RichMan's HTML output.
+     * The name '.show_vip_product' is relative to 'game.dashboard'.
+     * The final resolved URI will be /game/dashboard/show-vip-product/{productId}
+     *
+     * it will be: /webapps/game/dashboard/show_vip_product
+     */
+    #[WebPage('.show_vip_product.{productId}')]
+    #[RestrictTo([
+        Platform::Bale,
+        'tg, rubika', 
+        [
+            'sabet', 
+            [
+                'eitaa, bale', 
+                Platform::Telegram
+            ]
+        ]
+    ])] // RestrictTo will be merged with parentClass Restrictions, Utilizing {{ ::OR:: logic }}
+    public function showVipProductPage(int $productId): Response
+    {
+        /** @var Product|null $product */
+        $product = Product::query()->where('is_vip', true)->find($productId);
+
+        if (!$product) {
+            throw new HttpException(404, 'The requested cosmic artifact could not be located.');
+        }
+
+        $article = Article::headline("💎 {$product->name} 💎")
+            ->line("Behold, a VIP artifact forged in the celestial fires!")
+            ->separator()
+            ->bold('Description:')->space()->italic($product->description)
+            ->line()
+            ->spoiler('This item grants you +50 cosmic awareness.')
+            ->line()
+            ->bold('Price:')->space()->code(number_format($product->price) . ' Gold Coins')
+            ->line()
+            ->link('Read our terms of service', 'https://example.com/tos');
+
+        $richHtmlContent = $article->toHtml();
+        
+        return response(
+            View::make('webapps.vip-product', [
+                'product' => $product,
+                'richHtmlContent' => $richHtmlContent,
+            ])
+        );
+    }
+
+
+    #[WebAction('.order_vip_product_x2', methods: ['POST'])]
+    #[RestrictTo('*')]
+    public function orderVipWebProduct(Krubot $bot, int $productId, int $quantity = 1): array // => array/arrayable/jsonable will be returned & rendered as json (everything not string or laravel view or laravel or Htmlable)
+    {
+        // 1. You automatically get the validated user from the bot.
+        $tgUser = $bot->user();
+        
+        // 2. You automatically get the Product ID from the JS payload.
+        // SECURITY: Always re-validate server-side!
+        $product = Product::where('id', $productId)->where('is_vip', true)->first();
+
+        if (!$product) {
+            return ['status' => 'error', 'message' => 'Invalid or non-VIP product selected.'];
+        }
+
+        // 3. You can even get optional parameters with defaults.
+        $totalCost = $product->price * $quantity;
+
+        // --- Database transaction logic goes here ---
+        AmethystMatrix::whisper('VIP Web Order', ['product' => $product->name, 'quantity' => $quantity]);
+        
+        // Confirm via Telegram chat
+        $bot->reply("🛍 Your order for **{$product->name} (x{$quantity})** from the web store has been confirmed!")->send();
+
+        return [
+            'status' => 'success',
+            'message' => "Order for {$product->name} placed successfully!",
+            'order_id' => uniqid('ORD-'),
+            'total_cost' => $totalCost
+        ];
+    }
+
+    #[OnCommand('vip_article')]
+    #[ForceJoin('StoryKode')]
+    public function showComplexArticle(Krubot $bot): void 
+    {
+        // Business logic for purchasing gems...
+
+        $richy = RichMan::parse('*Bold* _Italic_ [Krubot](https://StoryKo.de/Krubot)', 'MarkdownV2');
+
+        $article = Article::from($richy)->seperator('═', 14)->strikethrough('YES-YOU-RIGHT-WRITED-TOTALLY-SOLO');
+
+        $article_repeat = Article::scan("*Bold* _Italic_ [Krubot](https://StoryKo.de/Krubot)\n
+══════════════\n
+~~YES-YOU-RIGHT-WRITED-TOTALLY-SOLO~~"), 'RichMD');
+
+        $richHtml = RichMan::parse('<b>Bold</b> <i>Italic</i> <a href="https://krubik.dev">KrubiK</a>', 'HTML')
+
+            ->takeOver("@Math('1+2=3!!!')", '@') // Use @ Sigil to Parse RichBladeZ 💎🗡️
+            ->space(5)
+            ->takeOver("@CustomEmoji('13446548946', '🗡️🤯')", '@') // BladeSpell {@} is mandatory to delegate parse process to the BladeCipher
+            ->line()
+
+            ->takeOver("@Marked() @Bold() @Italic() DoKtor K. Presents @EndItalic() @EndBold() @EndMarked()", '@') // parse deep-nested blade elements and add them as global-usable RichEnities
+
+
+            ->takeOver("<s><i><b></b></i>I Am QalaT!</s>", 'auto')
+            ->takeOver('$x^2 + y^2$')
+            
+            ->prepend(
+                Article::bold(italic('XYZ'))->line()
+            )
+
+            ->prepend( bold('TUV is Before::') ) // @see src/Render/RenderHelpers.php
+
+            ->prepend('Intro with <u>underlined text</u>, ==marked text==, and $x^2 + y^2$.')
+
+            ->takeOver($article) // will be added to elements after mathematicalExpression('x^2 + y^2')
+            ->seperator('═', 5)
+            ->takeOver($article_repeat);
+
+        $rich4 = RichMan::summon("H!")->bold('I Have some Ultra-DX Elements')->takeOver($richHtml)->newLine(5)->italic('Kajaki ByeBye!!!');
+
+        /// echo (string) $rich4;       // USE IN:Web
+        $bot->reply($rich4)->send();    // USE IN:Botz
+    }
+
+    #[OnCommand('startMediaCatch')]
+    public function initRecruitment(#[WarLord] $bot)
+    {
+
+        $bot->reply('Send Your Resume Files or send "Done" (case-insensitive) to finish')->send();
+
+        $bot->now('CatchingResumeData');
+    }
+
+    #[When('CatchingResumeData')]
+    #[Receive([Signal::File, Signal::Audio, Signal::Photo, Signal::Movie, Signal::Speech, Signal::Round, Signal::Sticker, Signal::Story])]
+    public function archiveAnyIncomingFile(Message $message)
+    {
+        // A universal file handler for backup or storage bots
+    }
+
+    #[OnRegEx('/^done$/i')]
+    #[When('CatchingResumeData')] // optional, to-be referenced
+    public function finishRecruitment(#[WarLord] $bot)
+    {
+
+        // logic to check send files...
+
+        $bot->now('CatchingResumeData', null); // clears CatchingResumeData state
+
+        $bot->now('Level', 11);
+    }
+
+    #[When(">Level", 10)] // failed message and failing mechanisms {Re-Judging} are also implemented in When
+    #[Receive(Signal::Request)] // Alias for 'chat_join_request'
+    public function moderateJoinRequests(Update $update)
+    {
+    }
+
+    #[OnCommand('apply')]
+    public function startApplication(Krubot $bot): void
+    {
+        // Or Build a multi-step form without hand-writing state transitions.
+        $bot->form('job_app_form')
+            ->field('fullname', '👤 Enter your full name:')
+                ->rules('required|min:3')
+            ->field('birth_year', PowerButton::calendar('b_year', '📅 Select Birth Year', PowerButton::JalaliCalendar))
+            ->field('mobile', '📱 Enter mobile:')
+                ->rules('required|regex:/^09\d{9}$/')
+            ->field('n_code', 'Enter your 10-digit National ID:')
+                ->rules(['required', 'digits:10', new NationalCodeValidator()]) // DX: Object-based validation, merged with other modes
+            ->then(function (array $data, Krubot $bot) {
+                $bot->reply("🎉 Application received, {$data['fullname']}!")->send();
+            })
+        ->run();
+    }
+
+    #[Receive(Signal::StreamPoint)]  // Scheduled
+    #[Receive(Signal::StreamLive)]   // Started
+    #[Receive(Signal::StreamDead)]   // Ended
+    public function manageVideoStreamState(Message $message)
+    {
+        // Switch logic based on which signal triggered it to log the event correctly
+    }
+
+    #[FallbackOn(Signal::File, Signal::Audio, 'photo')]
+    #[RestrictTo('tg,bale')]
+    public orphanedMediaReceiver(#[WarLord] $bot, Message $message, Update $update) {
+        // called if no any handler catches that types
+        // optionally we can restrict this handler (or whole Nexus to some platforms)
+    }
+
+    #[Fallback]
+    public orphanedCallReceiver(#[WarLord] $bot) {
+
+        // Note! #[WarLord] $bot is a ContextualAttribute
+        // @see \KrubiK\Attributes\WarLord to learn how to engage...
 
     }
 }
@@ -402,7 +681,10 @@ KrubiK abstracts all of this into a fluent, Laravel-native DSL while still letti
 
 ## <a id="architectural-divide"></a>📊 THE ARCHITECTURAL DIVIDE: A HYPER-DX PARADIGM
 
-Senior engineers do not buy *marketing hype*; they buy **Structural Integrity**.<br><br>
+Senior engineers do not buy *marketing hype*; they buy **Absolute Power** while **Structural Integrity**.<br>
+> They want to *sit back* with their *coffee* and **watch** their ***build pipeline*** compile/deploy the entire stack *up* and turn *green*.
+
+<br>
 Traditional bot libraries were built for a simpler era—
 optimizing for basic HTTP transports and single-platform wrappers. 
 
@@ -665,7 +947,7 @@ and Upon a successful handshake,<br>
 For Absolute Dominion over the *Titanium Core*, the Amethyst Oracle, and the Multiverse Routing protocols, dive directly into your published `config/krubot.php` file. 
 
 The configuration file is heavily annotated and structurally flawless. <br>
-Simply open it, read the cosmic comments embedded within, and bend the engine to your precise will.
+Simply open it, read the cosmic comments embedded within, and bend the engine to your will, precisely.
 
 ***
 
@@ -731,7 +1013,7 @@ Schedule::command('krubik:pulse')
 
 <img src="https://StoryKo.de/assets/img/KrubiK/Lazarus.png" alt="Lazarus - The Daemon" width="600" />
 
-  <b><i>Lazarus</i> - Reborn Machine of The Death<br>
+  <b><a href="https://en.wikipedia.org/wiki/Lazarus_of_Bethany" title="Historical Origin"><i>Lazarus</i></a> - Reborn Machine of The Death<br>
   <i>Krubot's Oldest-best Friend</i><br>
   { KrubiK Enterprise  Immortal Power Engine }</b>
 </div>

@@ -21,7 +21,7 @@ namespace KrubiK\Providers;
 | on a foundation of pure power **Far Stronger Than Anything That Came Before.**
 | Starting with Laravel 12 Capabilities.
 |
-| What you see here is the **×0.7 ALPHA×** release. Why release it now?
+| What you see here is the **×ReleaseCandiate v0.8×** release. Why release it now?
 | Because keeping this evolution a secret any longer would be a
 | betrayal to the very community it was born to serve.
 | 
@@ -54,10 +54,10 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
  *  - Dynamic Behavior: For total developer control via config.
  *
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 class KrubotRouteProvider extends ServiceProvider
 {
     public function register(): void

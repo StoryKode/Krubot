@@ -2,7 +2,7 @@
 
 namespace KrubiK\Keyboard;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -31,11 +31,11 @@ use Illuminate\Contracts\Support\Arrayable;
  * 🌋 🎼⛈️.🌐†🧪🍄† 🔄|♻️+➡️“Vegetarians” [2K3] 🌋
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
-class PowerButton extends VanguardButton implements Arrayable
+*/
+class PowerButton implements Arrayable //  extends VanguardButton
 {
     use InteractsWithLockedProperties; // Uses PhantomShell Capabilities to Inject into VanGuard's
 
@@ -96,7 +96,7 @@ class PowerButton extends VanguardButton implements Arrayable
     public function __construct(
         string $text = '',
         ?string $actionId = null,
-        string|ButtonType $type = 'Button', // Unified Type
+        string|ButtonType $type = 'Simple', // Unified Type
         array $payload = [], // Unified Payload container
         float $width = 1.0
     ) {
@@ -107,7 +107,7 @@ class PowerButton extends VanguardButton implements Arrayable
         // 2. Parent Construction (Legacy Compatibility)
         // فراخوانی والد برای حفظ سازگاری با کتابخانه پایه
         // نکته: مقدار stringِ اینام را به والد پاس می‌دهیم
-        parent::__construct($text, $actionId, $typeString);
+        /// parent::__construct($text, $actionId, $typeString);
         $this->unlock('*'); // Raw Access To Vanuard's Button Heart
 
         // 3. Logic Preservation from __construct1
@@ -503,7 +503,10 @@ class PowerButton extends VanguardButton implements Arrayable
      * @param bool $append آیا داده‌ها به قبلی اضافه شوند؟
      * @return static
     */
-    public function action(string|array|int $data, string|ButtonType $type = 'Button', bool $append = false): static
+    public function actionOldVer(
+        string|array|int $data,
+        string|ButtonType $type = 'Simple',
+        bool $append = false): static
     {
         // Resolve Type
         $typeString = $type instanceof ButtonType ? $type->value : $type;
@@ -528,8 +531,92 @@ class PowerButton extends VanguardButton implements Arrayable
         return $this;
     }
 
+        /**
+     * Set the button action, payload parameters, and layout type dynamically.
+     * Simulated method overloading to handle multiple signatures seamlessly.
+     *
+     * Supported Calling Signatures:
+     * 1. action('order', ['id' => 1], 'Simple') -> Dynamic Action with structured parameters
+     * 2. action(['action' => 'order', 'id' => 1], 'Simple') -> Raw structured payload
+     * 3. action('simple_callback', 'Simple') -> Single raw action key without JSON wrapping
+     *
+     * @param string|array<string, mixed>|int $data Core action identifier or complete payload array.
+     * @param array<string, mixed>|string|ButtonType|null $paramsOrType Parameters array or button type.
+     * @param string|ButtonType|bool|null $typeOrAppend Custom button type or append flag.
+     * @param bool $append Defines whether to merge with existing callback parameters.
+     * @return static
+     */
+    public function action(
+        string|array|int $data,
+        mixed $paramsOrType = null,
+        mixed $typeOrAppend = null,
+        bool $append = false
+    ): static {
+        // 1. Initialize default values
+        $type = 'Simple';
+        
+        // Ensure callbackData is initialized to avoid type-errors
+        if (!isset($this->callbackData) || !is_array($this->callbackData)) {
+            $this->callbackData = [];
+        }
+
+        // 2. Resolve dynamic $append flag based on argument position
+        if (is_bool($typeOrAppend)) {
+            $append = $typeOrAppend;
+        } elseif (is_bool($paramsOrType)) {
+            $append = $paramsOrType;
+        }
+
+        // 3. Resolve the ButtonType (supports String backing or Enum structure)
+        if ($typeOrAppend instanceof ButtonType || is_string($typeOrAppend)) {
+            $type = $typeOrAppend;
+        } elseif ($paramsOrType instanceof ButtonType || is_string($paramsOrType)) {
+            // Only capture as type if it's not a payload parameter array
+            if (!is_array($paramsOrType)) {
+                $type = $paramsOrType;
+            }
+        }
+
+        $finalData = '';
+
+        // 4. Architect and compile the callback payload structure
+        if (is_array($data)) {
+            // Direct array mapping: action(['route' => 'order', 'id' => 5])
+            $this->callbackData = $append ? array_merge($this->callbackData, $data) : $data;
+            $finalData = json_encode($this->callbackData, JSON_UNESCAPED_UNICODE);
+        } else {
+            if (is_array($paramsOrType)) {
+                // Structured actions: action('order', ['id' => $product->id])
+                $structuredBase = ['action' => $data];
+                $this->callbackData = $append
+                    ? array_merge($this->callbackData, $structuredBase, $paramsOrType)
+                    : array_merge($structuredBase, $paramsOrType);
+                $finalData = json_encode($this->callbackData, JSON_UNESCAPED_UNICODE);
+            } else {
+                // Simple scalar actions: action('show_menu')
+                $finalData = (string) $data;
+            }
+        }
+
+        // 5. Convert enum values to raw string representations if applicable
+        $typeString = $type instanceof ButtonType ? $type->value : $type;
+        
+        $this->type = $typeString;
+        $this->forceSetProperty('type', $typeString);
+
+        // 6. Synchronize raw and structured payloads inside the button properties
+        $this->extraPayload['action_data'] = $finalData;
+        $this->forceSetProperty('action_id', $finalData);
+        $this->forceSetProperty('action_data', $finalData);
+
+        return $this;
+    }
+
     public function addActionParam(string $key, mixed $value): static
     {
+        if (!isset($this->callbackData) || !is_array($this->callbackData)) {
+            $this->callbackData = [];
+        }
         $this->callbackData[$key] = $value;
         return $this->action($this->callbackData, $this->type); // Use current type
     }
@@ -638,13 +725,13 @@ class PowerButton extends VanguardButton implements Arrayable
     public function toArray(): array
     {
         // 1. دریافت دیتای پایه والد (فقط در صورت نیاز قطعی - Logic from toArray2)
-        $base = method_exists(parent::class, 'toArray') ? parent::toArray() : [];
+        $base = []; // method_exists(parent::class, 'toArray') ? parent::toArray() : [];
 
         // 2. ساخت بیس اگر والد خالی بود (Logic from toArray)
         if (empty($base)) {
             $base = [
                 'text' => $this->text ?? '',
-                'type' => $this->type ?? 'Button',
+                'type' => $this->type ?? 'Simple',
             ];
         }
         
@@ -681,7 +768,7 @@ class PowerButton extends VanguardButton implements Arrayable
         // 6. هندل کردن ID (اولویت: action_id > id > تولید خودکار)
         // Merging logic from toArray (uniqid) and toArray2 (crc32)
         if (!isset($base['id'])) {
-            $parentId = $this->forceGetParentProperty('action_id');
+            $parentId = $this->forceGetProperty('action_id');
             // Priority: Parent ID > Action Data > URL > Hash (Optimized)
             $coreData['id'] = $parentId
                 ?? $actionData

@@ -2,7 +2,7 @@
 
 namespace KrubiK\DTOs;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.

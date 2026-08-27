@@ -2,7 +2,7 @@
 
 namespace KrubiK\Router;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -14,6 +14,8 @@ namespace KrubiK\Router;
 */
 
 use Closure;
+use KrubiK\Enums\Platform;
+//// use Illuminate\Routing\Route as LaravelRoute; // Import the Laravel Route // OBSOLETE, NOT NEEDED
 
 /**
  * Class Route
@@ -28,8 +30,8 @@ use Closure;
  * 5. Fluent Interface: Fully chainable methods.
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
  */
 class Route
@@ -38,6 +40,11 @@ class Route
      * The matching pattern (Regex, Command, or Exact text).
      */
     public string $pattern;
+
+    /**
+     * @var int The type of the route (e.g., Command, WebPage). See Router::RT_* constants.
+     */
+    public ?int $type = null; // Or RT_NONE
 
     /**
      * The handler action (Controller array, Closure, or Invokable class string).
@@ -56,6 +63,15 @@ class Route
      * Optimized for array operations (push/merge) and execution pipeline.
      */
     protected array $middlewares = [];
+
+    /**
+     * The list of platforms this route is restricted to.
+     * An empty array signifies that the route is available on ALL platforms (no restrictions).
+     * Optimized for O(1) checks during route dispatch.
+     *
+     * @var string[]
+    */
+    protected array $platforms = [];
 
     /**
      * Tags for categorizing routes (e.g., 'auth', 'admin-panel', 'payment').
@@ -84,6 +100,54 @@ class Route
      * This is "hidden" from public export/serialization usually.
      */
     protected ?Closure $nameRegistrar = null;
+
+    /**
+     * 🔥 THE NEW SOURCE OF WISDOM
+     * Holds the names of parameters extracted from the route's pattern.
+     * e.g., for '/product/{id}/variant/{variantId?}', this will be ['id', 'variantId'].
+     * This is the key to intelligent URL generation.
+     *
+     * @var string[]
+    */
+    public array $pathParameters = [];
+
+    /**
+     * ✨ THE ENRICHMENT DECREE ✨
+     * If true, the routing engine will automatically append required, non-injected parameters
+     * from the handler method's signature to the route's URI pattern.
+     * This flag provides explicit, developer-driven control over "magic" route modifications.
+     * It is set by the corresponding Attribute (e.g., WebApp, WebPage).
+     * @var bool
+     */
+    public bool $autoEnrichPattern = false;
+
+    /**
+     * ✨ THE BRIDGE BETWEEN WORLDS ✨
+     * For web routes (WebApp, WebPage, WebAction), this property will hold the
+     * actual instance of the Illuminate\Routing\Route object created by Laravel's router.
+     * This allows integrateNexus to "bake" metadata directly onto it for the
+     * HTTP middleware layer (like KrubikPlatformGuard) to consume.
+     * For non-web routes (commands, text), this will remain null.
+     *
+     * @var LaravelRoute|null
+    */
+    /// public ?LaravelRoute $laravelRoute = null; // OBSOLETE, NOT NEEDED
+
+    /**
+     * ✨ THE ACCESS DECREE ✨
+     * Stores the access policy for this route, e.g., 'strict' or 'standard'.
+     * This is read by the KrubikPlatformGuard to enforce identity requirements.
+     *
+     * @var string
+    */
+    protected string $accessPolicy = 'standard'; // Default to standard for safety
+
+    /**
+     * @var \KrubiK\Attributes\When[] Holds pre-instantiated #[When] guards.
+     * This is the key to eliminating runtime reflection in the execution path.
+     * The array is populated by the integrateNexus scanner.
+     */
+    protected array $whenGuards = [];
 
     /**
      * Route constructor.
@@ -131,6 +195,15 @@ class Route
 
         // 4. Store remaining attributes (recipients, drivers, limits, etc.)
         $this->attributes = array_merge($this->attributes, $attributes);
+
+        // [THE UPGRADE] The Route becomes self-aware of its type upon birth.
+        if (isset($attributes['_route_type'])) {
+            $this->type = $attributes['_route_type'];
+        }
+
+        // ✨ THE Path_AWAKEN ✨
+        // The Route object now analyzes itself upon creation.
+        $this->extractPathParameters();
     }
 
     /**
@@ -156,6 +229,14 @@ class Route
     public function getName(): ?string
     {
         return $this->name;
+    }
+
+    /**
+     * Get the assigned Pattern of the route.
+     */
+    public function getPattern(): ?string
+    {
+        return $this->pattern;
     }
 
     /**
@@ -304,4 +385,165 @@ class Route
         // 2. Merge: Global (Outer) -> Local (Inner)
         return array_merge($globalsToRun, $this->middlewares);
     }
+
+    /**
+     * ✨ HELPER METHOD
+     * Analyzes the route's pattern and extracts all parameter placeholders.
+     * This method runs only once during the object's lifecycle, ensuring peak performance.
+    */
+    private function extractPathParameters(): void
+    {
+        // This regex is greedy and finds all occurrences of {param} or {param?}.
+        // It correctly handles alphanumeric and underscore characters in parameter names.
+        preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $this->pattern, $matches);
+        
+        if (!empty($matches[1])) {
+            $this->pathParameters = $matches[1];
+        }
+    }
+
+    /**
+     * Restrict this route to specific platforms.
+     * If this method is never called, the route is available on all platforms.
+     *
+     * Supports chaining: ->platforms('telegram')->platforms('bale') // Bug: '*' makes him forget his prev-memory
+     * Supports arrays: ->platforms(['telegram', 'bale'])
+     *
+     * @param string|Platform|array<int, string|Platform> $platforms A single platform name or an array of platform names.
+     * @return self
+    */
+    public function platforms(string|array|Platform $platforms): self
+    {
+
+        // 1. Ensure the input is an array for consistent processing.
+        $rawPlatforms = is_array($platforms) ? $platforms : [$platforms];
+
+        // 2. Normalize every item into its canonical string value.
+        $normalizedPlatforms = [];
+        foreach ($rawPlatforms as $platform) {
+            // Thanks to the Stringable interface on the Platform enum,
+            // we can cast both strings and Platform objects to a string uniformly.
+            // We also enforce lowercase for canonical storage.
+            if (is_string($platform) || $platform instanceof \Stringable) {
+
+                $platformStr = strtolower((string) $platform);
+
+                // Wild-card Support
+                if($platformStr === '*') {
+                    $this->platforms = [];
+                    return $this;
+                }
+
+                $normalizedPlatforms[] = $platformStr;
+            }
+            // Note: We silently ignore any invalid types passed in the array.
+        }
+
+        // 3. Merge new platforms with existing ones and ensure absolute uniqueness.
+        if (!empty($normalizedPlatforms)) {
+            $this->platforms = array_values(array_unique([...$this->platforms, ...$normalizedPlatforms]));
+        }
+
+        $newPlatforms = is_array($platforms) ? $platforms : [$platforms];
+        
+        // Merge new platforms with existing ones and ensure absolute uniqueness.
+        // Using the spread operator is modern, clean, and fast.
+        $this->platforms = array_values(array_unique([...$this->platforms, ...$newPlatforms]));
+        
+        return $this;
+    }
+
+    /**
+     * Get the list of allowed platforms for this route.
+     *
+     * @return string[] An array of platform names. Returns an empty array if not restricted.
+    */
+    public function getPlatforms(): array
+    {
+        return $this->platforms;
+    }
+
+    /**
+     * 🔥 HYPER-PERFORMANT CHECKER
+     * Checks if this route is allowed to run on a given platform.
+     * This is the core logic the router's dispatcher will use.
+     *
+     * @param string $platform The platform name to check (e.g., 'telegram', 'rubika').
+     * @return bool True if the route is allowed, false otherwise.
+     */
+    public function isAllowedOn(string $platform): bool
+    {
+        // The Covenant: An empty `platforms` array means NO restrictions. The route is universal.
+        if (empty($this->platforms)) {
+            return true;
+        }
+
+        // Otherwise, the platform must explicitly be in the allowed list.
+        // `in_array` is highly optimized for this exact use case.
+        return in_array($platform, $this->platforms, true);
+    }
+
+    /**
+     * Sets the access policy for this route.
+     * 'strict': Requires an authenticated user (isGuest must be false).
+     * 'standard': Allows both guests and authenticated users.
+     *
+     * @param string $policy The policy name ('strict' or 'standard').
+     * @return self
+    */
+    public function accessPolicy(string $policy): self
+    {
+        $this->accessPolicy = ($policy === 'strict') ? 'strict' : 'standard';
+        return $this;
+    }
+
+    /**
+     * Gets the access policy for this route.
+     *
+     * @return string
+    */
+    public function getAccessPolicy(): string
+    {
+        return $this->accessPolicy;
+    }
+
+    /**
+     * Attaches pre-scanned guard attributes to this route.
+     * This method is used internally by the Nexus scanner.
+     *
+     * @param \KrubiK\Attributes\When[] $guards An array of When attribute instances.
+     * @return self
+    */
+    public function guards(array $guards): self
+    {
+        $this->whenGuards = $guards;
+        return $this;
+    }
+
+    /**
+     * Retrieves the attached guard attributes.
+     * Used by the Dispatcher's execution engine.
+     *
+     * @return \KrubiK\Attributes\When[]
+    */
+    public function getGuards(): array
+    {
+        return $this->whenGuards;
+    }
+
+    /**
+     * Holds the unified list of channel identifiers declared by ForceJoin attributes.
+     * This sacred data will be used by the dispatcher to channel the message.
+     *
+     * @var string[]
+    */
+    public array $forceJoinChannels = [];
+
+    /**
+     * 🔥 THE JUDGE'S DECREE
+     * Holds the custom failure message or Judge method name from the ForceJoin attribute.
+     * This is populated by the integrateNexus scanner, respecting translate-over-raw && method-over-class precedence.
+     * @var null|string
+    */
+    public ?string $forceJoinMessage = null;
 }

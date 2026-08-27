@@ -20,7 +20,7 @@
 | on a foundation of pure power **Far Stronger Than Anything That Came Before.**
 | Starting with Laravel 12 Capabilities.
 |
-| What you see here is the **×0.7 ALPHA×** release. Why release it now?
+| What you see here is the **×ReleaseCandiate v0.8×** release. Why release it now?
 | Because keeping this evolution a secret any longer would be a
 | betrayal to the very community it was born to serve.
 | 
@@ -37,15 +37,16 @@
 use KrubiK\Krubot;
 use KrubiK\Helpers\PhantomShell;
 use KrubiK\Helpers\AmethystMatrix;
+use KrubiK\Helpers\OpcacheRuler;
 
 /**
  * KrubiK WarLording Helpers v3.0
  *
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 
 if (! function_exists('warlord')) {
     /**
@@ -223,5 +224,69 @@ if (! function_exists('amethyst')) {
 
         // Step 3: Return a predictable value for the failed operation.
         return null;
+    }
+}
+
+if (!function_exists('opcache')) {
+    /**
+     * Get the OpcacheManager instance for method chaining, or invoke it.
+     *
+     * - If called with NO arguments `opcache()`:
+     *   It returns the underlying OpcacheManager instance, allowing you to chain methods.
+     *   e.g., `opcache()->flush();` or `opcache()->status();`
+     *
+     * - If called WITH ANY arguments `opcache(null)`, `opcache(true)`:
+     *   It resolves the instance and immediately calls its `__invoke` method,
+     *   passing along all arguments.
+     *
+     * @param  mixed  ...$parameters
+     * @return \App\Services\KrubiK\OpcacheManager|bool
+     */
+    function opcache(...$parameters)
+    {
+        // Always resolve the core service instance from the container.
+        $instance = app(OpcacheRuler::class);
+
+        // Check if any arguments were passed to this helper function.
+        // The func_num_args() is the most explicit way to check this.
+        // Using `if ($parameters)` also works well here.
+        if (func_num_args() > 0) {
+            // If arguments exist (e.g., opcache(null)), call the __invoke magic method on the instance
+            // and pass the arguments through using the spread operator.
+            return $instance(...$parameters);
+        }
+
+        // If NO arguments were passed (e.g., opcache()), return the raw instance
+        // itself, making its methods chainable.
+        return $instance;
+    }
+}
+
+if (!function_exists('advanceDateTime')) {
+    /**
+     * Normalizes various time representations into a standard DateTimeImmutable object.
+     *
+     * @param \DateTimeInterface|\DateInterval|int|string $when
+     * @return \DateTimeImmutable
+    */
+    function advanceDateTime(
+        \DateTimeInterface|\DateInterval|int|string $when
+    ): \DateTimeImmutable {
+
+        // Get the current time once to ensure consistency within this function.
+        $now = now();
+
+        return match (true) {
+            $when instanceof \DateTimeImmutable => $when,
+            $when instanceof \DateTimeInterface => \DateTimeImmutable::createFromInterface($when),
+            $when instanceof \DateInterval => $now->add($when)->toDateTimeImmutable(),
+
+            // Treat large integers as Unix timestamps, smaller ones as second delays.
+            is_int($when) && $when >= 1_000_000_000 => (new \DateTimeImmutable())->setTimestamp($when),
+            is_int($when) => $now->addSeconds($when)->toDateTimeImmutable(),
+
+            // Use Laravel's powerful Carbon::parse for string-based dates.
+            is_string($when) => \Illuminate\Support\Carbon::parse($when)->toDateTimeImmutable(),
+        };
     }
 }

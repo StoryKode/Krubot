@@ -22,7 +22,7 @@ namespace KrubiK\Arcane;
 | on a foundation of pure power **Far Stronger Than Anything That Came Before.**
 | Starting with Laravel 12 Capabilities.
 |
-| What you see here is the **×0.7 ALPHA×** release. Why release it now?
+| What you see here is the **×ReleaseCandiate v0.8×** release. Why release it now?
 | Because keeping this evolution a secret any longer would be a
 | betrayal to the very community it was born to serve.
 | 
@@ -74,10 +74,10 @@ use FFI; // Say Hello to C++, [FFI Is a Fine ToolBox For Hypnosis PHP-Mind], bro
  * - Visibility Bypass   (`private`, `protected` /=> Reflection)
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 trait InteractsWithLockedProperties
 {
     // =========================================================================
@@ -141,24 +141,32 @@ trait InteractsWithLockedProperties
     // =========================================================================
 
     /**
-     * [INTERNAL] Initializes the Agency Cache lazily. // oldName: initQuantumSpyAgency()
+     * [INTERNAL] Initializes the Agency Cache lazily for the exact target object.
      * Replaces the old array-based registry system with a memory-safe WeakMap.
     */
-    private function _ensureAgencyReady(): void
+    private function _ensureAgencyReadyFor(object $target): void
     {
-        if (self::$_agencyCache === null) {
-            self::$_agencyCache = new WeakMap();
-        }
-        
-        // Ensure the current object (or spy target) has a dossier in the cache
-        $target = $this->_spyTarget ?? $this;
+        self::$_agencyCache ??= new WeakMap();
+
         if (!isset(self::$_agencyCache[$target])) {
-            self::$_agencyCache[$target] = [
+           self::$_agencyCache[$target] = [
                 'unlocked' => [],
                 'props'    => [], // ReflectionProperty Cache
                 'methods'  => [], // ReflectionMethod Cache
-            ];
+           ];
         }
+    }
+    /**
+     * Backward-compat helper where original code expected no argument.
+     * It still prepares cache for $this or spyTarget. // oldName: initQuantumSpyAgency()
+    */
+    private function _ensureAgencyReady(): void
+    {
+        self::$_agencyCache ??= new WeakMap();
+
+        $target = $this->_spyTarget ?? $this;        
+        // Ensure the current object (or spy target) has a dossier in the cache
+        $this->_ensureAgencyReadyFor($target);
     }
 
     /**
@@ -467,7 +475,7 @@ trait InteractsWithLockedProperties
     public function setSpyTarget(object $target): object
     {
         $this->_spyTarget = $target;
-        $this->_ensureAgencyReady(); // Register the new target immediately
+        $this->_ensureAgencyReadyFor($target); // Register the new target immediately
         return $this->_spyTarget;
     }
 
@@ -494,8 +502,8 @@ trait InteractsWithLockedProperties
     */
     public function unlock(string ...$props): static
     {
-        $this->_ensureAgencyReady();
         $target = $this->_spyTarget ?? $this;
+        $this->_ensureAgencyReadyFor($target);
         $dossier = &self::$_agencyCache[$target]; // assign-by-ref, to easy-coding
 
         foreach ($props as $property) {
@@ -512,10 +520,9 @@ trait InteractsWithLockedProperties
     */
     public function lock(string ...$props): static
     {
-        $this->_ensureAgencyReady();
-        $target = $this->_spyTarget ?? $this;
-        
-        if (!isset(self::$_agencyCache[$target])) return $this;
+        $target = $this->_spyTarget ?? $this;        
+        $this->_ensureAgencyReadyFor($target);
+        // if (!isset(self::$_agencyCache[$target])) return $this;
         $dossier = &self::$_agencyCache[$target]; // assign-by-ref, to easy-coding, while memory optimizations
 
         if (in_array('*', $props, true)) {
@@ -533,11 +540,8 @@ trait InteractsWithLockedProperties
     public function isLocked(string $property, ?object $targetObject = null): bool
     {
         $finalTarget = $targetObject ?? $this->_spyTarget ?? $this;
-        
         // Ensure cache exists (Silent check)
-        if (self::$_agencyCache === null || !isset(self::$_agencyCache[$finalTarget])) {
-            $this->_ensureAgencyReady(); // Just to be safe, though usually handled by callers
-        }
+        $this->_ensureAgencyReadyFor($finalTarget); // Just to be safe, though usually handled by callers
 
         $unlockedList = self::$_agencyCache[$finalTarget]['unlocked'] ?? [];
 
@@ -551,7 +555,7 @@ trait InteractsWithLockedProperties
             if ($reflection && ($reflection->isPrivate() || $reflection->isProtected())) {
                 return true;
             }
-        } catch (Exception) {
+        } catch (Throwable) {
             return true;
         }
 
@@ -625,6 +629,7 @@ trait InteractsWithLockedProperties
     public function forceSetProperty(string $propertyName, mixed $value, ?object $targetObject = null): void
     {
         $finalTarget = $targetObject ?? $this->_spyTarget ?? $this;
+        $this->_ensureAgencyReadyFor($finalTarget);
 
         try {
             $reflection = $this->getReflectionProperty($propertyName, $finalTarget);
@@ -651,8 +656,11 @@ trait InteractsWithLockedProperties
                 // Dynamic property fallback
                 $finalTarget->{$propertyName} = $value;
             }
-        } catch (Exception $e) {
+        /*} catch (Exception $e) {
             // Silent fail for robustness (matches v5 behavior)
+        }*/
+        } catch (\Throwable $e) {
+            $this->_log("forceSetProperty failed for {$propertyName} on " . get_debug_type($finalTarget) . ': ' . $e->getMessage());
         }
     }
 
@@ -665,6 +673,8 @@ trait InteractsWithLockedProperties
     public function forceGetProperty(string $propertyName, ?object $targetObject = null): mixed
     {
         $finalTarget = $targetObject ?? $this->_spyTarget ?? $this;
+        $this->_ensureAgencyReadyFor($finalTarget);
+
         try {
             if (property_exists($finalTarget, $propertyName)) {
                 // Direct access check if public (unlikely if we are here via magic, but possible)
@@ -674,7 +684,10 @@ trait InteractsWithLockedProperties
             if ($reflection) {
                 return $reflection->getValue($finalTarget);
             }
-        } catch (Exception) { /* Silent fail */ }
+        // } catch (Exception) { /* Silent fail */ }
+        } catch (\Throwable $e) {
+            $this->_log("forceGetProperty failed for {$propertyName} on " . get_debug_type($finalTarget) . ': ' . $e->getMessage());
+        }
         return null;
     }
 
@@ -727,6 +740,7 @@ trait InteractsWithLockedProperties
             // PHASE 1: THE HYBRID INTELLECT - Determine the ultimate target based on command priority.
             // This single line implements the three-tiered logic as per your strategic directive.
             $invocationTarget = $target ?? $this->_spyTarget ?? $this;
+            $this->_ensureAgencyReadyFor($invocationTarget);
 
             // PHASE 2: THE ORACLE - Consult the Chronos Engine for the method.
             // We now must inform the engine which target to reflect upon.
@@ -738,9 +752,12 @@ trait InteractsWithLockedProperties
                 // PHASE 3: THE ACTION - Execute the command on the correctly resolved invocationTarget.
                 return $method->invokeArgs($invocationTarget, $args);
             }
-        } catch (Exception $e) {
-            // Silent failure is our current strategy. We do not want to halt execution.
+            $this->_log("forceCallMethod: method {$methodName} not found on " . $invocationTarget::class);
+        } catch (Throwable $e) {
+            // Silent failure was our current strategy, if We do not want to halt execution.
             // For debugging: error_log("Krubot forceCallMethod failed for '{$methodName}': " . $e->getMessage());
+
+            $this->_log("forceCallMethod: invocation of {$methodName} on " . $invocationTarget::class . " failed: " . $e->getMessage());
         }
         return null;
     }
@@ -769,8 +786,8 @@ trait InteractsWithLockedProperties
     */
     protected function getReflectionProperty(string $name, ?object $targetObject = null): ?ReflectionProperty
     {
-        $this->_ensureAgencyReady();
         $finalTarget = $targetObject ?? $this->_spyTarget ?? $this;
+        $this->_ensureAgencyReadyFor($finalTarget);
         $dossier = &self::$_agencyCache[$finalTarget];
 
         // 1. Cache Hit
@@ -798,8 +815,12 @@ trait InteractsWithLockedProperties
                 // Move up the inheritance chain to check the parent.
                 $currentClass = $currentClass->getParentClass();
             }
-        } catch (Exception) {
+        /* } catch (Exception) {
             // Fail silently.
+            return null;
+        } */
+        } catch (Throwable $e) {
+            $this->_log("getReflectionProperty: failed for {$name} on " . get_debug_type($finalTarget) . ': ' . $e->getMessage());
             return null;
         }
 
@@ -829,8 +850,8 @@ trait InteractsWithLockedProperties
     */
     protected function getReflectionMethod(string $name, ?object $targetObject = null): ?ReflectionMethod
     {
-        $this->_ensureAgencyReady();
         $finalTarget = $targetObject ?? $this->_spyTarget ?? $this;
+        $this->_ensureAgencyReadyFor($finalTarget);
         $dossier = &self::$_agencyCache[$finalTarget];
 
         // 1. Cache Hit
@@ -860,8 +881,12 @@ trait InteractsWithLockedProperties
                 // If not found, move up the inheritance chain.
                 $currentClass = $currentClass->getParentClass();
             }
-        } catch (Exception) {
+        /* } catch (Throwable) {
             // Fail silently to prevent application crashes from reflection errors.
+            return null;
+        } */
+        } catch (\Throwable $e) {
+            $this->_log("getReflectionMethod: failed for {$name} on " . get_debug_type($finalTarget) . ': ' . $e->getMessage());
             return null;
         }
 

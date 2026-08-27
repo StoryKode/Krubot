@@ -2,7 +2,7 @@
 
 namespace KrubiK\Drivers\Contracts\Layers;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -19,7 +19,7 @@ namespace KrubiK\Drivers\Contracts\Layers;
  * Shared methods in UniversalDriverInterface & FluentDriverInterface
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
+ * @link https://StoryKo.de/Krubot Official website of engine.
 */
 interface DeFluentDriverInterface
 {    

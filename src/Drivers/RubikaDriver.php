@@ -2,7 +2,7 @@
 
 namespace KrubiK\Drivers;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -44,7 +44,7 @@ class RubikaDriver extends VanguardCore implements BotDriverInterface, VanguardI
     // اینجا ما متدهای اینترفیس (مثل send) را به متدهای Vanguard (مثل sendText) وصل می‌کنیم.
     // از متغیرهای Context که توسط NeonVitality مدیریت می‌شوند استفاده می‌کنیم.
 
-    public function send(): array
+    public function legacySend(): array
     {
         // Example mapping:
         // If we have text, use sendText. If we have file_id, use sendFile, etc.

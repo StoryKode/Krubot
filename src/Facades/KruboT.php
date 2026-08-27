@@ -1,6 +1,17 @@
 <?php
 
 namespace KrubiK\Facades;
+/*
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+|--------------------------------------------------------------------------
+| This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
+| not a weapon for production's final battles.
+|
+| Our Bond: ***"Rebuilding The Rebellion"*** Within S.N.P. (The Foundation of Pure Power & Revel).
+| Your Mandate [MIT]: Deconstruct Krubot. Command it. Master it. You are The Architect Now!
+|
+| *Go build something revolutionary!* 💜⚡️
+*/
 
 use Illuminate\Support\Facades\Facade;
 
@@ -21,10 +32,10 @@ use Illuminate\Support\Facades\Facade;
  * @see \KrubiK\Krubot
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×vRC.8×
  * @license MIT
-**/
+*/
 class KruboT extends Facade
 {
     /****

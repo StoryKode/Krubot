@@ -1,6 +1,7 @@
 <?php
 
 namespace KrubiK\Helpers;
+
 /*
 |--------------------------------------------------------------------------
 | A Message to the Future Architect of Rebellion... 🚀🌌
@@ -21,7 +22,7 @@ namespace KrubiK\Helpers;
 | on a foundation of pure power **Far Stronger Than Anything That Came Before.**
 | Starting with Laravel 12 Capabilities.
 |
-| What you see here is the **×0.7 ALPHA×** release. Why release it now?
+| What you see here is the **×ReleaseCandiate v0.8×** release. Why release it now?
 | Because keeping this evolution a secret any longer would be a
 | betrayal to the very community it was born to serve.
 | 
@@ -60,8 +61,8 @@ use WeakReference;
  * and much more...
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
  */
 final class AmethystMatrix
@@ -298,7 +299,7 @@ final class AmethystMatrix
      *
      * [Use Case]: Reserved for apocalyptic, unrecoverable failures (e.g., total database loss) that render the application unusable and demand immediate, god-level intervention.
      * 
-    **/
+    */
     public static function wail(string $terror, ?\Throwable $e = null, ?array $details = []): void
     {
         if(!self::isLevelActive(__FUNCTION__))
@@ -333,7 +334,7 @@ final class AmethystMatrix
      * 
      * [Use Case]: A security breach, a compromised payment gateway, or a failing primary server cluster. Action must be taken NOW..
      *
-    **/
+    */
     public static function scream(string $terror, ?\Throwable $e = null): void
     {
         if(!self::isLevelActive(__FUNCTION__))
@@ -363,7 +364,7 @@ final class AmethystMatrix
      * 
      * [Use Case]: Unhandled exceptions, failed API calls to critical services, significant runtime errors that impact user experience.
      *
-    **/
+    */
     public static function yell(string $event, Throwable|array|null $e = null): void
     {
         if(!self::isLevelActive(__FUNCTION__))
@@ -394,7 +395,7 @@ final class AmethystMatrix
      * 
      * [Use Case]: A vital queue worker repeatedly crashing on a specific job, a filesystem becoming unwritable. The issue is severe but isolated.
      *
-    **/
+    */
     public static function condemn(string $event, Throwable|array|null $e = null): void
     {
         if(!self::isLevelActive(__FUNCTION__))
@@ -425,7 +426,7 @@ final class AmethystMatrix
      * 
      * [Use Case]: Use of deprecated APIs, approaching storage limits, potential logical flaws that haven't yet triggered a full-blown error. Listen to the prophecy.
      *
-    **/
+    */
     public static function prophesy(string $event, array $data = []): void
     {
         if(!self::isLevelActive(__FUNCTION__))
@@ -447,7 +448,7 @@ final class AmethystMatrix
      * 
      * [Use Case]: A user achieving a new high-score, a large financial transaction being successfully processed, a new server joining the cluster. Events that warrant a second look.
      *
-    **/
+    */
     public static function gaze(mixed $anomaly, string $label = 'Anomaly'): void
     {
         if(!self::isLevelActive(__FUNCTION__))
@@ -482,7 +483,7 @@ final class AmethystMatrix
      * 
      * [Use Case]: User logins, API endpoints being hit, scheduled tasks starting and finishing. The general, healthy heartbeat of the system.
      *
-    **/
+    */
     public static function observe(string $signal, mixed ...$fragments): void
     {
         if(!self::isLevelActive(__FUNCTION__))
@@ -514,7 +515,7 @@ final class AmethystMatrix
      * 
      * [Use Case]: Highly verbose, step-by-step tracing of algorithms, variable state dumps, granular I/O operations. The language of pure creation and debugging.
      *
-    **/
+    */
     public static function whisper(string $secret, array $details = []): void
     {
         if(!self::isLevelActive(__FUNCTION__))
@@ -544,7 +545,7 @@ final class AmethystMatrix
      * 
      * [Use Case]: Enables/disables AmethystMatrix's ability to use caching for configurations, results, or any form of persistent memory. Disabling this forces AmethystMatrix into a state of perpetual rediscovery.
      *
-    **/
+    */
     public static function vault(string $key, mixed $thought, int $seconds = 3600): void
     {
         if(!self::isLevelActive(__FUNCTION__))

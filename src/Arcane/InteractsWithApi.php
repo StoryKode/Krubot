@@ -2,7 +2,7 @@
 
 namespace KrubiK\Arcane;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -12,6 +12,8 @@ namespace KrubiK\Arcane;
 |
 | *Go build something revolutionary!* 💜⚡️
 */
+
+use KrubiK\Helpers\AmethystMatrix; // ⚡ Import the Sorceress
 
 trait InteractsWithApi
 {
@@ -104,7 +106,37 @@ trait InteractsWithApi
 
         // [Refactored Logic]:
         // ما به جای Reflection مستقیم در اینجا، از متد کمکی تریت استفاده می‌کنیم.
-        return $this->forceCallMethod('apiRequest', [$method, $params], $this->core()); // OldName Was : forceCallParentMethod
+        //// return $this->forceCallMethod('apiRequest', [$method, $params], $this->core()); // OldName Was : forceCallParentMethod
+
+        if(isset($params['chat_keypad']) || isset($params['inline_keypad'])) {
+            $myChatKeypad = $params['chat_keypad'] ?? null;
+            if($myChatKeypad) {
+
+                if(isset($myChatKeypad['keyboard']))
+                    unset($params['chat_keypad']['keyboard']);
+
+                if(isset($myChatKeypad['selective']))
+                    unset($params['chat_keypad']['selective']);
+            }
+        }
+
+        $core = $this->core();
+        $result = $this->forceCallMethod('apiRequest', [$method, $params], $core);
+        AmethystMatrix::debug($method.'() has been #called with', $params);
+
+        // Ensure strict return type compliance + actionable error
+        if (!is_array($result)) {
+            $targetClass = is_object($core) ? $core::class : get_debug_type($core);
+
+            throw new \RuntimeException(sprintf(
+                "Krubot::makeRequest() expected array from %s::apiRequest(), got %s. Method=%s",
+                $targetClass,
+                get_debug_type($result),
+                $method
+            ));
+        }
+
+        return $result;
     }
 
     /*

@@ -2,7 +2,7 @@
 
 namespace KrubiK\Drivers\Arcane;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×RC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -16,7 +16,7 @@ namespace KrubiK\Drivers\Arcane;
 trait HasDriverIdentity
 {
     /**
-     * The identity of this driver instance (e.g., 'rubika', 'telegram').
+     * The identity of this driver instance (e.g., 'rubika', 'web', 'telegram').
      * @var string
      */
     protected string $driverAlias = 'common';

@@ -1,9 +1,9 @@
 {
-    "name": "krubik/krubot",
-    "description": "The Galactic Singularity Engine for building Intelligent bots on Laravel.",
+    "name": "storykode/krubot",
+    "description": "The Ultimate Laravel DX for building Quantum-Scale bot architectures, Async-Core. One elegant codebase for Telegram, Rubika, Bale, WebApps, and beyond.",
     "type": "library",
     "license": "MIT",
-    "homepage": "https://StoryKo.de",
+    "homepage": "https://StoryKo.de/Krubot",
     "authors": [
         {
             "name": "DoKtor K.",
@@ -13,25 +13,26 @@
     ],
     "support": {
         "persian":  "https://DevGX.ir",
-        "source":   "https://github.com/PolyMath-XK/Krubot",
-        "docs":     "https://github.com/PolyMath-XK/Krubot/wiki",
-        "issues":   "https://github.com/PolyMath-XK/Krubot/issues",
-        "security": "https://github.com/PolyMath-XK/Krubot/security/policy",
+        "source":   "https://github.com/StoryKode/Krubot",
+        "docs":     "https://github.com/StoryKode/Krubot/wiki",
+        "issues":   "https://github.com/StoryKode/Krubot/issues",
+        "security": "https://github.com/StoryKode/Krubot/security/policy",
         "chat":     "https://t.me/DevGXP"
     },
     "require": {
         "php": ">=8.2",
         "laravel/framework": "^12.0",
-        "rubikabot/rubikabot": "dev-main",
-        "erfanvahabpour/bale-bot-sdk": "1.0.5",
-        "irazasyed/telegram-bot-sdk": "3.15.0"
+        "rubikabot/rubikabot": "3.1.1",
+        "erfanvahabpour/bale-bot-sdk": "2.0.0",
+        "irazasyed/telegram-bot-sdk": "3.16.0"
     },
     "autoload": {
         "psr-4": {
             "KrubiK\\": "src/"
         },
         "files": [
-            "src/WarLording/Helpers.php"
+            "src/WarLording/Helpers.php",
+            "src/Render/RenderHelpers.php"
         ]
     },
     "autoload-dev": {
@@ -47,10 +48,17 @@
                 "KrubiK\\Providers\\KrubotServiceProvider"
             ],
             "aliases": {
-                "KruboT": "KrubiK\\Facades\\KruboT"
+                "KruboT": "KrubiK\\Facades\\KruboT",
+                "Lazarus": "KrubiK\\Facades\\Lazarus",
+                "Opcache": "KrubiK\\Facades\\Opcache",
+                "Article": "KrubiK\\Facades\\Article"
             }
         }
     },
-    "minimum-stability": "dev",
+    "scripts": {
+        "post-package-install": [
+            "KrubiK\\Console\\RitualService::initiate"
+        ]
+    },
     "prefer-stable": true
 }

@@ -1,0 +1,478 @@
+/**
+ * =================================================================================
+ *   Telegram Bot Simulator - Metaphysical Ultra-DX Styling
+ *   Version: 3.6.0 (Phoenix Edition)
+ *   Description: A complete, theme-aware, and spiritually-charged CSS architecture
+ *   designed for an unparalleled Developer & User Experience. Features a dynamic
+ *   aurora background, glassmorphism panels, and fluid transitions.
+ * =================================================================================
+ */
+
+
+/* =================================================================================
+   1. Theming Engine & Design Tokens (The Soul of the Design)
+   ================================================================================= */
+:root {
+    /* Base font & layout variables, consistent across themes */
+    --app-font-family: -apple-system, BlinkMacSystemFont, "ArtinSharp", "Segoe UI", Roboto, sans-serif;
+    --app-monospace-font: "ArtinSharp", "Menlo", "Monaco", "Consolas", "Courier New", monospace;
+    --tg-border-radius-xl: 16px; /* Softer, more modern radius */
+    --tg-border-radius-md: 10px;
+    --tg-border-radius-sm: 6px;
+    --transition-speed-fast: 0.2s;
+    --transition-speed-normal: 0.4s;
+    --transition-easing: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* ---------------------------------------------------------------------------------
+   1.1. Light Theme (The Calm Before the Celestial Event)
+   --------------------------------------------------------------------------------- */
+:root, html[data-theme="light"] {
+    /* -- Font & Layout -- */
+    --app-bg-color: #f3f6f9;
+    --app-panel-bg: rgba(255, 255, 255, 0.9); /* Subtle transparency for depth */
+    --app-text-color: #2c3e50;
+    --app-text-color-muted: #6c757d;
+    --app-panel-border-color: #dfe7f0;
+    --app-panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    --backdrop-blur: 10px;
+
+    /* -- Primary Action Colors -- */
+    --app-primary-color: #007bff;
+    --app-primary-color-hover: #0056b3;
+    --app-primary-glow: rgba(0, 123, 255, 0.25);
+    --app-success-color: #28a745;
+    --app-success-color-hover: #218838;
+    --app-disabled-color: #b0bec5;
+
+    /* -- Telegram Simulator Core Colors -- */
+    --tg-chat-bg: #e9edf0;
+    --tg-bot-bubble-bg: #ffffff;
+    --tg-user-bubble-bg: #e1ffc7;
+    --tg-text-color: #212529;
+    --tg-border-color: #dce0e3;
+    --tg-link-color: #007bff;
+    --tg-input-placeholder: #a0a0a0;
+
+    /* -- Keyboard Button Colors -- */
+    --tg-inline-button-bg: rgba(0, 136, 204, 0.08);
+    --tg-inline-button-bg-hover: rgba(0, 136, 204, 0.15);
+    --tg-inline-button-text: #3390ec;
+    --tg-reply-button-bg: #ffffff;
+    --tg-reply-button-bg-hover: #f0f3f7;
+    --tg-reply-button-text: #212529;
+    --tg-unsupported-button-bg: #a0a8b0;
+    --tg-unsupported-button-text: #e0e3e6;
+    --tg-unsupported-button-border: #8c96a0;
+}
+
+
+/* ---------------------------------------------------------------------------------
+   1.2. ✨ Dark Mode (The Soul Ignited) ✨
+   --------------------------------------------------------------------------------- */
+html[data-theme="dark"] {
+    /* -- Font & Layout -- */
+    --app-bg-color: #12181F; /* Deep, cosmic void */
+    --app-panel-bg: rgba(26, 34, 44, 0.75); /* Frosted glass over the cosmos */
+    --app-text-color: #E0E6F1; /* Soft starlight */
+    --app-text-color-muted: #8899a6;
+    --app-panel-border-color: rgba(51, 65, 85, 0.7);
+    --app-panel-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    --backdrop-blur: 12px;
+
+    /* -- Primary Action Colors -- */
+    --app-primary-color: #00B8D4; /* Vibrant Cyan Nebula */
+    --app-primary-color-hover: #00e5ff;
+    --app-primary-glow: rgba(0, 184, 212, 0.4);
+    --app-success-color: #00C853; /* Vivid Green Aurora */
+    --app-success-color-hover: #00e65f;
+    --app-disabled-color: #455a64;
+
+    /* -- Telegram Simulator Core Colors -- */
+    --tg-chat-bg: #0D1117; /* GitHub's deep dark, pure focus */
+    --tg-bot-bubble-bg: #2A3441;
+    --tg-user-bubble-bg: #2B5278; /* Classic Telegram Dark Blue */
+    --tg-text-color: #f0f6fc;
+    --tg-border-color: #30363d;
+    --tg-link-color: #42A5F5; /* Bright, accessible blue */
+    --tg-input-placeholder: #768390;
+
+    /* -- Keyboard Button Colors -- */
+    --tg-inline-button-bg: rgba(66, 165, 245, 0.15);
+    --tg-inline-button-bg-hover: rgba(66, 165, 245, 0.25);
+    --tg-inline-button-text: #42A5F5;
+    --tg-reply-button-bg: #2A3441;
+    --tg-reply-button-bg-hover: #3E4A59;
+    --tg-reply-button-text: #f0f6fc;
+    --tg-unsupported-button-bg: #37474f;
+    --tg-unsupported-button-text: #78909c;
+    --tg-unsupported-button-border: #455a64;
+}
+
+
+/* =================================================================================
+   2. Global, Layout & App Control Styles (The Physical Form)
+   ================================================================================= */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--app-font-family);
+    background-color: var(--app-bg-color);
+    padding: 20px;
+    margin: 0;
+    color: var(--app-text-color);
+    transition: background-color var(--transition-speed-normal) var(--transition-easing), color var(--transition-speed-normal) var(--transition-easing);
+    overflow-x: hidden; /* Prevent horizontal scroll from aurora */
+}
+
+/* ---------------------------------------------------------------------------------
+   2.1. ✨ The Aurora Background (The Aura of the Page) ✨
+   This pseudo-element creates the dynamic, blurred gradient background that gives
+   the dark mode its unique, ethereal feel. It's hidden in light mode.
+   --------------------------------------------------------------------------------- */
+body::before {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 150vmax;
+    height: 150vmax;
+    background-image: radial-gradient(circle at 20% 20%, var(--app-primary-color) 0%, transparent 25%),
+                      radial-gradient(circle at 80% 70%, var(--app-success-color) 0%, transparent 25%);
+    filter: blur(150px);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 1.2s ease-in-out;
+    animation: aurora-spin 25s linear infinite;
+}
+
+html[data-theme="dark"] body::before {
+    opacity: 0.25; /* Gently reveal the aurora in dark mode */
+}
+
+@keyframes aurora-spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+
+/* ---------------------------------------------------------------------------------
+   2.2. Panel & Container Styling (Glassmorphism Effect)
+   --------------------------------------------------------------------------------- */
+.simulator-panel, .telegram-preview-container {
+    background-color: var(--app-panel-bg);
+    padding: 20px;
+    border-radius: var(--tg-border-radius-xl);
+    box-shadow: var(--app-panel-shadow);
+    border: 1px solid var(--app-panel-border-color);
+    /* backdrop-filter: blur(var(--backdrop-blur));
+    -webkit-backdrop-filter: blur(var(--backdrop-blur)); Safari support */
+    transition: background-color var(--transition-speed-normal) var(--transition-easing),
+                border-color var(--transition-speed-normal) var(--transition-easing),
+                box-shadow var(--transition-speed-normal) var(--transition-easing);
+}
+
+.simulator-panel {
+    margin-bottom: 20px;
+}
+
+.simulator-panel h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--app-panel-border-color);
+    padding-bottom: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--app-text-color);
+    transition: border-color var(--transition-speed-normal) var(--transition-easing);
+}
+
+.controls textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--app-panel-border-color);
+    border-radius: var(--tg-border-radius-md);
+    background-color: var(--app-bg-color); /* Use app bg for input for contrast */
+    color: var(--app-text-color);
+    font-family: var(--app-monospace-font);
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color var(--transition-speed-fast) ease, box-shadow var(--transition-speed-fast) ease, background-color var(--transition-speed-normal) ease;
+}
+
+/* -- The 'Ignited Focus' effect for inputs -- */
+.controls textarea:focus {
+    outline: none;
+    border-color: var(--app-primary-color);
+    box-shadow: 0 0 0 3px var(--app-primary-glow), 0 0 12px var(--app-primary-glow);
+}
+
+.controls button {
+    width: 100%;
+    padding: 12px;
+    color: white;
+    border: none;
+    border-radius: var(--tg-border-radius-md);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background-color var(--transition-speed-fast) ease, transform var(--transition-speed-fast) ease, box-shadow var(--transition-speed-fast) ease;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.controls button:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+#send-message-button {
+    background-color: var(--app-success-color);
+}
+#send-message-button:hover {
+    background-color: var(--app-success-color-hover);
+}
+#send-message-button:disabled {
+    background-color: var(--app-disabled-color);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+
+/* =================================================================================
+   3. Telegram Simulator Core Frame & Messages (The Conversation)
+   ================================================================================= */
+.telegram-preview-container {
+    background-color: var(--tg-chat-bg);
+}
+
+.message-input-area textarea {
+    width: 100%;
+    border: none;
+    background-color: var(--app-panel-bg);
+    color: var(--app-text-color);
+    padding: 15px;
+    border-radius: var(--tg-border-radius-md);
+    font-family: var(--app-font-family);
+    resize: none;
+}
+.message-input-area textarea::placeholder {
+    color: var(--tg-input-placeholder);
+}
+
+.chat-area {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 300px; /* Ensure it has some height */
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+/* Base styles for a message bubble */
+.tg-message {
+    padding: 10px 14px;
+    border-radius: var(--tg-border-radius-xl);
+    max-width: 85%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    word-wrap: break-word;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--tg-text-color);
+    transition: background-color var(--transition-speed-normal) var(--transition-easing), color var(--transition-speed-normal) var(--transition-easing);
+    animation: message-fade-in 0.4s var(--transition-easing) forwards;
+}
+
+@keyframes message-fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* Bot's incoming messages (leftaligned) */
+.bot-message {
+    background-color: var(--tg-bot-bubble-bg);
+    border-bottom-left-radius: var(--tg-border-radius-sm);
+    align-self: flex-start;
+}
+
+/* User's outgoing messages (right-aligned) */
+.user-message {
+    background-color: var(--tg-user-bubble-bg);
+    border-bottom-right-radius: var(--tg-border-radius-sm);
+    align-self: flex-end;
+}
+
+
+/* =================================================================================
+   4. Parsed Content Styling (HTML/Markdown)
+   ================================================================================= */
+.tg-message-content b, .tg-message-content strong { font-weight: 600; }
+.tg-message-content i, .tg-message-content em { font-style: italic; }
+.tg-message-content u, .tg-message-content ins { text-decoration: underline; }
+.tg-message-content s, .tg-message-content strike, .tg-message-content del { text-decoration: line-through; }
+.tg-message-content a { color: var(--tg-link-color); text-decoration: none; font-weight: 500; }
+.tg-message-content a:hover { text-decoration: underline; }
+.tg-message-content code {
+    font-family: var(--app-monospace-font);
+    background-color: rgba(120, 120, 120, 0.15);
+    padding: 3px 6px;
+    border-radius: var(--tg-border-radius-sm);
+    font-size: 0.9em;
+}
+.tg-message-content pre {
+    background-color: rgba(0,0,0,0.5);
+    color: #f8f8f2;
+    padding: 12px;
+    border-radius: var(--tg-border-radius-md);
+    overflow-x: auto;
+    font-family: var(--app-monospace-font);
+    font-size: 0.9em;
+    margin: 8px 0;
+    white-space: pre-wrap;
+    border: 1px solid var(--tg-border-color);
+}
+.tg-message-content pre code { background-color: transparent; padding: 0; }
+.tg-spoiler { background-color: var(--app-text-color); color: transparent; cursor: pointer; border-radius: var(--tg-border-radius-sm); padding: 0 3px; transition: all 0.2s; user-select: none; }
+.tg-spoiler.revealed { background-color: transparent; color: inherit; cursor: default; }
+
+
+/* =================================================================================
+   5. Keyboards (Inline & Reply)
+   ================================================================================= */
+.reply-keyboard { padding: 10px; background-color: var(--app-bg-color); }
+.tg-inline-keyboard { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--tg-border-color); }
+.tg-keyboard-row { display: flex; justify-content: center; gap: 5px; width: 100%; }
+.tg-button { display: inline-flex; align-items: center; justify-content: center; padding: 10px 12px; border: none; border-radius: var(--tg-border-radius-md); flex: 1 1 0; min-width: 0; font-family: var(--app-font-family); font-size: 14px; font-weight: 500; text-align: center; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; user-select: none; transition: background-color 0.15s ease, transform 0.1s ease, border-color var(--transition-speed-fast) ease; }
+.tg-button:hover { transform: scale(1.03); }
+.tg-button:active { transform: scale(0.97); }
+
+.tg-inline-button { background-color: var(--tg-inline-button-bg); color: var(--tg-inline-button-text); }
+.tg-inline-button:hover { background-color: var(--tg-inline-button-bg-hover); }
+.tg-reply-button { background-color: var(--tg-reply-button-bg); color: var(--tg-reply-button-text); border: 1px solid var(--tg-border-color); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.tg-reply-button:hover { background-color: var(--tg-reply-button-bg-hover); }
+.tg-button.tg-button-unsupported { background-color: var(--tg-unsupported-button-bg); color: var(--tg-unsupported-button-text); border-color: var(--tg-unsupported-button-border); cursor: not-allowed; opacity: 0.8; }
+.tg-button.tg-button-unsupported:hover { background-color: var(--tg-unsupported-button-bg); transform: none; }
+
+/**
+ * =================================================================================
+ *   6. Custom Scrollbar Styling (The Finishing Touch)
+ *   =================================================================================
+ *   (Continuing from the cutoff point...)
+ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent; /* Allows the background/aurora to show through */
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(136, 153, 166, 0.4); /* Muted, semi-transparent color for a subtle look */
+    border-radius: 10px;
+    border: 2px solid transparent; /* Creates a clean padding effect around the thumb */
+    background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(136, 153, 166, 0.7); /* Slightly more opaque on hover */
+}
+
+/* Firefox scrollbar styling for cross-browser consistency */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(136, 153, 166, 0.4) transparent;
+}
+
+
+/* =================================================================================
+   7. RTL Adjustments (Honoring the Origin)
+   This section ensures message bubbles render correctly in a Right-to-Left
+   layout, as specified in your original HTML request.
+   ================================================================================= */
+[dir="rtl"] .bot-message {
+    /* In RTL, the "bot" is on the right, appearing like a user in an LTR context */
+    align-self: flex-end;
+    border-bottom-right-radius: var(--tg-border-radius-sm);
+    border-bottom-left-radius: var(--tg-border-radius-xl);
+}
+
+[dir="rtl"] .user-message {
+    /* In RTL, the "user" is on the left, appearing like a bot in an LTR context */
+    align-self: flex-start;
+    border-bottom-left-radius: var(--tg-border-radius-sm);
+    border-bottom-right-radius: var(--tg-border-radius-xl);
+}
+
+
+/* =================================================================================
+   8. Utility & Helper Classes (Divine Intervention)
+   Small, reusable classes for special purposes.
+   ================================================================================= */
+.flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.sr-only {
+    /* For accessibility: hide elements visually but keep them available for screen readers */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+
+/* =================================================================================
+   9. Final Touches & Micro-animations (The Ascension)
+   Subtle animations to elevate the user experience into the stratosphere.
+   ================================================================================= */
+
+/* A subtle, ethereal pulse for primary buttons to draw attention */
+@keyframes subtle-pulse {
+  0% { box-shadow: 0 0 0 0 var(--app-primary-glow); }
+  70% { box-shadow: 0 0 0 12px rgba(0, 184, 212, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 184, 212, 0); }
+}
+
+/* Apply the pulse animation to the main send button when it's active */
+#send-message-button:not(:disabled) {
+    animation: subtle-pulse 2.5s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+/* Add a subtle interactive glow on panel hover, exclusive to dark mode */
+html[data-theme="dark"] .simulator-panel:hover,
+html[data-theme="dark"] .telegram-preview-container:hover {
+    border-color: rgba(0, 184, 212, 0.4); /* Use the primary color nebula for the border */
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 25px var(--app-primary-glow);
+    transition: border-color var(--transition-speed-fast) ease-out, box-shadow var(--transition-speed-normal) ease-out;
+}
+
+/* =================================================================================
+   11. Utility Classes
+   ================================================================================= */
+/*
+ * A utility class added via JS to temporarily disable all transitions.
+ * This is useful for preventing massive repaints during operations
+ * like a theme change, ensuring an instantaneous switch.
+*/
+.no-transitions * {
+    transition: none !important;
+}

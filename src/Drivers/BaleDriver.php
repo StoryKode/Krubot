@@ -2,7 +2,7 @@
 
 namespace KrubiK\Drivers;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -70,8 +70,40 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
      */
     public function makeRequest(string $method, array $params = []): array
     {
+        $finalMethod = $method;
+        $finalParams = $params;
+
+        // Handle RichMan object for sending messages
+        if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
+            $richMan = $finalParams['text'];
+
+            // For Bale API, we must send simple text, not rich blocks
+            $finalMethod = 'sendMessage';
+
+            // Use toText() instead of toArray()
+            $finalParams['text'] = $richMan->toText();
+
+            // Remove keys that are irrelevant or conflict with plain text message
+            unset($finalParams['parse_mode'], $finalParams['entities'], $finalParams['isRich'], $finalParams['rich_blocks']);
+        }
+        // Handle isRich flag if set true but no RichMan object (optional)
+        elseif (isset($finalParams['isRich']) && $finalParams['isRich'] === true) {
+
+            // Since Bale API does not support rich messages natively, fallback to markdown text version
+            if (isset($finalParams['rich_blocks']) && is_array($finalParams['rich_blocks'])) {
+                // Convert rich_blocks to plain text string
+                $finalParams['text'] = $this->convertRichBlocksToSimpleText($finalParams['rich_blocks']);
+            }
+
+            $finalParams['text'] = $finalParams['text'] ?? '';
+
+            $finalMethod = 'sendMessage';
+
+            unset($finalParams['isRich'], $finalParams['isRtl'], $finalParams['rich_blocks']);
+        }
+
         // 1. نرمال‌سازی: تبدیل کیبوردها و فایل‌ها به فرمت بله
-        $params = $this->normalizePayload($params);
+        $normalizedParams = $this->normalizePayload($finalParams);
 
         // 2. تشخیص هوشمند نوع ارسال (Multipart یا JSON)
         $hasFile = $this->detectFileInParams($params);
@@ -79,10 +111,10 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         try {
             if ($hasFile) {
                 // اگر فایل داریم، از متد multipart کلاس پدر استفاده کن
-                $response = $this->multipart($method, $params);
+                $response = $this->multipart($finalMethod, $normalizedParams);
             } else {
                 // اگر متن خالی است، از متد post کلاس پدر استفاده کن
-                $response = $this->post($method, $params);
+                $response = $this->post($finalMethod, $normalizedParams);
             }
         } catch (\Exception $e) {
             // هندلینگ خطا یا لاگ کردن
@@ -194,6 +226,18 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         // یا متدی برای مپ کردن. اگر ندارند، باید دستی ست شود.
         // معمولا در SDKهای تلگرامی: new Message($data)
         return new $class($data);
+    }
+
+    protected function convertRichBlocksToSimpleText(array $blocks): string
+    {
+        $text = '';
+        foreach ($blocks as $block) {
+            // فرض می‌کنیم هر بلاک آرایه‌ای است که حداقل 'text' دارد
+            if (isset($block['text'])) {
+                $text .= $block['text'] . "\n";
+            }
+        }
+        return trim($text);
     }
 
     // =========================================================================

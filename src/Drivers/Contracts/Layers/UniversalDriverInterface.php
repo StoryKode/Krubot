@@ -8,7 +8,7 @@ namespace KrubiK\Drivers\Contracts\Layers;
  * Shared methods available in Rubika, Bale, and Telegram.
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
+ * @link https://StoryKo.de/Krubot Official website of engine.
  */
 interface UniversalDriverInterface
 {

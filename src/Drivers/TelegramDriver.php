@@ -2,7 +2,7 @@
 
 namespace KrubiK\Drivers;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×RC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -26,7 +26,15 @@ use KrubiK\Drivers\Contracts\BotDriverInterface; // For General Polymorphism
 use KrubiK\Drivers\Contracts\Layers\TelegramExclusiveInterface;
 use KrubiK\Drivers\Arcane\NeonVitality;
 
-// KrubiK Keyboards (For Adapter Logic)
+// The New Strategy Architecture
+use KrubiK\Render\RichMan;
+use KrubiK\Drivers\Strategies\CallStrategy;                     // The Strategy Contract
+use KrubiK\Drivers\Strategies\DirectApiCallStrategy;            // Strategy #1: The Sharpshooter
+use KrubiK\Drivers\Strategies\BridgeApiCallStrategy;            // Strategy #2: The Teleporter
+use KrubiK\Drivers\Strategies\DeferredWebhookResponseStrategy;  // Strategy #3: The Ghost
+use KrubiK\Drivers\Strategies\DeferredTelegramResponse;         // The Ghost's DTO
+
+// KrubiK Keyboards (For RichKeys Adapter Logic)
 use KrubiK\Keyboard\Keyboard as KrubiKInlineKeyboard;
 use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
 
@@ -42,11 +50,11 @@ use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
  * 3. Standardization of responses to Arrays for the Warlord Pipeline.
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
-class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclusiveInterface
+*/
+class TelegramDriver extends TGCore implements BotDriverInterface /// , TelegramExclusiveInterface
 {
     // 💉 Inject the Soul: NeonVitality adds Context, Macroability, and Magic.
     use NeonVitality;
@@ -54,8 +62,11 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
     /**
      * The specific configuration for this driver instance.
      * @var array
-     */
+    */
     protected array $config;
+
+    // 💉 THE COMMUNICATION STRATEGY: The heart of our new architecture. (Deferred, Direct, or Bridge).
+    protected CallStrategy $strategy;
 
     /**
      * TelegramDriver constructor.
@@ -68,7 +79,7 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
      * @param string|null $baseBotUrl Custom Base URL (for local bot servers).
      *
      * @throws TelegramSDKException
-     */
+    */
     public function __construct($config = null, bool $async = false, $httpClientHandler = null, $baseBotUrl = null)
     {
         // 1. Normalize Configuration & Extract Token
@@ -79,7 +90,7 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
             $token = $config['token'] ?? $config['authtoken'] ?? null;
             // Override defaults if present in config array
             $async = $config['async'] ?? $async;
-            $baseBotUrl = $config['base_url'] ?? $baseBotUrl;
+            $baseBotUrl = $config['base_url'] ?? $config['api_base_uri'] ?? $baseBotUrl;
         } elseif (is_string($config)) {
             $token = $config;
             $this->config = ['token' => $token];
@@ -93,10 +104,72 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
         // 3. Call the Old God (TGCore/Parent) constructor
         parent::__construct($token, $async, $httpClientHandler, $baseBotUrl);
 
-        // 4. Ignite the NeonSoul Engine (Initialize Arcane/Context)
+        // --- Stage 4: 🚀 THE STRATEGY SOUL INJECTOR 🚀 ---
+        // Based on the config, we instantiate and inject the correct execution strategy.
+        $handler = $this->config['strategy'] ?? 'api';
+        
+        // Understanding the irazasyed/telegram-bot-sdk, we can reliably get the final base URI and token
+        // from its internal config container, ensuring our Direct strategy is always in sync.
+        $sdkConfig = $this->getBotConfig();
+        $this->strategy = match ($handler) {
+            'response'  => new DeferredWebhookResponseStrategy(),
+            'bridge'    => $this->makeBridge($token, $this->config['bridge'] ?? []),
+            'api'       => new DirectApiCallStrategy(
+                $sdkConfig->get('base_bot_url'), // Use the SDK's resolved Base URL
+                $sdkConfig->get('token')         // Use the SDK's resolved Token
+            ),
+            default => throw new \InvalidArgumentException("Invalid KrubiK Telegram handler '{$handler}' configured."),
+        };
+
+        // 5. Ignite the NeonSoul Engine (Initialize Arcane/Context)
         if (method_exists($this, 'igniteNeon')) {
             $this->igniteNeon($this->config);
         }
+    }
+
+    // Em-Bridge TG !!
+    public function makeBridge($token, $bridgeConfig) {
+
+        /*
+        if (empty($bridgeConfig['enabled']) || !$bridgeConfig['enabled']) {
+            throw new InvalidArgumentException("Bridge handler is enabled but bridge config is not enabled or missing.");
+        }
+        */
+
+        $bridgeBaseUri = $bridgeConfig['base_uri'] ?? null;
+        $bridgeSecret = $bridgeConfig['secret'] ?? null;
+
+        if (empty($bridgeBaseUri) || empty($bridgeSecret)) {
+            throw new InvalidArgumentException("Bridge base URI or secret is missing in configuration.");
+        }
+
+        return new BridgeApiCallStrategy(
+            $bridgeBaseUri,
+            $bridgeSecret,
+            $token
+        );
+    }
+
+    /**
+     * THE MAGIC FALLBACK ?! OR THE UNIVERSAL GATEWAY ??!!!
+     * 🔮 __call Hook 🔮
+     *
+     * This is the new entry point for ALL API methods (sendMessage, getMe, etc.).
+     * It captures any method call, normalizes its parameters, and funnels it
+     * to the central `makeRequest` method. This makes the entire driver
+     * strategy-aware without needing to override 100+ methods.
+     *
+     * @param string $method The name of the method being called.
+     * @param array $parameters The arguments passed to the method.
+     * @return mixed The result from the pipeline.
+    */
+    public function __call($method, $parameters)
+    {
+        // We route EVERYTHING through our central request maker.
+        // The first argument of SDK calls is always the params array.
+        return $this->makeRequest($method, $parameters[0] ?? []);
+
+        // Parent's __call handles the command bus and macro calls logic. 
     }
 
     /**
@@ -104,43 +177,113 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
      *
      * This is the central dispatch method used by all KrubiK Arcane (e.g., CanPin, InteractsWithApi).
      * It acts as a middleware between the Framework and the SDK.
+     * 
+     * Now with the RichMan Protocol. It prioritizes detecting a RichMan object,
+     * offering the cleanest and safest way to send rich content. It falls back
+     * to the `isRich` flag for backward compatibility.
      *
      * @param string $method The Telegram API method name (e.g., 'sendMessage').
      * @param array $params The parameters array.
-     * @return array The standardized response as an array.
-     * @throws TelegramSDKException
-     */
-    public function makeRequest(string $method, array $params = []): array
+     * @return array|DeferredTelegramResponse The standardized response as an array.
+     * @throws TelegramSDKException|\Exception
+    */
+    public function makeRequest(string $method, array $params = []): array|DeferredTelegramResponse
     {
-        // 1. Normalize & Translate Payload (Files + Keyboards)
-        $params = $this->normalizePayload($params);
+        // ====================================================================
+        // == PRE-FLIGHT TRANSFORMATION (Rich Message Protocol)
+        // ====================================================================
+        // Here, we check for our custom `isRich` flag. If present, we perform
+        // a dynamic transformation of both the method and the payload.
+
+        // Use temporary variables to hold the potentially modified request.
+        $finalMethod = $method;
+        $finalParams = $params;
+
+        // --- Protocol 1: The RichMan Object (Highest Priority) ---
+        // We check if the main payload is a RichMan instance. This is the new standard.
+        // We'll assume it's passed via the `text` parameter for maximum fluency with `sendMessage`.
+        if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
+            /** @var RichMan $richMan */
+            $richMan = $finalParams['text'];
+
+            // 1. Reroute to the correct API method.
+            $finalMethod = 'sendRichMessage'; // @Todo: support message draft
+
+            // 2. Build the 'InputRichMessage' payload from the object.
+            $finalParams['rich_message'] = [
+                'blocks' => $richMan->toArray(), // Use the object's own array representation.
+            ];
+
+            // 3. Intelligently copy the RTL flag from the object.
+            if ($richMan->isRtl !== null) {
+                $finalParams['rich_message']['is_rtl'] = $richMan->isRtl;
+            }
+
+            // 4. Cleanup: Remove parameters that are now irrelevant.
+            unset($finalParams['text'], $finalParams['parse_mode'], $finalParams['entities'], $finalParams['isRich'], $finalParams['rich_blocks']);
+        }
+        // --- Protocol 2: The Raw Array (Backward Compatibility) ---
+        // If no RichMan object, check for the old `isRich` flag.
+        elseif (isset($finalParams['isRich']) && $finalParams['isRich'] === true) {
+            // 1. Reroute the Method: Switch from 'sendMessage' to the new API method.
+            $finalMethod = 'sendRichMessage';
+
+            // 2. Transform the Payload: Build the 'InputRichMessage' object.
+            if (isset($finalParams['rich_blocks'])) {
+                // The API expects the blocks under a 'rich_message' key.
+                $finalParams['rich_message'] = [
+                    'blocks' => $finalParams['rich_blocks']
+                ];
+                
+                // Future-proof: Also check for other top-level InputRichMessage properties
+                // like 'is_rtl' and move them inside the rich_message object.
+                if (isset($finalParams['is_rtl'])) {
+                    $finalParams['rich_message']['is_rtl'] = $finalParams['is_rtl'];
+                    unset($finalParams['is_rtl']);
+                }
+                elseif (isset($finalParams['isRtl'])) {
+                    $finalParams['rich_message']['is_rtl'] = $finalParams['isRtl'];
+                    unset($finalParams['isRtl']);
+                }
+            }
+
+            // 3. Cleanup: Remove our custom/old parameters to avoid polluting the API call.
+            unset($finalParams['isRich'], $finalParams['isRtl'], $finalParams['rich_blocks'], $finalParams['text'], $finalParams['parse_mode']);
+        }
+        // ====================================================================
+        // == END RICH TRANSFORMATION
+        // ====================================================================
 
         try {
-            // 2. Execute via Parent (SDK)
-            // We call the method directly on the parent. The parent's __call or explicit methods
-            // will handle the HTTP request.
-            $response = $this->{$method}($params);
+            // 1. PREPARE: Normalize the final parameters (files, keyboards, etc.).
+            // Note: We use the modified $finalParams here.
+            $normalizedParams = $this->normalizePayload($finalParams);
+
+            // 2. DELEGATE: Pass the final command to the injected strategy.
+            // Note: We use the modified $finalMethod here.
+            $response = $this->strategy->handle($finalMethod, $normalizedParams);
 
         } catch (\Exception $e) {
             // Rethrow to be handled by the Warlord's try-catch blocks
             throw $e;
         }
 
-        // 3. Standardize Response (Object -> Array)
-        // KrubiK's CommandOutcomeShifter expects an array to perform its magic.
-        if ($response instanceof \Telegram\Bot\Objects\BaseObject) {
-            return $response->toArray();
+        // 3. STANDARDIZE: Prepare the result for the outside world.
+        if ($response instanceof DeferredTelegramResponse) {
+            // اگر استراتژی webhook است، اینجا شیء DeferredTelegramResponse برگردانده می‌شود
+            // این شیء توسط لاراول در کنترلر به JSON تبدیل شده و به تلگرام پاسخ داده می‌شود
+            return $response;
         }
 
-        if ($response instanceof Collection) {
+        // Krubot's CommandOutcomeShifter expects an array to perform its magic.
+        if ($response instanceof \Telegram\Bot\Objects\BaseObject || $response instanceof Collection) {
             return $response->toArray();
         }
 
         // Handle boolean/scalar responses (e.g., from deleteMessage)
         if (is_bool($response) || is_string($response) || is_numeric($response)) {
-            return ['result' => $response, 'ok' => true];
+            return ['ok' => true, 'result' => $response];
         }
-
         return (array) $response;
     }
 
@@ -152,13 +295,12 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
      *
      * @param array $params
      * @return array
-     */
+    */
     protected function normalizePayload(array $params): array
     {
         // --- Phase 1: File Handling ---
         // List of fields that might contain file paths/resources
         $fileFields = ['photo', 'audio', 'document', 'video', 'animation', 'voice', 'sticker', 'video_note', 'certificate', 'thumb'];
-
         foreach ($fileFields as $field) {
             if (isset($params[$field])) {
                 $params[$field] = $this->ensureInputFile($params[$field]);
@@ -175,16 +317,19 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
         }
 
         // 2.2 Transform the Markup Object to JSON
+        $legacyMode = false;
         if (isset($params['reply_markup'])) {
             $markup = $params['reply_markup'];
 
             // A) KrubiK Inline Keyboard -> Telegram Inline JSON
             if ($markup instanceof KrubiKInlineKeyboard) {
-                $params['reply_markup'] = json_encode($this->transformInlineKeyboard($markup));
+                $rMarkUp = $legacyMode ? $this->transformInlineKeyboard($markup) : (['inline_keyboard' => $this->convertRowsToInline($markup->toArray()['rows'] ?? [])]);
+                $params['reply_markup'] = json_encode($rMarkUp);
             }
             // B) KrubiK Reply Keyboard -> Telegram Reply JSON
             elseif ($markup instanceof KrubiKReplyKeyboard) {
-                $params['reply_markup'] = json_encode($this->transformReplyKeyboard($markup));
+                $rMarkUp = $legacyMode ? $this->transformReplyKeyboard($markup) : $markup->toArray();
+                $params['reply_markup'] = json_encode($rMarkUp);
             }
             // C) Raw Array (Manual Construction)
             elseif (is_array($markup)) {
@@ -207,11 +352,11 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
      *
      * @param mixed $file
      * @return mixed
-     */
+    */
     protected function ensureInputFile(mixed $file): mixed
     {
         // If it's a string path and the file exists locally -> Create InputFile
-        if (is_string($file) && file_exists($file)) {
+        if (is_string($file) && (filter_var($file, FILTER_VALIDATE_URL) === false) && file_exists($file) && is_readable($file)) {
             return InputFile::create($file);
         }
 
@@ -230,7 +375,7 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
 
     /**
      * Transform KrubiK Inline Keyboard Object to Telegram Array Structure.
-     */
+    */
     protected function transformInlineKeyboard(KrubiKInlineKeyboard $keyboard): array
     {
         // Extract raw data: ['rows' => [...]]
@@ -244,7 +389,7 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
 
     /**
      * Transform KrubiK Reply Keyboard Object to Telegram Array Structure.
-     */
+    */
     protected function transformReplyKeyboard(KrubiKReplyKeyboard $keyboard): array
     {
         // KrubiK ReplyKeyboard structure is compatible with Telegram's logic,
@@ -255,7 +400,7 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
 
     /**
      * Convert generic Rows (from KrubiK) to Telegram Inline Rows.
-     */
+    */
     protected function convertRowsToInline(array $rows): array
     {
         $tgRows = [];
@@ -275,7 +420,7 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
     /**
      * Convert a single KrubiK Button to a Telegram Inline Button.
      * Handles 'action_id' vs 'callback_data' and 'type: Link'.
-     */
+    */
     protected function convertButtonToInline(array $btn): array
     {
         $tgBtn = ['text' => $btn['text']];
@@ -306,759 +451,19 @@ class TelegramDriver extends TGCore implements BotDriverInterface, TelegramExclu
             $tgBtn['callback_data'] = 'NO_ACTION';
         }
 
+        /// $tgBtn['callback_data'] = (string) $tgBtn['callback_data'];
+
         return $tgBtn;
     }
 
     // ========================================================================
-    // 🚀 EXPLICIT METHOD OVERRIDES (For Strict Type Handling)
+    // 🗑️ THE GRAVEYARD OF REDUNDANCY 🗑️
     // ========================================================================
-    // While makeRequest handles most things, overriding these ensures that even
-    // direct calls to $driver->sendPhoto() use our File Logic.
-
-    /**
-     * {@inheritDoc}
-     */
-    public function sendPhoto(array $params): Message
-    {
-        if (isset($params['photo'])) {
-            $params['photo'] = $this->ensureInputFile($params['photo']);
-        }
-        return parent::sendPhoto($params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function sendAudio(array $params): Message
-    {
-        if (isset($params['audio'])) {
-            $params['audio'] = $this->ensureInputFile($params['audio']);
-        }
-        return parent::sendAudio($params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function sendDocument(array $params): Message
-    {
-        if (isset($params['document'])) {
-            $params['document'] = $this->ensureInputFile($params['document']);
-        }
-        return parent::sendDocument($params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function sendVideo(array $params): Message
-    {
-        if (isset($params['video'])) {
-            $params['video'] = $this->ensureInputFile($params['video']);
-        }
-        return parent::sendVideo($params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function sendVoice(array $params): Message
-    {
-        if (isset($params['voice'])) {
-            $params['voice'] = $this->ensureInputFile($params['voice']);
-        }
-        return parent::sendVoice($params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function sendAnimation(array $params): Message
-    {
-        if (isset($params['animation'])) {
-            $params['animation'] = $this->ensureInputFile($params['animation']);
-        }
-        return parent::sendAnimation($params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function sendSticker(array $params): Message
-    {
-        if (isset($params['sticker'])) {
-            $params['sticker'] = $this->ensureInputFile($params['sticker']);
-        }
-        return parent::sendSticker($params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function sendVideoNote(array $params): Message
-    {
-        if (isset($params['video_note'])) {
-            $params['video_note'] = $this->ensureInputFile($params['video_note']);
-        }
-        return parent::sendVideoNote($params);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function setWebhook(array $params): bool
-    {
-        // مدیریت هوشمند آپلود سرتیفیکیت
-         if (isset($params['certificate'])) {
-            $params['certificate'] = $this->ensureInputFile($params['certificate']);
-        }
-        return parent::setWebhook($params);
-    }
-
-    // ========================================================================
-    // 🔮 MAGIC FALLBACK
+    // All explicit method overrides like sendPhoto, sendAudio, getUpdates, etc.,
+    // are now obsolete. The __call gateway handles them all dynamically,
+    // making this class 80% smaller and 100% more robust. They have been
+    // removed to honor the new, cleaner architecture.
     // ========================================================================
 
-    /**
-     * Handles dynamic method calls to support SDK updates without code changes.
-     * This makes the driver "Forward Compatible" and supports the 108-method interface.
-     */
-    public function __call($method, $parameters)
-    {
-        // Parent's __call handles the command bus and macro calls logic.
-        return parent::__call($method, $parameters);
-    }
-
-        /* -------------------------------------------------------------------------- */
-    /*                            1. UPDATES & WEBHOOK                            */
-    /* -------------------------------------------------------------------------- */
-
-    public function getUpdates(array $params = []): array
-    {
-        return parent::getUpdates($params);
-    }
-
-    public function deleteWebhook(array $params = []): bool
-    {
-        return parent::deleteWebhook($params);
-    }
-
-    public function getWebhookInfo(): object
-    {
-        return parent::getWebhookInfo();
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                             2. BASE & AUTH                                 */
-    /* -------------------------------------------------------------------------- */
-
-    public function getMe(): object
-    {
-        return parent::getMe();
-    }
-
-    public function logOut(): bool
-    {
-        return parent::logOut();
-    }
-
-    public function close(): bool
-    {
-        return parent::close();
-    }
-
-    public function getFile(array $params): object
-    {
-        return parent::getFile($params);
-    }
-
-    public function getUserProfilePhotos(array $params): object
-    {
-        return parent::getUserProfilePhotos($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                          3. SENDING MESSAGES                               */
-    /* -------------------------------------------------------------------------- */
-
-    public function sendMessage(array $params): object
-    {
-        return parent::sendMessage($params);
-    }
-
-    public function forwardMessage(array $params): object
-    {
-        return parent::forwardMessage($params);
-    }
-
-    public function copyMessage(array $params): object
-    {
-        return parent::copyMessage($params);
-    }
-
-    public function sendPhoto(array $params): object
-    {
-        if (isset($params['photo'])) {
-            $params['photo'] = $this->ensureInputFile($params['photo']);
-        }
-        return parent::sendPhoto($params);
-    }
-
-    public function sendAudio(array $params): object
-    {
-        if (isset($params['audio'])) {
-            $params['audio'] = $this->ensureInputFile($params['audio']);
-        }
-        return parent::sendAudio($params);
-    }
-
-    public function sendDocument(array $params): object
-    {
-        if (isset($params['document'])) {
-            $params['document'] = $this->ensureInputFile($params['document']);
-        }
-        return parent::sendDocument($params);
-    }
-
-    public function sendVideo(array $params): object
-    {
-        if (isset($params['video'])) {
-            $params['video'] = $this->ensureInputFile($params['video']);
-        }
-        return parent::sendVideo($params);
-    }
-
-    public function sendAnimation(array $params): object
-    {
-        if (isset($params['animation'])) {
-            $params['animation'] = $this->ensureInputFile($params['animation']);
-        }
-        return parent::sendAnimation($params);
-    }
-
-    public function sendVoice(array $params): object
-    {
-        if (isset($params['voice'])) {
-            $params['voice'] = $this->ensureInputFile($params['voice']);
-        }
-        return parent::sendVoice($params);
-    }
-
-    public function sendVideoNote(array $params): object
-    {
-        if (isset($params['video_note'])) {
-            $params['video_note'] = $this->ensureInputFile($params['video_note']);
-        }
-        return parent::sendVideoNote($params);
-    }
-
-    public function sendMediaGroup(array $params): object
-    {
-        // در اینجا فرض بر این است که InputMediaها قبلاً ساخته شده‌اند
-        // یا کاربر آرایه خام فرستاده که SDK هندل می‌کند.
-        return parent::sendMediaGroup($params);
-    }
-
-    public function sendLocation(array $params): object
-    {
-        return parent::sendLocation($params);
-    }
-
-    public function sendVenue(array $params): object
-    {
-        return parent::sendVenue($params);
-    }
-
-    public function sendContact(array $params): object
-    {
-        return parent::sendContact($params);
-    }
-
-    public function sendPoll(array $params): object
-    {
-        return parent::sendPoll($params);
-    }
-
-    public function sendDice(array $params): object
-    {
-        return parent::sendDice($params);
-    }
-
-    public function sendChatAction(array $params): bool
-    {
-        return parent::sendChatAction($params);
-    }
-
-    public function setMessageReaction(array $params): bool
-    {
-        return parent::setMessageReaction($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                          4. EDITING MESSAGES                               */
-    /* -------------------------------------------------------------------------- */
-
-    public function editMessageText(array $params): mixed
-    {
-        return parent::editMessageText($params);
-    }
-
-    public function editMessageCaption(array $params): mixed
-    {
-        return parent::editMessageCaption($params);
-    }
-
-    public function editMessageMedia(array $params): mixed
-    {
-        return parent::editMessageMedia($params);
-    }
-
-    public function editMessageReplyMarkup(array $params): mixed
-    {
-        return parent::editMessageReplyMarkup($params);
-    }
-
-    public function stopPoll(array $params): object
-    {
-        return parent::stopPoll($params);
-    }
-
-    public function deleteMessage(array $params): bool
-    {
-        return parent::deleteMessage($params);
-    }
-
-    public function deleteMessages(array $params): bool
-    {
-        // اگر SDK متد deleteMessages را نداشت، از __call والد استفاده می‌کند
-        return parent::deleteMessages($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                          5. CHAT ADMINISTRATION                            */
-    /* -------------------------------------------------------------------------- */
-
-    public function banChatMember(array $params): bool
-    {
-        return parent::banChatMember($params);
-    }
-
-    public function unbanChatMember(array $params): bool
-    {
-        return parent::unbanChatMember($params);
-    }
-
-    public function restrictChatMember(array $params): bool
-    {
-        return parent::restrictChatMember($params);
-    }
-
-    public function promoteChatMember(array $params): bool
-    {
-        return parent::promoteChatMember($params);
-    }
-
-    public function setChatAdministratorCustomTitle(array $params): bool
-    {
-        return parent::setChatAdministratorCustomTitle($params);
-    }
-
-    public function banChatSenderChat(array $params): bool
-    {
-        return parent::banChatSenderChat($params);
-    }
-
-    public function unbanChatSenderChat(array $params): bool
-    {
-        return parent::unbanChatSenderChat($params);
-    }
-
-    public function setChatPermissions(array $params): bool
-    {
-        return parent::setChatPermissions($params);
-    }
-
-    public function exportChatInviteLink(array $params): string
-    {
-        return parent::exportChatInviteLink($params);
-    }
-
-    public function createChatInviteLink(array $params): object
-    {
-        return parent::createChatInviteLink($params);
-    }
-
-    public function editChatInviteLink(array $params): object
-    {
-        return parent::editChatInviteLink($params);
-    }
-
-    public function revokeChatInviteLink(array $params): object
-    {
-        return parent::revokeChatInviteLink($params);
-    }
-
-    public function approveChatJoinRequest(array $params): bool
-    {
-        return parent::approveChatJoinRequest($params);
-    }
-
-    public function declineChatJoinRequest(array $params): bool
-    {
-        return parent::declineChatJoinRequest($params);
-    }
-
-    public function setChatPhoto(array $params): bool
-    {
-        if (isset($params['photo'])) {
-            $params['photo'] = $this->ensureInputFile($params['photo']);
-        }
-        return parent::setChatPhoto($params);
-    }
-
-    public function deleteChatPhoto(array $params): bool
-    {
-        return parent::deleteChatPhoto($params);
-    }
-
-    public function setChatTitle(array $params): bool
-    {
-        return parent::setChatTitle($params);
-    }
-
-    public function setChatDescription(array $params): bool
-    {
-        return parent::setChatDescription($params);
-    }
-
-    public function pinChatMessage(array $params): bool
-    {
-        return parent::pinChatMessage($params);
-    }
-
-    public function unpinChatMessage(array $params): bool
-    {
-        return parent::unpinChatMessage($params);
-    }
-
-    public function unpinAllChatMessages(array $params): bool
-    {
-        return parent::unpinAllChatMessages($params);
-    }
-
-    public function leaveChat(array $params): bool
-    {
-        return parent::leaveChat($params);
-    }
-
-    public function getChat(array $params): object
-    {
-        return parent::getChat($params);
-    }
-
-    public function getChatAdministrators(array $params): array
-    {
-        return parent::getChatAdministrators($params);
-    }
-
-    public function getChatMemberCount(array $params): int
-    {
-        return parent::getChatMemberCount($params);
-    }
-
-    public function getChatMember(array $params): object
-    {
-        return parent::getChatMember($params);
-    }
-
-    public function setChatStickerSet(array $params): bool
-    {
-        return parent::setChatStickerSet($params);
-    }
-
-    public function deleteChatStickerSet(array $params): bool
-    {
-        return parent::deleteChatStickerSet($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                          6. FORUM & TOPICS                                 */
-    /* -------------------------------------------------------------------------- */
-
-    public function getForumTopicIconStickers(array $params = []): array
-    {
-        return parent::getForumTopicIconStickers($params);
-    }
-
-    public function createForumTopic(array $params): object
-    {
-        return parent::createForumTopic($params);
-    }
-
-    public function editForumTopic(array $params): bool
-    {
-        return parent::editForumTopic($params);
-    }
-
-    public function closeForumTopic(array $params): bool
-    {
-        return parent::closeForumTopic($params);
-    }
-
-    public function reopenForumTopic(array $params): bool
-    {
-        return parent::reopenForumTopic($params);
-    }
-
-    public function deleteForumTopic(array $params): bool
-    {
-        return parent::deleteForumTopic($params);
-    }
-
-    public function unpinAllForumTopicMessages(array $params): bool
-    {
-        return parent::unpinAllForumTopicMessages($params);
-    }
-
-    public function editGeneralForumTopic(array $params): bool
-    {
-        return parent::editGeneralForumTopic($params);
-    }
-
-    public function closeGeneralForumTopic(array $params): bool
-    {
-        return parent::closeGeneralForumTopic($params);
-    }
-
-    public function reopenGeneralForumTopic(array $params): bool
-    {
-        return parent::reopenGeneralForumTopic($params);
-    }
-
-    public function hideGeneralForumTopic(array $params): bool
-    {
-        return parent::hideGeneralForumTopic($params);
-    }
-
-    public function unhideGeneralForumTopic(array $params): bool
-    {
-        return parent::unhideGeneralForumTopic($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                             7. STICKERS                                    */
-    /* -------------------------------------------------------------------------- */
-
-    public function sendSticker(array $params): object
-    {
-        if (isset($params['sticker'])) {
-            $params['sticker'] = $this->ensureInputFile($params['sticker']);
-        }
-        return parent::sendSticker($params);
-    }
-
-    public function getStickerSet(array $params): object
-    {
-        return parent::getStickerSet($params);
-    }
-
-    public function uploadStickerFile(array $params): object
-    {
-        if (isset($params['png_sticker'])) {
-            $params['png_sticker'] = $this->ensureInputFile($params['png_sticker']);
-        }
-        // پشتیبانی از فرمت TGS برای استیکرهای متحرک
-        if (isset($params['tgs_sticker'])) {
-            $params['tgs_sticker'] = $this->ensureInputFile($params['tgs_sticker']);
-        }
-        if (isset($params['webm_sticker'])) {
-            $params['webm_sticker'] = $this->ensureInputFile($params['webm_sticker']);
-        }
-        return parent::uploadStickerFile($params);
-    }
-
-    public function createNewStickerSet(array $params): bool
-    {
-        if (isset($params['png_sticker'])) $params['png_sticker'] = $this->ensureInputFile($params['png_sticker']);
-        if (isset($params['tgs_sticker'])) $params['tgs_sticker'] = $this->ensureInputFile($params['tgs_sticker']);
-        if (isset($params['webm_sticker'])) $params['webm_sticker'] = $this->ensureInputFile($params['webm_sticker']);
-        return parent::createNewStickerSet($params);
-    }
-
-    public function addStickerToSet(array $params): bool
-    {
-        if (isset($params['png_sticker'])) $params['png_sticker'] = $this->ensureInputFile($params['png_sticker']);
-        if (isset($params['tgs_sticker'])) $params['tgs_sticker'] = $this->ensureInputFile($params['tgs_sticker']);
-        if (isset($params['webm_sticker'])) $params['webm_sticker'] = $this->ensureInputFile($params['webm_sticker']);
-        return parent::addStickerToSet($params);
-    }
-
-    public function setStickerPositionInSet(array $params): bool
-    {
-        return parent::setStickerPositionInSet($params);
-    }
-
-    public function deleteStickerFromSet(array $params): bool
-    {
-        return parent::deleteStickerFromSet($params);
-    }
-
-    public function setStickerSetThumb(array $params): bool
-    {
-        if (isset($params['thumb'])) {
-            $params['thumb'] = $this->ensureInputFile($params['thumb']);
-        }
-        return parent::setStickerSetThumb($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                       8. INLINE, WEBAPPS & CALLBACKS                       */
-    /* -------------------------------------------------------------------------- */
-
-    public function answerCallbackQuery(array $params): bool
-    {
-        return parent::answerCallbackQuery($params);
-    }
-
-    public function answerInlineQuery(array $params): bool
-    {
-        return parent::answerInlineQuery($params);
-    }
-
-    public function answerWebAppQuery(array $params): object
-    {
-        return parent::answerWebAppQuery($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                             9. PAYMENTS                                    */
-    /* -------------------------------------------------------------------------- */
-
-    public function sendInvoice(array $params): object
-    {
-        return parent::sendInvoice($params);
-    }
-
-    public function createInvoiceLink(array $params): string
-    {
-        return parent::createInvoiceLink($params);
-    }
-
-    public function answerShippingQuery(array $params): bool
-    {
-        return parent::answerShippingQuery($params);
-    }
-
-    public function answerPreCheckoutQuery(array $params): bool
-    {
-        return parent::answerPreCheckoutQuery($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                        10. GAMES & PASSPORT                                */
-    /* -------------------------------------------------------------------------- */
-
-    public function sendGame(array $params): object
-    {
-        return parent::sendGame($params);
-    }
-
-    public function setGameScore(array $params): mixed
-    {
-        return parent::setGameScore($params);
-    }
-
-    public function getGameHighScores(array $params): array
-    {
-        return parent::getGameHighScores($params);
-    }
-
-    public function setPassportDataErrors(array $params): bool
-    {
-        return parent::setPassportDataErrors($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                          11. LOCATION (LIVE)                               */
-    /* -------------------------------------------------------------------------- */
-
-    public function editMessageLiveLocation(array $params): mixed
-    {
-        return parent::editMessageLiveLocation($params);
-    }
-
-    public function stopMessageLiveLocation(array $params): mixed
-    {
-        return parent::stopMessageLiveLocation($params);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                        12. BOT COMMANDS & MENUS                            */
-    /* -------------------------------------------------------------------------- */
-
-    public function setMyCommands(array $params): bool
-    {
-        return parent::setMyCommands($params);
-    }
-
-    public function deleteMyCommands(array $params): bool
-    {
-        return parent::deleteMyCommands($params);
-    }
-
-    public function getMyCommands(array $params): array
-    {
-        return parent::getMyCommands($params);
-    }
-
-    public function setMyName(array $params): bool
-    {
-        return parent::setMyName($params);
-    }
-
-    public function getMyName(array $params): object
-    {
-        return parent::getMyName($params);
-    }
-
-    public function setMyDescription(array $params): bool
-    {
-        return parent::setMyDescription($params);
-    }
-
-    public function getMyDescription(array $params): object
-    {
-        return parent::getMyDescription($params);
-    }
-
-    public function setMyShortDescription(array $params): bool
-    {
-        return parent::setMyShortDescription($params);
-    }
-
-    public function getMyShortDescription(array $params): object
-    {
-        return parent::getMyShortDescription($params);
-    }
-
-    public function setChatMenuButton(array $params): bool
-    {
-        return parent::setChatMenuButton($params);
-    }
-
-    public function getChatMenuButton(array $params): object
-    {
-        return parent::getChatMenuButton($params);
-    }
-
-    public function setMyDefaultAdministratorRights(array $params): bool
-    {
-        return parent::setMyDefaultAdministratorRights($params);
-    }
-
-    public function getMyDefaultAdministratorRights(array $params): object
-    {
-        return parent::getMyDefaultAdministratorRights($params);
-    }
-
+    // use \KrubiK\Drivers\Arcane\TelegramExclusiveMethods trait, if you need them !
 }

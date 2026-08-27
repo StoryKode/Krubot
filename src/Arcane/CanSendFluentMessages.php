@@ -2,7 +2,7 @@
 
 namespace KrubiK\Arcane;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -15,9 +15,9 @@ namespace KrubiK\Arcane;
 
 use Closure;
 use InvalidArgumentException;
-use RubikaBot\Metadata\TrackParsed;
 use KrubiK\Keyboard\Keyboard;       // کلاس کیبورد شیشه‌ای
 use KrubiK\Keyboard\ReplyKeyboard;  // کلاس کیبورد منو
+use KrubiK\Arcane\MetaTextTransformer;
 
 /**
  * Trait CanSendFluentMessages
@@ -27,14 +27,16 @@ use KrubiK\Keyboard\ReplyKeyboard;  // کلاس کیبورد منو
  * و مدیریت کیبوردها را تجمیع می‌کند.
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 trait CanSendFluentMessages
 {
     // ادغام تریت مدیریت پیوست‌ها برای دسترسی به متدها و پراپرتی‌های مدیا
     use CanSendMedia;
+
+    use MetaTextTransformer; // parse rich-blocks to rubika-compatible format
 
     // --- Text & Options State ---
     protected ?string $fText = null;
@@ -108,7 +110,7 @@ trait CanSendFluentMessages
     /**
      * ریپلای زدن روی یک پیام خاص.
      */
-    public function reply(int $messageId): static
+    public function replyToMessage(int $messageId): static
     {
         $this->fReplyTo = $messageId;
         return $this;
@@ -359,8 +361,7 @@ trait CanSendFluentMessages
             // پردازش متن کپشن برای استخراج متادیتا (بولد، لینک و ...)
             $metadata = null;
             if ($caption) {
-                $parser = new TrackParsed();
-                $parsed = $parser->parse($caption, $this->fParseMode);
+                $parsed = $this->parseToRubika($caption, $this->fParseMode); // Engage MetaTextTransformer Engine
                 $caption = $parsed['text'];
                 if (!empty($parsed['metadata'])) {
                     $metadata = $parsed['metadata'];
@@ -437,13 +438,12 @@ trait CanSendFluentMessages
         // 5. Handle Text / Edit (No Attachment)
         // --- SENARIO: SEND TEXT or EDIT MESSAGE ---
         
-        // پردازش متن و متادیتا با TrackParsed
+        // پردازش متن و متادیتا با Parsentinel
         $finalText = $this->fText;
         $metadata = null;
         
         if ($finalText !== null) {
-            $parser = new TrackParsed();
-            $parsed = $parser->parse($finalText, $this->fParseMode);
+            $parsed = $this->parseToRubika($finalText, $this->fParseMode); // Engage MetaTextTransformer Engine
             $finalText = $parsed['text'];
             if (!empty($parsed['metadata'])) {
                 $metadata = $parsed['metadata'];

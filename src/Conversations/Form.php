@@ -2,7 +2,7 @@
 
 namespace KrubiK\Conversations;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -30,10 +30,10 @@ use RuntimeException;
  * plus automatic handling of the 'confirmed' validation rule.
  *
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×vRC.8×
  * @license MIT
-**/
+*/
 class Form extends Conversation
 {
     /**
@@ -97,7 +97,7 @@ class Form extends Conversation
      * @param string|\KrubiK\Conversations\Question $question Question text or Object / متن سوال یا آبجکت
      * @return static
      */
-    public function field(string $key, mixed $question, ?mixed $validate_rules = null): static
+    public function field(string $key, mixed $question, mixed $validate_rules = null): static
     {
         // Create new FormField object (Clean OOP approach)
         $this->fields[] = new FormField($key, $question);
@@ -109,7 +109,7 @@ class Form extends Conversation
     }
 
     // Delegate to field() to maintain compatibility
-    public function addField(string $key, mixed $question, ?mixed $validate_rules = null): static
+    public function addField(string $key, mixed $question, mixed $validate_rules = null): static
     {
         return $this->field($key, $question, $validate_rules);
     }

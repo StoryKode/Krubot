@@ -2,7 +2,7 @@
 
 namespace KrubiK\Arcane;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -13,6 +13,7 @@ namespace KrubiK\Arcane;
 | *Go build something revolutionary!* 💜⚡️
 */
 
+use KrubiK\Keyboard\Keyboard;
 use KrubiK\Keyboard\PowerButton;
 use RubikaBot\Keyboard\Keypad;
 use RubikaBot\Keyboard\KeypadRow;
@@ -24,8 +25,14 @@ trait HasKeyboards
      * Fluent Keyboard Builder (Closure Style).
      * Allows building complex keyboards using a clean syntax.
      */
-    public function attachKeyboard(callable $callback): static
+    public function attachKeyboard(array|Keyboard|callable $callback): static
     {
+        if($callback instanceof Keyboard)
+            $callback = $callback->toArray();
+
+        if(is_array($callback))
+            return $this->chatKeypad($callback);
+
         $keypad = Keypad::make();
         
         $builder = new class($keypad) {

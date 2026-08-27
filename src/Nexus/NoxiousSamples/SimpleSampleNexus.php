@@ -2,7 +2,7 @@
 
 namespace KrubiK\Nexus\NoxiousSamples;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -15,6 +15,10 @@ namespace KrubiK\Nexus\NoxiousSamples;
 
 use KrubiK\Krubot;
 use KrubiK\Attributes\OnCommand;
+use KrubiK\Attributes\OnText;
+
+use KrubiK\Keyboard\Keyboard;
+use KrubiK\Keyboard\PowerButton;
 
 class SimpleSampleNexus
 {
@@ -39,11 +43,33 @@ class SimpleSampleNexus
         $bot->reply($usertext)->send();
     }
     
-    #[OnCommand('keyboard')]
+    #[OnCommand('kb')]
+    #[OnText('kb')]
     public function menu(Krubot $bot)
     {
-        $bot->attachKeyboard(function($kb) {
-             $kb->row(fn($r) => $r->simple('دکمه 1', 'btn_1'));
-        })->reply("کیبورد باز شد")->send();
+        
+        @ini_set('display_errors', 1);
+        @ini_set('display_startup_errors', 1);
+        @error_reporting(E_ALL);
+
+        try {
+            $kb = Keyboard::make()
+                    ->rtl();
+            $kb->buttons([
+                PowerButton::simple('LGPS', '📍 Live GPS'),// ->requestLocation(),
+                PowerButton::simple('LTPS', 'Hive TPS :)'),// ->requestLocation()
+            ]);
+            $kb->button('❌ Drop {item[name]}')->action('remove', ['id' => '-11']);
+            if(0) dd([
+                "#[OnCommand('keyboard')]",
+                $kb
+            ]);
+            // dd($bot->keyboard($kb)); /// ->reply("کیبورد باز شد")->send();
+
+            $bot->keyboard($kb)->reply("کیبورد باز شد")->send();
+        }
+        catch(\Throwable $e) {
+            dd($e);
+        }
     }
 }

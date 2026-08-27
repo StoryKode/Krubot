@@ -2,7 +2,7 @@
 
 namespace KrubiK\Keyboard;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -15,8 +15,9 @@ namespace KrubiK\Keyboard;
 
 use RubikaBot\Keyboard\Keypad as BaseKeypad;
 use RubikaBot\Keyboard\Button as BaseButton;     // کلاس والد دکمه (جهت تایپ‌هینتینگ و سازگاری با RubikaBot)
-// use KrubiK\Keyboard\Button as PowerButton;       // کلاس تقویت‌شده دکمه ما
+use KrubiK\Keyboard\PowerButton;       // کلاس تقویت‌شده دکمه ما
 use Closure;
+use Illuminate\Contracts\Support\Arrayable;
 
 /**
  * کلاس نهایی و قدرتمند مدیریت کیبورد شیشه‌ای (Inline Keyboard).
@@ -34,11 +35,11 @@ use Closure;
  * 6. **Conditional Logic**: متد `when` برای ساخت شرطی کیبورد.
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
-class Keyboard extends BaseKeypad
+*/
+class Keyboard extends BaseKeypad implements Arrayable
 {
     /**
      * مخزن دکمه‌هایی که هنوز پردازش نشده‌اند.
@@ -144,7 +145,7 @@ class Keyboard extends BaseKeypad
         foreach ($buttons as $button) {
             // پشتیبانی از هر دو نوع دکمه (قدیمی RubikaBot و جدید KrubiK)
             // چون KrubiK\Button از RubikaBot\Button ارث می‌برد، این شرط برای هر دو کار می‌کند.
-            if ($button instanceof BaseButton) {
+            if ($button instanceof PowerButton || $button instanceof BaseButton) {
                 $this->pendingButtons[] = $button;
             }
         }
@@ -360,7 +361,7 @@ class Keyboard extends BaseKeypad
                     return $btn->toArray();
                 }
                 // اولویت ۲: اگر دکمه شیء است اما toArray ندارد (صرفاً کست به آرایه)
-                if ($btn instanceof BaseButton) {
+                if ($btn instanceof PowerButton || $btn instanceof BaseButton) {
                     return (array)$btn;
                 }
                 // اولویت ۳: اگر از قبل آرایه یا چیز دیگری است

@@ -21,7 +21,7 @@ namespace KrubiK\Drivers;
 | on a foundation of pure power **Far Stronger Than Anything That Came Before.**
 | Starting with Laravel 12 Capabilities.
 |
-| What you see here is the **×0.7 ALPHA×** release. Why release it now?
+| What you see here is the **×ReleaseCandiate v0.8×** release. Why release it now?
 | Because keeping this evolution a secret any longer would be a
 | betrayal to the very community it was born to serve.
 | 
@@ -62,10 +62,10 @@ use KrubiK\Enums\Platform;
  * - 🛡️ Double-Tap Configuration Injection
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 class Nemesis extends Manager
 {
     /**
@@ -82,6 +82,27 @@ class Nemesis extends Manager
     }
 
     /**
+     * 🧠 Hyper-DX INTERFACE (Required by Katana)
+     *
+     * This method acts as the brain stem. It delegates the complex
+     * decision-making to the advanced Autopsy logic below.
+     *
+     * @return string The dominant virus strain name.
+    */
+    public function inspect(): string
+    {
+        return $this->assessThreatEnvironment();
+    }
+    public function platform(): ?Platform
+    {
+        return Platform::tryFrom($this->inspect());
+    }
+    public function where(): ?Platform
+    {
+        return Platform::tryFrom($this->inspect());
+    }
+
+    /**
      * 📡 THREAT ASSESSMENT (The Logic Core)
      *
      * Scans the environment (Routes & Payloads) to decide which
@@ -91,7 +112,13 @@ class Nemesis extends Manager
      */
     protected function assessThreatEnvironment(): string
     {
-        // 1. INTERCEPT SIGNAL (Route Parameter Priority)
+        // PRIORITY 0: SYSTEM CONSOLE INTERCEPTOR (The Raw Terminal Protocol)
+        // Instantly catch console kernels, jobs, or command executions before web routes evaluate.
+        if (php_sapi_name() === 'cli' || app()->runningInConsole()) {
+            return (string) Platform::Cli();
+        }
+
+        // PRIORITY 1. INTERCEPT SIGNAL (Route Parameter Forcing Priority)
         // If the neural network (Route) explicitly demands a specific strain.
         if ($targetStrain = Route::current()?->parameter('driver')) {
             if ($platform = Platform::tryFrom($targetStrain)) {
@@ -99,15 +126,32 @@ class Nemesis extends Manager
             }
         }
 
-        // 2. ANALYZE BIO-METRICS (Payload Sniffing)
-        // If no orders are given, Nemesis smells the blood (JSON Payload) to find the prey.
-        if (Request::isMethod('post') && Request::isJson()) {
-            return $this->performAutopsy(Request::all(), Request::header('User-Agent'));
+        // PRIORITY 2: ANALYZE HTTP HEADERS (WebApp/MiniApp Identity)
+        // Check for specific headers that identify traffic from embedded apps.
+        // This is a more reliable signal than payload for these contexts.
+        if ($headerPlatform = $this->identifyFromHeaders()) {
+            return $headerPlatform;
         }
 
-        // 3. DORMANT PROTOCOL (Fallback)
+        // PRIORITY 3. ANALYZE BIO-METRICS ({Webhook} Payload Sniffing)
+        // If no orders are given, Nemesis smells the blood (JSON Payload) to find the prey.
+        if (Request::isMethod('post') && Request::isJson()) {
+            // We reuse performAutopsy, but its return might be null.
+            // If it returns null, we continue to the fallback.
+            if ($autopsyResult = $this->performAutopsy(Request::all(), Request::header('User-Agent'))) {
+                return $autopsyResult;
+            }
+        }
+
+        // PRIORITY 4. DORMANT PROTOCOL (Fallback)
         // If the environment is silent, deploy the default sleeper agent.
-        return $this->config->get('krubot.default_driver', (string) Platform::default());
+        //////// return $this->config->get('krubot.default_driver', (string) Platform::default());
+
+         // PRIORITY 4: DORMANT PROTOCOL (Default Fallback)
+        // If the environment is silent (e.g., a standard GET request to the website),
+        // deploy the default web agent, not the default bot driver.
+        // Note!: It is a pure 'web' interaction, not necessarily a 'WebApp'. This is a critical distinction.
+        return (string) Platform::Web();
     }
 
     /**
@@ -116,8 +160,8 @@ class Nemesis extends Manager
      * Dissects the request body to identify the platform signature.
      *
      * @param array $tissueSample The request data
-     * @param string|null $dnaSignature The User-Agent
-     * @return string|null
+     * @param string|null $dnaSignature The User-Agent header
+     * @return string|null The platform name on success, null on failure.
      */
     private function performAutopsy(array $tissueSample, ?string $dnaSignature): ?string
     {
@@ -136,7 +180,77 @@ class Nemesis extends Manager
             return (string) Platform::Rubika();
         }
 
-        return null;
+        return null;  // Return null if no signature is found in the payload
+    }
+
+    /**
+     * 🕵️‍♂️ HEADER FORENSICS (Deep Header Inspection)
+     *
+     * Scans HTTP headers for cryptographic signatures (InitData)
+     * left by MiniApps or WebApps.
+     *
+     * @return string|null The canonical platform name if found.
+    */
+    private function identifyFromHeaders(): ?string
+    {
+        // Allow override by 'X-Platform' header
+        if(Request::hasHeader('X-Platform')) {
+            $headerData = trim(Request::header('X-Platform', ''));
+            if($headerData !== '') {
+                if ($platform = Platform::tryFrom($headerData)) {
+                    return (string) $platform;
+                }
+            }
+        }
+
+        // Retrieve the header mapping from the sacred scrolls (config file).
+        $headerMap = $this->config->get('krubot.webapps.identity_headers.platforms', []);
+        
+        foreach ($headerMap as $platformAlias => $headerName) {
+            if (Request::hasHeader($headerName)) {
+                // We found a specific signature!
+                // We use Platform::tryFrom to ensure the alias is valid and return its canonical/universal form.
+                if ($platform = Platform::tryFrom($platformAlias)) {
+                    return (string) $platform;
+                }
+            }
+        }
+        
+        // Check generic headers as a fallback mechanism.
+        $genericHeaders = $this->config->get('krubot.webapps.identity_headers.generic', []);
+
+        foreach ($genericHeaders as $genericConfig) {
+
+            // The primary condition: the main InitData header for this generic type must exist.
+            if (Request::hasHeader($genericConfig['init_data_header'])) {
+
+                 // Priority 2.1: Check for an EXPLICIT platform header. This always takes precedence.
+                 if (Request::hasHeader($genericConfig['platform_header'])) {
+                    $platformAlias = Request::header($genericConfig['platform_header']);
+
+                     // Attempt to validate the platform specified in the header.
+                     if ($platform = Platform::tryFrom($platformAlias)) {
+                        
+                        // Success! We found a valid, explicitly declared platform.
+                        return (string) $platform;
+
+                    }
+
+                    // CRITICAL FIX: If the explicit header is present but its value is INVALID
+                    // (e.g., 'X-WebApp-Platform: unknown-app'), we must NOT fall back to the default.
+                    // This indicates a misconfiguration on the client-side. We should treat this
+                    // generic check as failed and continue to the next generic config, if any.
+                    continue;
+                 }
+
+                 //  Priority 2.2: Fallback to the generic config's default platform, ONLY if NO explicit platform header was found.
+                 if ($platform = Platform::tryFrom($genericConfig['default_platform'])) {
+                     return (string) $platform;
+                 }
+            }
+        }
+        
+        return null; // If all prev checks fail, the identity could NOT be determined.
     }
 
     /**
@@ -239,5 +353,74 @@ class Nemesis extends Manager
         }
 
         return new TelegramDriver($dna);
+    }
+
+    /**
+     * 🌐 INCUBATE: WEB
+     * Creates a driver instance for handling standard website interactions.
+     * This is for users browsing your Laravel site directly.
+     * We can reuse the WebAppDriver logic as the foundation is the same.
+     *
+     * @return WebAppDriver
+    */
+    protected function createWebDriver(): WebAppDriver
+    {
+        $config = $this->config->get('krubot.drivers.web', []); // Uses its own config key for separation
+        $config['driver_alias'] = (string) Platform::Web();
+
+        // Assuming WebAppDriver is suitable for both contexts.
+        // If not, you would create a dedicated WebDriver class.
+        return new WebAppDriver($config);
+    }
+
+    /**
+     * 🌐 INCUBATE: WEBAPP
+     * Creates a driver instance for handling standard web interactions.
+     * This driver can manage web-specific data like session, cookies, and auth.
+     *
+     * @return WebAppDriver
+     */
+    protected function createWebappDriver(): WebAppDriver
+    {
+        $config = $this->config->get('krubot.drivers.webapp', []);
+        $config['driver_alias'] = (string) Platform::WebApp();
+
+        return new WebAppDriver($config);
+    }
+
+    /**
+     * 📱 INCUBATE: MINIAPP
+     * Creates a driver instance for Telegram Mini App interactions.
+     * A MiniApp is a specialized context of Telegram, so we can reuse or extend
+     * the TelegramDriver for its creation, enriching it with MiniApp-specific data.
+     *
+     * @return TelegramDriver
+     */
+    protected function createMiniappDriver(): TelegramDriver
+    {
+        // A MiniApp's DNA is fundamentally Telegram's.
+        $config = $this->config->get('krubot.drivers.telegram', []);
+        $config['driver_alias'] = (string) Platform::MiniApp();
+        
+        // You might create a specialized MiniAppDriver that extends TelegramDriver,
+        // but for now, reusing TelegramDriver is efficient and correct.
+        return new TelegramDriver($config);
+    }
+
+    /**
+     * 🖥️ CLI FACTORY
+     * 🖥️ INCUBATE: CLI
+     * 
+     * Cultivates the Command Line Interface driver for high-performance terminal operations.
+     *
+     * @return CliDriver
+     */
+    protected function createCliDriver(): CliDriver
+    {
+        // Extract command-line specific genetic blueprints from the sacred config scroll.
+        $dna = $this->config->get('krubot.drivers.cli', []);
+        $dna['driver_alias'] = (string) Platform::Cli();
+
+        return new CliDriver($dna);
     }
 }

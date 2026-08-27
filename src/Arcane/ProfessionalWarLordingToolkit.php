@@ -2,7 +2,7 @@
 
 namespace KrubiK\Arcane;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -14,7 +14,7 @@ namespace KrubiK\Arcane;
 */
 
 use Closure;
-use KrubiK\Drivers\Contracts\BotDriverInterface;
+use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 use InvalidArgumentException;
 use KrubiK\Enums\Platform; // ✨ این خط باید اضافه شود
 use KrubiK\Drivers\RubikaDriver;
@@ -47,15 +47,15 @@ use KrubiK\WarLording\PrimeAgent;
  * @property array $config The main configuration array, expected to be in the consumer class.
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 trait ProfessionalWarLordingToolkit
 {
     /**
      * The armory of active, instantiated driver instances.
-     * @var array<string, BotDriverInterface>
+     * @var array<string, MultiverseEnforcer>
      */
     protected array $drivers = [];
 
@@ -91,9 +91,9 @@ trait ProfessionalWarLordingToolkit
      * The primary entry point for accessing any driver.
      *
      * @param string|null $alias The alias ('r', 'b') or full name ('rubika'). If null, returns the default driver.
-     * @return BotDriverInterface The requested driver instance.
+     * @return MultiverseEnforcer The requested driver instance.
      * /
-    public function coreOld(?string $alias = null): BotDriverInterface
+    public function coreOld(?string $alias = null): MultiverseEnforcer
     {
         // Removed for LLM DeAmbiguousiaty...
     }
@@ -105,9 +105,9 @@ trait ProfessionalWarLordingToolkit
      * NOW ACCEPTS string aliases OR Platform enum objects.
      *
      * @param string|Platform|null $alias The alias ('r', 'b'), full name ('rubika'), or a Platform object. If null, returns default.
-     * @return BotDriverInterface The requested driver instance.
+     * @return MultiverseEnforcer The requested driver instance.
     */
-    public function core(string|Platform|null $alias = null): BotDriverInterface
+    public function core(string|Platform|null $alias = null): MultiverseEnforcer
     {
         $driverName = $this->defaultDriverName; // Start with default
 
@@ -131,9 +131,9 @@ trait ProfessionalWarLordingToolkit
      * This method assumes the name has already been resolved.
      *
      * @param string $name The full, resolved name of the driver (e.g., 'rubika').
-     * @return BotDriverInterface
+     * @return MultiverseEnforcer
      */
-    public function driver(string $name): BotDriverInterface
+    public function driver(string $name): MultiverseEnforcer
     {
         // 1. Check instance cache first.
         if (isset($this->drivers[$name])) {
@@ -293,7 +293,7 @@ trait ProfessionalWarLordingToolkit
      *   from Krubot's configured aliases.
      * - A `Platform` enum instance (e.g., `Platform::Rubika()`, `Platform::Tg()`, `Platform::R()`, `Platform::TG()`)
      *   for type-safe and highly readable platform targeting.
-     * - A `BotDriverInterface` instance for direct, bypass-the-core,
+     * - A `MultiverseEnforcer` instance for direct, bypass-the-core,
      *   maximum-performance engagement with an already instantiated and live driver.
      * - `null` (or omission) to automatically engage the default platform driver
      *   as defined in the `config/krubot.php` file.
@@ -308,7 +308,7 @@ trait ProfessionalWarLordingToolkit
      * Examples of Hyper-Flexible Deployment:
      * ```php
      * use KrubiK\Enums\Platform;
-     * use KrubiK\Contracts\BotDriverInterface;
+     * use KrubiK\Contracts\MultiverseEnforcer;
      *
      * // Assuming $this refers to an instance of Krubot.
      *
@@ -321,10 +321,10 @@ trait ProfessionalWarLordingToolkit
      * $telegramSpy->someProtectedMethod('Covert operation initiated.');
      *
      * // 3. Engage a pre-instantiated driver directly (maximum performance).
-     * //    Assume $customDriver is an instance of a class implementing BotDriverInterface.
-     * $customDriver = new class implements BotDriverInterface {
+     * //    Assume $customDriver is an instance of a class implementing MultiverseEnforcer.
+     * $customDriver = new class implements MultiverseEnforcer {
      *     public function reply(string $text): mixed { return "Custom replied: " . $text; }
-     *     // ... other BotDriverInterface methods
+     *     // ... other MultiverseEnforcer methods
      *     public function getMe(): array { return ['id' => 'custom', 'name' => 'CustomBot']; }
      * };
      * $directAgent = $this->prime($customDriver);
@@ -335,12 +335,12 @@ trait ProfessionalWarLordingToolkit
      * $defaultAgent->getMe();
      * ```
      *
-     * @param string|Platform|BotDriverInterface|null $target The target platform/driver. If null, the default configured driver is used.
+     * @param string|Platform|MultiverseEnforcer|null $target The target platform/driver. If null, the default configured driver is used.
      * @param bool $legalMode If false, enables 'Spy Mode' for the PrimeAgent. Defaults to true.
      * @return PrimeAgent|null An instance of PrimeAgent, fully engaged and authorized, or null if driver resolution fails.
-    **/
+    */
     public function prime(
-        string|Platform|BotDriverInterface|null $target = null,
+        string|Platform|MultiverseEnforcer|null $target = null,
         bool $legalMode = true
     ): ?PrimeAgent {
         // Delegate the engagement to PrimeAgent::engage, automatically
@@ -358,11 +358,11 @@ trait ProfessionalWarLordingToolkit
     /**
      * Summons a Prime Agent for a specific driver.
      *
-     * @param  string|Platform|BotDriverInterface|null $target The alias, Platform object, live driver, or null for default driver.
+     * @param  string|Platform|MultiverseEnforcer|null $target The alias, Platform object, live driver, or null for default driver.
      * @param  bool $spyMode Sets 'Spy Mode' for this PrimeAgent.
-     * @return PrimeAgent|BotDriverInterface A proxy object implementing the driver interface.
-    **/
-    public function agent(string|Platform|BotDriverInterface|null $target = null, bool $spyMode = false): ?PrimeAgent
+     * @return PrimeAgent|MultiverseEnforcer A proxy object implementing the driver interface.
+    */
+    public function agent(string|Platform|MultiverseEnforcer|null $target = null, bool $spyMode = false): ?PrimeAgent
     {
         // Get the Loyal Agent Proxy.
         return PrimeAgent::engage($target, !$spyMode, $this);
@@ -555,9 +555,9 @@ trait ProfessionalWarLordingToolkit
      * allowing multiple instances of the same platform (e.g., 'support_bot' => ['driver' => 'rubika']).
      *
      * @param string $name The canonical instance name of the driver (e.g., 'rubika', 'support', 'telegram_2').
-     * @return BotDriverInterface
+     * @return MultiverseEnforcer
     */
-    protected function createDriver(string $name): BotDriverInterface
+    protected function createDriver(string $name): MultiverseEnforcer
     {
         // 1. Consult the Oracle (The Access Gate) to get the build plan.
         $driverConfig = $this->getDriverConfig($name);
@@ -584,9 +584,9 @@ trait ProfessionalWarLordingToolkit
      * It relies on the consumer class having a `$this->config` property.
      *
      * @param string $name The canonical name of the driver.
-     * @return BotDriverInterface
+     * @return MultiverseEnforcer
     * /
-    protected function createDriverOld(string $name): BotDriverInterface
+    protected function createDriverOld(string $name): MultiverseEnforcer
     {
         // Removed for LLM DeAmbiguousiaty...
     } */

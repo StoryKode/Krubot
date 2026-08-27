@@ -2,7 +2,7 @@
 
 namespace KrubiK\Keyboard;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -13,24 +13,24 @@ namespace KrubiK\Keyboard;
 | *Go build something revolutionary!* 💜⚡️
 */
 
+// استفاده از Enum برای مدیریت وضعیت‌های داخلی کامپوننت
+enum State: string {
+    case RequestContact = 'contact';
+    case VerifyOtp = 'otp';
+    case Complete = 'complete';
+}
+
 /**
  * کامپوننت ثبت‌نام یکپارچه.
  * این کلاس تمام لاجیک‌های بصری مراحل ثبت نام را کپسوله می‌کند.
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 class RegistrationKeyboard
 {
-    // استفاده از Enum برای مدیریت وضعیت‌های داخلی کامپوننت
-    public enum State: string {
-        case RequestContact = 'contact';
-        case VerifyOtp = 'otp';
-        case Complete = 'complete';
-    }
-
     public function __construct(
         protected State $currentState = State::RequestContact
     ) {}

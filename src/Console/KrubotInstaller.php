@@ -2,7 +2,7 @@
 
 namespace KrubiK\Console;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -29,8 +29,8 @@ use Illuminate\Support\Facades\File; // For .env file manipulation
  * It ensures cross-platform compatibility and real-time output streaming.
  * 
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
  */
 class KrubotInstaller extends Command
@@ -58,7 +58,7 @@ class KrubotInstaller extends Command
     {
         // Define the sequence of commands to be executed.
         // Each array represents a command and its arguments.
-        $ commands = [
+        $commands = [
             ['php', 'artisan', 'vendor:publish', '--provider=KrubiK\Providers\KrubotServiceProvider'],
             [-1, 'injectEnv', 'Injecting Environmental Matrix into project .env'], // 💉 Interleaved Internal Protocol, must return bool
             ['php', 'artisan', 'krubik:make-migrations'],

@@ -1,17 +1,6 @@
 <?php
 
 namespace KrubiK\Jobs;
-/*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
-|--------------------------------------------------------------------------
-| This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
-| not a weapon for production's final battles.
-|
-| Our Bond: ***"Rebuilding The Rebellion"*** Within S.N.P. (The Foundation of Pure Power & Revel).
-| Your Mandate [MIT]: Deconstruct Krubot. Command it. Master it. You are The Architect Now!
-|
-| *Go build something revolutionary!* 💜⚡️
-*/
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,14 +8,13 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use KrubiK\Krubot;
-use KrubiK\DTOs\RubikaInboundPayload; // <--- The Toxic DTO
+use KrubiK\DTOs\UniversalInboundUpdate; // <--- Engage The Omega Toxic DTO
 use KrubiK\DTOs\Message;
-use KrubiK\Drivers\Nemesis as KrubotManager; // ✅ Switch to Manager
 use KrubiK\Helpers\AmethystMatrix as Log;
 use Throwable;
 
 /**
- * HandleDriverUpdate v5.0 (Omni-Channel + Aegis Protocol + Toxic DTO)
+ * HandleDriverUpdate v5.0 (Omni-Channel + Aegis Protocol + Omega Toxic DTO)
  *
  * This Job acts as a hardened, bulletproof entry point for every incoming MESSAGE update.
  * This Job acts as a hardened entry point for ANY driver update (Rubika, Bale, Telegram).
@@ -45,10 +33,10 @@ use Throwable;
  * It receives a pre-validated, immutable DTO and orchestrates the bot logic.
  *
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 class HandleDriverUpdate implements ShouldQueue
 {
     // These traits are standard for a robust, queueable Laravel job.
@@ -61,7 +49,7 @@ class HandleDriverUpdate implements ShouldQueue
      
      * @param public array $payload
      * /
-    public function __construct(
+    public function __old_construct(
         public array $payload
     ) {} */
 
@@ -76,7 +64,7 @@ class HandleDriverUpdate implements ShouldQueue
      * PHP 8.2 will serialize this object perfectly for the queue.
      */
     public function __construct(
-        public RubikaInboundPayload $payload,
+        public UniversalInboundUpdate $payload,
         public string $driverName = 'rubika' // ✅ Clean, Defaulted, Promoted / Default to rubika for backward compatibility
     ) {}
 
@@ -84,17 +72,14 @@ class HandleDriverUpdate implements ShouldQueue
      * Execute the job.
      * This is where the magic happens, orchestrated by the Laravel Queue Worker.
      *
-     * /@/param Krubot $bot The singleton Krubot instance, automatically resolved and injected
+     * @param Krubot $bot The singleton Krubot instance, automatically resolved and injected
      *                    by Laravel's Service Container. This instance is already
      *                    "live" and fully configured by KrubotServiceProvider,
      *                    with all Nexuses discovered and handlers registered.
      *                    WE DO NOT `new Krubot()` HERE. EVER.
-     * @param KrubotManager $manager The Traffic Controller used to spawn the specific bot.
-     *                               We DO NOT inject Krubot directly anymore, to avoid
-     *                               getting the default singleton by mistake.
      * @return void
      */
-    public function handle(Krubot $bot, KrubotManager $manager): void
+    public function handle(Krubot $bot): void
     {
         try {
             
@@ -121,12 +106,12 @@ class HandleDriverUpdate implements ShouldQueue
                 $messageObject = new Message($updateRoot);
             */
 
-            // Payload is DTO (RubikaInboundPayload), dispatched from Gatekeeper.
+            // Payload is DTO (UniversalInboundUpdate), dispatched from Gatekeeper.
             // Builds normalized Message compatible with Krubot core pipeline.
             $messageObject = Message::fromInboundPayload($this->payload);
 
             // Optional: Log the creation for high-level monitoring.
-            $messageId = $messageObject->message_id ?? 'N/A'
+            $messageId = $messageObject->message_id ?? 'N/A';
             // Log::info("Message Object [{$messageId}] forged for Krubot processing.", [
             Log::info("[{$this->driverName}] Message [{$messageId}] forged for Krubot processing.", [
                 'job_id' => $this->job?->getJobId(),

@@ -2,7 +2,7 @@
 
 namespace KrubiK\Providers;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×0.7 ALPHA×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -17,7 +17,7 @@ use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
-use KrubiK\Drivers\Contracts\BotDriverInterface;
+use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 use Illuminate\Support\Arr;
 use KrubiK\Krubot;
 use KrubiK\Drivers\Nemesis as KrubotManager;
@@ -28,12 +28,20 @@ use KrubiK\Console\CacheNexusesCommand;
 use KrubiK\Console\ListNexusesCommand;
 use KrubiK\Console\MakeNexusCommand;
 use KrubiK\Helpers\AmethystMatrix;
+use KrubiK\Helpers\OpcacheRuler;
+use KrubiK\WebApps\AxiomCore;
+use KrubiK\Render\RenderAura;
+use Krubot\Render\RichMan;
+use KrubiK\Render\Kernel\BladeCipher;
+use KrubiK\Render\Parsers\Parsentinel;
+use KrubiK\Arcane\PlatformConstantsRobustGen; // Ensure the PlatformConstants Trait is imported
+use KrubiK\Middlewares\SynapticSurgeProtocol; // Import the Lazarus SSP
 
 /**
  * =========================================================================
  *  KRUBIK GALACTIC COMMAND CENTER
  * =========================================================================
- *     v3.6.48 "The Galactic Titan"
+ *     v5.8.6 "The Galactic Titan"
  * 
  * This Service Provider is the heart of the KrubiK package. It bootstraps
  * the bot, discovers and integrates Nexuses, provides Artisan commands for
@@ -41,12 +49,14 @@ use KrubiK\Helpers\AmethystMatrix;
  * It is designed for maximum performance, flexibility, and clarity.
  *
  * @author DoKtor K.
- * @link https://StoryKo.de Official website of engine.
- * @version Krubot: ×v0.7ALPHA×
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
  * @license MIT
-**/
+*/
 class KrubotServiceProvider extends ServiceProvider implements DeferrableProvider
 {
+    use PlatformConstantsRobustGen; // Quenchs `Platform::XXX` Constants from Config
+
     /**
      * Register any application services.
      *
@@ -59,8 +69,16 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
         // Merge the default package config with the user's published version.
         $this->mergeConfigFrom(__DIR__ . '/../../config/krubot.php', 'krubot');
 
+        $this->registerPlatformConstants(); // internally checks if config('krubot.cache.platform-constants-generation') enabled
+
         // Register the core bindings for the Krubot engine.
         $this->registerBindings();
+
+        if($this->app['config']->get('krubot.blade-cipher.enabled', false)) {
+            BladeCipher::registerOnSP($this->app);
+        }
+
+        Parsentinel::registerOnSP($this->app);
     }
 
     /**
@@ -72,20 +90,88 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
      */
     public function boot(): void
     {
+
         // These actions are only relevant when running in a console environment.
         if ($this->app->runningInConsole()) {
             $this->offerPublishing();
             $this->registerCommands();
         }
 
+        if($this->app['config']->get('krubot.blade-cipher.enabled', false)) {
+            BladeCipher::bootOnSP($this->app);
+        }
+
+        // Set the application locale based on our package's config (un-DX-ly)
+        /// if (config('krubot.locale'))
+        ///  app()->setLocale(config('krubot.locale'));
+
+        // Load the translation files for our package
+        // The second argument is the "namespace" for our translations
+        $this->loadTranslationsFrom(__DIR__ . '/../lang', 'krubot');
+
         // Boot the Nexus integration engine.
         // This is done in the `boot` method to ensure all engine services are available.
-        // $this->app->make(\KrubiK\Krubot::class); // Eager Loading // دستور ساخت فوری
+        // $this->app->make(Krubot::class); // Eager Loading // دستور ساخت فوری
         $this->bootNexuses(); // Call the Nexus Integration Core to set up the 'resolving' listener.
 
         /// Load web routes of the package
         /// $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
         /// Moved To: KrubotRouteProvider
+
+        /**
+         * Register The Identity Gateway :: Attach or Retrieve the Universal Identity Card via Symfony ParameterBag.
+         * Archetype: The Conduit (State Mutator & Accessor)
+         *
+         * A Hyper-DX Request macro providing a unified, context-aware API to bind and extract 
+         * the `UniversalIdentity` (The Soul Stone) within the current request lifecycle.
+         * 
+         * It operates via a polymorphic, jQuery-like dual-mode mechanism:
+         * 1. Setter Mode (Write): Injects the resolved identity into the request's internal attribute bag.
+         * 2. Getter Mode (Read): Retrieves the bound identity, seamlessly falling back to a 
+         *    contextual guest state if the WebApp ecosystem is active.
+         *
+         * @param UniversalIdentity|null $identity Optional. Pass to set the identity (Setter Mode). Omit to retrieve (Getter Mode).
+         * @return UniversalIdentity|bool Returns the Identity/Null in Getter Mode, or a boolean representing success state in Setter Mode.
+        */
+        Request::macro('identityCard', function (?UniversalIdentity $identity = null): bool|UniversalIdentity|null {
+
+                /**
+                 * @var \Illuminate\Http\Request $this
+                 * Binds to the current Illuminate Request instance operating within the Axiom Orchestrator.
+                 */
+                $identityKey = 'krubik.axiom.identity';
+                $webappsEnabled = config('krubot.webapps.enabled', true);
+
+                // [Setter Mode] Triggered strictly when an argument is explicitly provided.
+                // We use func_num_args() to differentiate between passing `null` explicitly vs. not passing anything.
+                if(func_num_args() > 0) {
+
+                    // Gatekeeper Check: Abort the injection if the WebApp ecosystem is 
+                    // turned off at the global configuration level.
+                    if(!$webappsEnabled)
+                        return false;
+
+                    /// if ($this->attributes->has($identityKey) && $this->attributes->get($identityKey) === $identity)
+                    ///            return false;
+                    
+                    // Persist the resolved UniversalIdentity into the request-scoped attribute bag,
+                    // a Symfony ParameterBag-backed storage layer, so every downstream layer reads
+                    // From One canonical, request-local authoritative identity snapshot.
+                    $this->attributes->set($identityKey, $identity);
+                    return true;
+                }
+
+                // [Getter Mode] Extract the bound identity from the internal attributes.
+                // If no identity was resolved (e.g., first access), we forge a transient Guest entity.
+                // Notice: If webapps are disabled, it strictly returns `null` instead of a Guest, 
+                // preventing unauthorized contextual leaks.
+                return $this->attributes->get($identityKey,
+                    $webappsEnabled ? UniversalIdentity::guest() : null
+                );
+
+            });
+
+            /// $this->transportKrubot();
     }
 
     /**
@@ -112,15 +198,15 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
 
         // 3. اینترفیس را به درایور *پیش‌فرض* متصل می‌کنیم.
         // این برای تزریق وابستگی در کنترلرها و جاب‌ها حیاتی است.
-        // وقتی در متدی تایپ-هینت BotDriverInterface بدهید، لاراول می‌داند چه چیزی بسازد.
-        $this->app->bind(BotDriverInterface::class, function ($app) {
+        // وقتی در متدی تایپ-هینت MultiverseEnforcer بدهید، لاراول می‌داند چه چیزی بسازد.
+        $this->app->bind(MultiverseEnforcer::class, function ($app) {
             return $app['krubot.manager']->driver();
         });
 
         // Bind Krubot as a Singleton. This ensures the same bot instance is used
         // throughout the entire application request lifecycle.
         // The closure is kept lean and mean for maximum performance.
-        $this->app->singleton(\KrubiK\Krubot::class, function ($app) {
+        $this->app->singleton(Krubot::class, function ($app) {
 
             // Extract the universal knowledge
             $config = $app['config']->get('krubot');
@@ -142,9 +228,56 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
             return new AmethystMatrix();
         });
 
-        // Create a convenient alias for easier resolution or for the Facade.
-        $this->app->alias(\KrubiK\Krubot::class, 'krubot');
-        $this->app->alias(BotDriverInterface::class, 'krubot.driver');
+        // Register the service as a singleton, as we only need one instance.
+        $this->app->singleton(OpcacheRuler::class, function ($app) {
+            return new OpcacheRuler();
+        });
+
+        // Bind the AxiomCore as a singleton.
+        // The container will create ONE instance of this stateless service per worker,
+        // which is highly efficient and perfectly safe for Octane.
+        $this->app->singleton(AxiomCore::class, function ($app) {
+            return new AxiomCore();
+        });
+
+        // The call is clean, expressive, and self-documenting.
+        // --- ⚜️ The Inscription of the Ether Anchor ⚜️ ---
+        // A law is now etched into the Application's core (Laravel IoC): RenderAura's lifecycle
+        // is quantum-entangled with the singular scope of a Request. Her `awaken` genesis ritual is deferred,
+        // invoked once upon first resolution to forge a *Scoped Singleton* Or Singleton-per-Request
+        //
+        // [Laravel Scoped, Optimal for Octane/Swoole/RoadRunner]
+        //
+        // An incorruptible, hyper-stable anchor of contextual truth for that journey's entire duration.
+        $this->app->scoped(RenderAura::class, RenderAura::awaken(...));
+        // PHP 8.1+ Supported :: First-Class Callable Syntax
+
+        // We use 'bind' instead of 'singleton' because RichMan is a stateful builder.
+        // Every time the facade is called, we need a fresh, empty instance
+        // to start building a new document from scratch.
+        $this->app->bind('richman', function ($app) {
+            return RichMan::summon();
+        });
+
+        // We bind the LazarusProtocol class as a singleton. This means the
+        // very first time it's resolved (which will be by the Artisan kernel
+        // when the command starts), that specific instance is stored.
+        // ALL subsequent resolutions, including from our Facade, will receive
+        // this exact same, living, breathing instance.
+        $this->app->singleton(LazarusProtocol::class, function (Application $app) {
+            // Let the console kernel construct the command as it normally would.
+            return $app->make(LazarusProtocol::class);
+        });
+
+        // Create a convenient alias for easier resolution binding or for the Facade.
+        $this->app->alias(Krubot::class, 'krubot');
+        $this->app->alias(MultiverseEnforcer::class, 'krubot.driver');
+        $this->app->alias(OpcacheRuler::class, 'opcache.ruler');
+        $this->app->alias(LazarusProtocol::class, 'lazarus');
+
+        // Register the Middleware Alias (Codename SSP)
+        // This makes the 'ssp.protocol' codename available throughout the host application.
+        $this->app['router']->aliasMiddleware('ssp.protocol', SynapticSurgeProtocol::class);
     }
 
     /**
@@ -161,7 +294,7 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
     */
     protected function bootNexuses(): void
     {
-        $this->app->resolving(\KrubiK\Krubot::class, function (\KrubiK\Krubot $krubot, $app) {
+        $this->app->resolving(Krubot::class, function (Krubot $krubot, $app) {
             // Fetch the entire package configuration once to minimize overhead.
             $config = $app['config']->get('krubot');
 
@@ -219,7 +352,12 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
         $this->publishes([
             // مسیر فایل مبدأ (Source) => مسیر فایل مقصد (Destination)
             __DIR__ . '/../../config/krubot.php' => config_path('krubot.php'),
+            __DIR__ . '/../lang'       => $this->app->langPath('engine/krubot'),
         ], 'krubot-config'); // تگ اختصاصی برای پابلیش
+
+        $this->publishes([
+            __DIR__ . '/Client/Res/__main__/Krubot.js' => public_path('engine/krubot/Krubot.js'),
+        ], 'public');
 
         // php artisan vendor:publish --tag=krubot-config
         // => Copied File [/app/KrubiK/config/krubot.php] To [/config/krubot.php]
@@ -237,7 +375,31 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
         $this->publishes([
             __DIR__ . '/../DivineMessageSender/Migrations/DivineMessageMigration.php' => database_path('migrations/' . date('Y_m_d_His') . '_divine_messages.php'),
             __DIR__ . '/../DivineMessageSender/Migrations/DivineDispatchQueueMigration.php' => database_path('migrations/' . date('Y_m_d_His', time() + 1) . '_divine_dispatch_queue.php'),
+            __DIR__ . '/../Migrations/LazarusTodosMigration.php' => database_path('migrations/' . date('Y_m_d_His', time() + 2) . '_lazarus_todos.php'),
         ], 'krubot-migrations');
+    }
+
+    public function transportKrubot(): bool
+    {
+        // مسیر فایل منبع داخل پکیج
+        $source = __DIR__ . '/Client/Res/__main__/Krubot.js';
+
+        // مسیر مقصد در فولدر public
+        $destination = public_path('engine/krubot/Krubot.js');
+
+        if (File::exists($destination)) {
+            return true; // <<--- cheap and idiot! dont be like him in your life!
+        }
+
+        // ایجاد فولدر مقصد در صورت عدم وجود
+        if (!File::exists(dirname($destination))) {
+            File::makeDirectory(dirname($destination), 0755, true);
+        }
+
+        // کپی کردن فایل
+        File::copy($source, $destination);
+
+        return true;
     }
 
     /**
@@ -267,6 +429,22 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
      */
     public function provides(): array
     {
-        return [\KrubiK\Krubot::class, 'krubot'];
+        return [
+            Krubot::class,
+            MultiverseEnforcer::class,
+            'krubot',
+            'amethyst.empress',
+            'nemesis',
+            'krubot.manager',
+            'krubot.driver',
+
+
+            KrubiKPulse::class, 'command.krubik:pulse',
+            LazarusProtocol::class, 'command.krubik:lazarus',
+            CacheNexusesCommand::class, 'command.krubik:nexus-cache', // The performance booster
+            ListNexusesCommand::class, 'command.krubik:nexus-list',  // The debugging tool
+            MakeNexusCommand::class, 'command.krubik:nexus-make',    // The workflow accelerator
+            MakeMigrationsCommand::class, 'command.krubik:make-migrations',
+        ];
     }
 }
