@@ -45,6 +45,8 @@ use Illuminate\Contracts\Support\Renderable;
 use KrubiK\Enums\Platform;
 use KrubiK\Render\RenderAura;
 
+use function KrubiK\Render\Helpers\filterNulls;
+
 /**
  * Class RichEntity
  * 
@@ -111,6 +113,17 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
     protected final function targetsTelegram(): bool
     {
         return $this->aura()->platform->matches(Platform::Telegram());
+    }
+
+    /**
+     * Checks if the current rendering target is the Rubika platform.
+     * This is a high-performance, direct-path method that bypasses __call.
+     *
+     * @return bool
+     */
+    protected final function targetsRubika(): bool
+    {
+        return $this->aura()->platform->matches(Platform::Rubika());
     }
 
     /**
@@ -279,8 +292,8 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
         // --- FAST PATH ---
         // If the value is not an object or an array, it's a primitive (int, string, bool, null).
         // We return it immediately without any further checks.
-        if (!is_object($value) && !is_array($value)) {
-            return $value;
+        if (!is_object($content) && !is_array($content)) {
+            return $content;
         }
 
         // If the object knows how to become an array, let it.
@@ -365,10 +378,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
         }
 
         // Step 2: Perform the final filtering on the now-guaranteed-to-be-an-array data.
-        return array_filter(
-            $normalizedData,
-            static fn($value): bool => $value !== null
-        );
+        return filterNulls($normalizedData);
     }
 
     /**
@@ -614,7 +624,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * @param mixed $content The content to render (object, array, string).
      * @return string The resulting formatted text string.
     */
-    protected function renderText(mixed $content): string
+    public function renderText(mixed $content): string
     {
         // Priority 0: Graceful handling of empty values.
         /// if ($content === null || $content === false) {

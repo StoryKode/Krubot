@@ -67,6 +67,13 @@ use KrubiK\Render\RichElements\Texts\RichTextTextMention;
 use KrubiK\Render\RichElements\Texts\RichTextUnderline;
 use KrubiK\Render\RichElements\Texts\RichTextUrl;
 
+use KrubiK\Render\RichElements\Texts\RichTextButton;
+use KrubiK\Render\RichElements\Blocks\RichBlockButtons;
+use KrubiK\Render\RichElements\Blocks\RichBlockButtonRow;
+use KrubiK\Render\RichElements\Components\RichButton;
+use KrubiK\Keyboard\PowerButton;
+use KrubiK\Enums\ButtonType;
+
 use KrubiK\Render\RichElements\Components\RichBlockCaption;
 use KrubiK\Render\RichElements\Components\RichBlockListItem;
 use KrubiK\Render\RichElements\Components\RichBlockTableCell;
@@ -785,4 +792,98 @@ function video(VideoDTO|array $video, ?bool $hasSpoiler = null, RichBlockCaption
 function voiceNote(VoiceDTO|array $voiceNote, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockVoiceNote
 {
     return RichBlockVoiceNote::make($voiceNote, $caption);
+}
+
+// New! Support 10.3 Button & ButtonRow
+
+function button(PowerButton|RichButton|string|RichEntity|callable $text, ?string $actionId = null, string|ButtonType|null $type = null, ?array $payload = [], ?float $width = 1.0): RichTextButton
+{
+    $btn = ($text instanceof RichButton || $text instanceof PowerButton) ?
+        $text
+    :
+        RichButton::make($text, $actionId, $type, $payload, $width);
+
+    return RichTextButton::make($btn);
+}
+
+function buttons(array $buttons, ?string $align = null): RichBlockButtons
+{
+    return RichBlockButtons::make($buttons, $align);
+}
+
+function buttonRow(array $buttons, ?string $align = null): RichBlockButtonRow // exactly-same as RichBlockButtons
+{
+    return RichBlockButtonRow::make($buttons, $align);
+}
+
+/// Custom-Helpers
+
+function filterNulls(array $data): array
+{
+    return array_filter(
+        $data,
+        static fn($value): bool => $value !== null
+    );
+}
+
+/**
+ * Recursively renders any content into a rich, formatted text string.
+ * This hyper-intelligent engine is the text-based counterpart to `renderHtml`.
+ * It centralizes the logic for unwrapping nested structures and allows entities
+ * to provide platform-specific text formatting (e.g., Markdown for Telegram).
+ *
+ * It follows a similar recursive pattern to `renderHtml` but prioritizes the `toText()` contract.
+ *
+ * @param mixed $content The content to render (object, array, string).
+ * @param ?RichEntity $host
+ * @return string The resulting formatted text string.
+*/
+function renderAsText(mixed $content, ?RichEntity $host = null, bool $preserveKeys = false): string|array|null
+{
+    if($content === null)
+        return $preserveKeys ? null : '';
+
+    // Handle string inputs safely
+    if(is_string($content) && (!is_object($content))) { // Not Stringable (eg, RichEntity, ...)
+
+        if($content === '')
+            return $preserveKeys ? null : '';
+
+        return trim($content);
+    }
+
+    // Handle arrays robustly with recursion
+    if(is_array($content)) {
+
+        if (empty($content))
+            return $preserveKeys ? null : '';
+
+        // If it's a single-element array, unwrap and recursively render it
+        if ((!$preserveKeys) && count($content) === 1)
+            return renderAsText(reset($content), $host);
+
+        // For multi-element arrays, map and recursively render each item
+        $result = [];
+        foreach ($content as $key => $item) {
+            $rendered = renderAsText($item, $host, $preserveKeys);
+            
+            if ($preserveKeys) {
+                $result[$key] = $rendered;
+            } else {
+                $result[] = $rendered;
+            }
+        }
+
+        return $result;
+    }
+
+    // Delegate to host entity if provided
+    if($host)
+        return $host->renderText($content);
+
+    // Fallback for any unknown or unrenderable types.
+    if (app()->isProduction())
+        return '';
+
+    return '[Cannot render type to text: ' . gettype($content) . ' without providing $host]';
 }

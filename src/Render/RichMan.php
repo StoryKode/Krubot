@@ -46,6 +46,11 @@ use KrubiK\Render\RichElements\Texts\RichTextEntity;
 use KrubiK\Render\RichElements\Texts\RichText;
 use KrubiK\Render\Kernel\SoulHarvestor;
 
+// Introducing 10.3 Suport Button INSIDE Rich Messages
+use KrubiK\Render\RichElements\Components\RichButton;
+use KrubiK\Keyboard\PowerButton;
+use KrubiK\Enums\ButtonType;
+
 use KrubiK\Facades\Parsentinel; // Input Parser [MD/HTML/Blade]
 
 // ================== CORE DEPENDENCY: RENDER HELPERS ==================
@@ -104,7 +109,12 @@ use function KrubiK\Render\Helpers\{
     underline,
     href, // Renamed to prevent conflicts with Laravel url().
     video,
-    voiceNote
+    voiceNote,
+
+    // TG-API 10.3 Support
+    button,
+    buttons,
+    buttonRow
 };
 
 /**
@@ -1358,6 +1368,23 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     public function voiceNote(VoiceDTO|array $voiceNote, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(voiceNote($voiceNote, $caption));
+    }
+
+    // New 10.3 Support
+
+    public function button(PowerButton|RichButton|string|RichEntity|callable $text, ?string $actionId = null, string|ButtonType|null $type = null, ?array $payload = [], ?float $width = 1.0): self
+    {
+        return $this->addEntity(button($text, $actionId, $type, $payload, $width));
+    }
+
+    public function buttons(array $buttons, ?string $align = null): self
+    {
+        return $this->addBlock(buttons($buttons, $align));
+    }
+
+    public function buttonRow(array $buttons, ?string $align = null): self
+    {
+        return $this->addBlock(buttonRow($buttons, $align)); // exactly-same as buttons
     }
 
 }
