@@ -93,8 +93,8 @@ It was forged around a different belief:
 
 *KrubiK turns bot development into a clean, composable, joyful workflow:*
 
-> [!IMPORTANT] <br> 
-> Inject a Star ⭐ — fuel the flame 🔥🔥 into the War against Cognitive Overhead ⛓️‍💥🪚, and help more developers discover Ultra-DX 🌪🛸
+> [!IMPORTANT]
+> Inject a Star ⭐ — fuel the flame into the War against Cognitive Overhead, if you Love It! Help more developers discover what is Ultra-DX... 🛸🌪
 
 ```php
 // To Activate, Just Drop The Code In :: app/Nexus/GamePanelNexus.php
