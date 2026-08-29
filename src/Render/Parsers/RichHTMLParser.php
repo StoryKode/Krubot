@@ -344,7 +344,7 @@ class RichHTMLParser implements SyntaxWarden
 
             // === Media & Figures (Advanced Handlers) ===
             'figure'              => $this->createFigureBlock($node),
-            'img', 'video', 'audio' => [$this->createMediaBlock($node)], // Standalone media
+            'img', 'video', 'audio', 'tg-document' => [$this->createMediaBlock($node)], // Standalone media
 
             // === Custom Telegram Block Entities ===
             'details'             => [$this->createDetailsBlock($node)],
@@ -580,6 +580,10 @@ class RichHTMLParser implements SyntaxWarden
 
         if ($nodeName === 'img') {
             return photo(['file_id' => $src], $isSpoiler);
+        }
+
+        if ($nodeName === 'tg-document') {
+            return document(['file_id' => $src]);
         }
 
         $pathInfo = pathinfo(parse_url($src, PHP_URL_PATH) ?: '');

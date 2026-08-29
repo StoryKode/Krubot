@@ -46,6 +46,15 @@ use KrubiK\Render\RichElements\Texts\RichTextEntity;
 use KrubiK\Render\RichElements\Texts\RichText;
 use KrubiK\Render\Kernel\SoulHarvestor;
 
+use KrubiK\Render\DTOs\User as UserDTO;
+use KrubiK\Render\DTOs\Animation as AnimationDTO;
+use KrubiK\Render\DTOs\Audio as AudioDTO;
+use KrubiK\Render\DTOs\Location as LocationDTO;
+use KrubiK\Render\DTOs\PhotoSize as PhotoSizeDTO;
+use KrubiK\Render\DTOs\Video as VideoDTO;
+use KrubiK\Render\DTOs\Voice as VoiceDTO;
+use KrubiK\Render\DTOs\Document as DocumentDTO;
+
 // Introducing 10.3 Support Button INSIDE Rich Messages
 use KrubiK\Render\RichElements\Components\RichButton;
 use KrubiK\Keyboard\PowerButton;
@@ -1372,6 +1381,18 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     }
 
     // New 10.3 Support
+
+    /**
+     * Creates an embedded document in the article.
+     *
+     * @param DocumentDTO|array $document The Document object.
+     * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
+     * @return $this
+     */
+    public function document(DocumentDTO|array $document, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    {
+        return $this->addBlock(document($document, $caption));
+    }
 
     public function button(PowerButton|RichButton|string|RichEntity|callable $text, ?string $actionId = null, string|ButtonType|null $type = null, ?array $payload = [], ?float $width = 1.0): self
     {

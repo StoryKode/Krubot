@@ -103,7 +103,10 @@ use function KrubiK\Render\Helpers\{
     underline,
     href, // Renamed to prevent conflicts with Laravel url().
     video,
-    voiceNote
+    voiceNote,
+
+    // New Support 10.3 Embedded Documents
+    document
 };
 
 use KrubiK\Facades\Parsentinel;
@@ -572,7 +575,8 @@ class RichMDParser implements SyntaxWarden
                         'gif' => animation(['file_id' => $url], caption: $cap),
                         'mp3', 'flac', 'wav' => audio(['file_id' => $url], caption: $cap),
                         'ogg', 'opus' => voiceNote(['file_id' => $url], caption: $cap),
-                        default => photo(['file_id' => $url], caption: $cap)
+                        'jpg', 'jpeg', 'png', 'webp' => photo(['file_id' => $url], caption: $cap),
+                        default => document(['file_id' => $url], caption: $cap)
                     };
                     $blocks[] = $mediaEntity;
                     continue;

@@ -33,6 +33,7 @@ use KrubiK\Render\DTOs\Location as LocationDTO;
 use KrubiK\Render\DTOs\PhotoSize as PhotoSizeDTO;
 use KrubiK\Render\DTOs\Video as VideoDTO;
 use KrubiK\Render\DTOs\Voice as VoiceDTO;
+use KrubiK\Render\DTOs\Document as DocumentDTO;
 
 // Import all the RichEntity classes that these helpers will instantiate.
 // This ensures proper type-hinting and return type declarations for IDE support.
@@ -800,7 +801,20 @@ function voiceNote(VoiceDTO|array $voiceNote, RichBlockCaption|RichEntity|callab
     return RichBlockVoiceNote::make($voiceNote, $caption);
 }
 
-// New! Support 10.3 Button & ButtonRow
+// New! Support 10.3 Document, Button & ButtonRow
+
+/**
+ * Creates a RichBlockDocument instance.
+ * Represents an embedded document in the article.
+ *
+ * @param DocumentDTO|array $document The Document model object or its array representation.
+ * @param RichBlockCaption|null $caption An optional caption for the document.
+ * @return RichBlockDocument
+ */
+function document(DocumentDTO|array $document, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockVoiceNote
+{
+    return RichBlockDocument::make($document, $caption);
+}
 
 function button(PowerButton|RichButton|string|RichEntity|callable $text, ?string $actionId = null, string|ButtonType|null $type = null, ?array $payload = [], ?float $width = 1.0): RichTextButton
 {
