@@ -877,9 +877,12 @@ class RichHTMLParser implements SyntaxWarden
                 break;
 
             case 'callback_data':
-                $data = $buttonNode->getAttribute('data') ?: null;
+                // Resolve callback data attribute with fallback priority
+                $data = $buttonNode->getAttribute('callback_data') 
+                    ?: $buttonNode->getAttribute('data') 
+                    ?: null;
                 if ($data !== null) {
-                    $btn->action($data, ButtonType::CallbackData);
+                    $btn->callbackData($data);
                 }
                 break;
 
