@@ -161,6 +161,17 @@ class GamePanelNexus
         // Business logic for wallet top-up...
     }
 
+    #[RestrictTo([
+        Platform::Bale,
+        'tg, rubika', 
+        [
+            'sorush', 
+            [
+                'eitaa, bale', 
+                Platform::Telegram
+            ]
+        ]
+    ])] // RestrictTo will be merged with parentClass Restrictions, Utilizing {{ ::OR:: logic }}
     #[OnCommand('menu')]
     public function showGamesMenu(Krubot $bot): void
     {
@@ -256,7 +267,7 @@ class GamePanelNexus
     /**
      * Renders a page listing all available VIP products.
      *
-     * it will be: /webapps/seperate-address/vip_store (no '.' in first char)
+     * it will be: /webapps/seperate-address/x-vip_store (no '.' in first char)
      */
     #[WebPage('seperate-address.x-vip_store')]
     public function showVipStorePage(): \Illuminate\View\View
@@ -275,17 +286,6 @@ class GamePanelNexus
      * it will be: /webapps/game/dashboard/show_vip_product
      */
     #[WebPage('.show_vip_product.{productId}')]
-    #[RestrictTo([
-        Platform::Bale,
-        'tg, rubika', 
-        [
-            'sabet', 
-            [
-                'eitaa, bale', 
-                Platform::Telegram
-            ]
-        ]
-    ])] // RestrictTo will be merged with parentClass Restrictions, Utilizing {{ ::OR:: logic }}
     public function showVipProductPage(int $productId): Response
     {
         /** @var Product|null $product */
@@ -304,6 +304,14 @@ class GamePanelNexus
             ->line()
             ->bold('Price:')->space()->code(number_format($product->price) . ' Gold Coins')
             ->line()
+            ->buttons([
+                PowerButton::make("Show Wallet")->action('show_wallet'),
+                PowerButton::make("Buy for Another Friend")->action('order', ['id' => $productId])
+            ])
+            ->buttons([
+                PowerButton::make('Open Mini-Store 🛒')->webApp('https://shop.game-store.io'),
+                PowerButton::make('Share Precise Location 📍')->requestLocation()
+            ])
             ->link('Read our terms of service', 'https://example.com/tos');
 
         $richHtmlContent = $article->toHtml();
@@ -350,7 +358,7 @@ class GamePanelNexus
     }
 
     #[OnCommand('vip_article')]
-    #[ForceJoin('StoryKode')]
+    #[ForceJoin('StoryKode', -135564545456)]
     public function showComplexArticle(Krubot $bot): void 
     {
         // Business logic for purchasing gems...
@@ -458,7 +466,7 @@ class GamePanelNexus
     #[RestrictTo('tg,bale')]
     public orphanedMediaReceiver(#[WarLord] $bot, Message $message, Update $update) {
         // called if no any handler catches that types
-        // optionally we can restrict this handler (or whole Nexus to some platforms)
+        // optionally we can restrict this handler (or whole Nexus) to some platforms
     }
 
     #[Fallback]
