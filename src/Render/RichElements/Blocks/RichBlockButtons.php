@@ -20,12 +20,19 @@ readonly class RichBlockButtons implements RichBlockEntity
 
     public static function make(array|callable $buttons, ?string $align = null): self
     {
+        $finalRes = null;
         // Resolve buttons, as they might be a sent as closure.
         $result = collect(self::resolveContent($buttons))->map(function ($button) {
             return ($button instanceof RichButton) ? $button : RichButton::make($button);
         })->toArray();
+
+        if(count($result) === 1) {
+            if(is_array($result[0]) && (count($result[0]) === 1))
+                $finalRes = $result[0][0];
+        }
+
         return new self(
-            ((count($result) === 1) ? $result[0] : $result),
+            $finalRes ?? $result,
             $align
         );
     }

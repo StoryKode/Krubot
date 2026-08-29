@@ -82,6 +82,7 @@ use KrubiK\Render\RichElements\Blocks\RichBlockAnchor;
 use KrubiK\Render\RichElements\Blocks\RichBlockAnimation;
 use KrubiK\Render\RichElements\Blocks\RichBlockAudio;
 use KrubiK\Render\RichElements\Blocks\RichBlockBlockQuotation;
+use KrubiK\Render\RichElements\Blocks\RichBlockExpandableBlockQuotation;
 use KrubiK\Render\RichElements\Blocks\RichBlockCollage;
 use KrubiK\Render\RichElements\Blocks\RichBlockDetails;
 use KrubiK\Render\RichElements\Blocks\RichBlockDivider;
@@ -584,6 +585,11 @@ function audio(AudioDTO|array $audio, RichBlockCaption|RichEntity|callable|strin
 function blockQuotation(array|Arrayable $blocks, RichEntity|callable|string|array|null $credit = null): RichBlockBlockQuotation
 {
     return RichBlockBlockQuotation::make($blocks, $credit);
+}
+
+function expandableBlockQuotation(RichEntity|callable|string|array|null $text, RichEntity|callable|string|array|null $credit = null): RichBlockExpandableBlockQuotation
+{
+    return RichBlockExpandableBlockQuotation::make($text, $credit);
 }
 
 /**

@@ -55,6 +55,8 @@ use KrubiK\Render\RichElements\Blocks\RichBlockPhoto;
 use KrubiK\Render\RichElements\Blocks\RichBlockVideo;
 use KrubiK\Render\RichElements\Blocks\RichBlockAnimation;
 use KrubiK\Render\RichElements\Blocks\RichBlockParagraph;
+use KrubiK\Render\RichElements\Blocks\RichBlockButtons;
+use KrubiK\Render\RichElements\Components\RichButton;
 
 // --- FACTORY HELPERS (DSL) ---
 // Import all necessary helper functions to create RichEntity instances.
@@ -108,7 +110,12 @@ use function KrubiK\Render\Helpers\{
     underline,
     href, // Renamed to prevent conflicts with Laravel url().
     video,
-    voiceNote
+    voiceNote,
+
+    // 10.3 Support
+    expandableBlockQuotation,
+    button,
+    buttons
 };
 
 /**
@@ -322,7 +329,7 @@ class RichHTMLParser implements SyntaxWarden
             'p'                   => [paragraph($children)],
             'div'                 => [paragraph($children)], // Treat divs like paragraphs by default.
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6' => [heading($children, ((int)substr($node->nodeName, 1)))],
-            'blockquote'          => [blockQuotation($children, $this->extractCite($node))],
+            'blockquote'          => $this->createAnyBlockQuotation($node),
             'aside'               => [pullQuotation($children, $this->extractCite($node))],
             'pre'                 => $this->createPreformattedBlock($node, $children),
             'hr'                  => [divider()],
@@ -346,6 +353,9 @@ class RichHTMLParser implements SyntaxWarden
             'tg-slideshow'        => [slideshow($this->filterMediaChildren($children))],
             'tg-math-block'       => [pre($this->extractTextFromChildren($children), 'math')],
             'tg-thinking'         => [thinking($children)],
+
+            'tg-button'           => [button($this->createButtonEntity($node))],
+            'tg-button-row'       => [$this->createButtonRowEntity($node)],
 
             'rich-md'             => Parsentinel::summon('md')->decipher($node->textContent),
 
@@ -800,6 +810,137 @@ class RichHTMLParser implements SyntaxWarden
             $newEntities[] = plain($buffer);
         }
         return $newEntities;
+    }
+
+    protected function createAnyBlockQuotation(DOMElement $node) {
+        $isExpandable = $node->hasAttribute('expandable');
+    
+        $credit = $this->extractCite($node);
+    
+        if ($isExpandable) {
+            // محتوای بلاک‌کوتیشن expandable را به صورت یک RichEntity یا رشته استخراج می‌کنیم
+            // توجه: $children به صورت آرایه نیست، بلکه باید به صورت text یا RichEntity باشد
+            $text = $this->extractTextFromChildren($this->walkNode($node));
+            return [expandableBlockQuotation($text, $credit)];
+        } else {
+            $children = [];
+            foreach ($node->childNodes as $childNode) {
+                $children = array_merge($children, $this->walkNode($childNode));
+            }
+            $children = $this->consolidatePlaintext($children);
+            return [blockQuotation($children, $credit)];
+        }
+    }
+
+    protected function createButtonEntity(DOMElement $buttonNode): RichButton
+    {
+        // 1. استخراج متن داخل دکمه (ممکن است شامل نودهای داخلی مثل <tg-time> یا <tg-emoji> باشد)
+        $children = $this->walkNode($buttonNode);
+        $textContent = $this->extractTextFromChildren($children);
+
+        // 2. استخراج type و style
+        $type = $buttonNode->getAttribute('type') ?: null;
+        $style = $buttonNode->getAttribute('style') ?: null;
+
+        // 3. ساخت نمونه RichButton{PowerButton} با متن و type
+        $btn = RichButton::make($textContent, null, $type);
+
+        // 4. تنظیم style اگر موجود بود
+        if ($style !== null) {
+            $btn->style($style);
+        }
+
+        // 5. بر اساس نوع دکمه، تنظیم سایر خصوصیات
+        switch ($type) {
+            case 'url':
+            case 'web_app':
+                $url = $buttonNode->getAttribute('url') ?: null;
+                if ($url !== null) {
+                    if ($type === 'web_app') {
+                        $btn->webApp($url);
+                    } else {
+                        $btn->url($url);
+                    }
+                }
+                break;
+
+            case 'login_url':
+                $url = $buttonNode->getAttribute('url') ?: null;
+                $forwardText = $buttonNode->getAttribute('forward-text') ?: null;
+                $requestWriteAccess = $buttonNode->hasAttribute('request-write-access');
+                $loginUrlData = [
+                    'url' => $url,
+                    'forward_text' => $forwardText,
+                    'request_write_access' => $requestWriteAccess,
+                ];
+                $btn->loginUrl($loginUrlData);
+                break;
+
+            case 'callback_data':
+                $data = $buttonNode->getAttribute('data') ?: null;
+                if ($data !== null) {
+                    $btn->action($data, ButtonType::CallbackData);
+                }
+                break;
+
+            case 'switch_inline_query':
+                $query = $buttonNode->getAttribute('query') ?: null;
+                $btn->switchInlineQuery($query);
+                break;
+
+            case 'switch_inline_query_current_chat':
+                $query = $buttonNode->getAttribute('query') ?: null;
+                $btn->switchInlineQueryCurrentChat($query);
+                break;
+
+            case 'switch_inline_query_chosen_chat':
+                $query = $buttonNode->getAttribute('query') ?: null;
+                $allowUserChats = $buttonNode->hasAttribute('allow-user-chats');
+                $allowBotChats = $buttonNode->hasAttribute('allow-bot-chats');
+                $allowGroupChats = $buttonNode->hasAttribute('allow-group-chats');
+                $allowChannelChats = $buttonNode->hasAttribute('allow-channel-chats');
+                $btn->switchInlineQueryChosenChat(
+                    null,
+                    $query,
+                    $allowUserChats,
+                    $allowBotChats,
+                    $allowGroupChats,
+                    $allowChannelChats
+                );
+                break;
+
+            case 'copy_text':
+                $copyText = $buttonNode->getAttribute('text') ?: null;
+                $btn->copyText($copyText);
+                break;
+
+            case 'disabled':
+                $btn->disabled(true);
+                break;
+
+            default:
+                // اگر type تعریف نشده یا ناشناخته است، کاری انجام نمی‌دهیم یا می‌توانیم نوع پیش‌فرض را تنظیم کنیم.
+                break;
+        }
+
+        // 6. بازگشت RichButton
+        return $btn;
+    }
+
+    protected function createButtonRowEntity(DOMElement $rowNode): RichBlockButtons
+    {
+        // استخراج تمام دکمه‌های <tg-button> داخل این ردیف
+        $buttons = [];
+
+        foreach ($rowNode->childNodes as $childNode) {
+            if ($childNode instanceof DOMElement && strtolower($childNode->nodeName) === 'tg-button') {
+                $buttons[] = $this->createButtonEntity($childNode);
+            }
+        }
+
+        $align = $rowNode->getAttribute('align') ?: null;
+
+        return buttons($buttons, $align);
     }
 
 
