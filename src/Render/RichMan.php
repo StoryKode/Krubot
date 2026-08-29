@@ -114,7 +114,8 @@ use function KrubiK\Render\Helpers\{
     // TG-API 10.3 Support
     button,
     buttons,
-    buttonRow
+    buttonRow,
+    expandableBlockQuotation
 };
 
 /**
@@ -1385,6 +1386,18 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     public function buttonRow(array $buttons, ?string $align = null): self
     {
         return $this->addBlock(buttonRow($buttons, $align)); // exactly-same as buttons
+    }
+
+    /**
+     * Creates a long, expandable quotation.
+     *
+     * @param RichEntity|callable|string|array|null $text Content of the quote.
+     * @param RichEntity|callable|string|array|null $credit Optional attribution.
+     * @return $this
+    */
+    public function expandableBlockQuotation(RichEntity|callable|string|array|null $text, RichEntity|callable|string|array|null $credit = null): self
+    {
+        return $this->addBlock(expandableBlockQuotation($text, $credit));
     }
 
 }
