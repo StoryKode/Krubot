@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://StoryKo.de/"><img src="https://StoryKo.de/assets/img/DevGX.png" alt="DevGX — Developer Experience Exponentiation" width="600" /></a>
+<a href="https://StoryKo.de/"><img src="https://StoryKo.de/assets/img/KrubiK/Top-Banner.png" alt="StoryCasters TopBanner" width="600" /></a>
 
 <!-- # KRUBIK / KRUBOT
 
@@ -256,12 +256,44 @@ class GamePanelNexus
             
         $bot->reply((string) $myArticle)->send();
 
+        // Schedule a Robust AbandonedCart Reminder
+        $taskId = Lazarus::todo(
+            when: '+2 hours',
+            what: [AbandonedCartProcessor::class, 'handle'],
+            how:  ['cartId' => $cart->id] // can be array|Closure to store cartId, this params will be passed when calling AbandonedCartProcessor@handle method, in 2 hours later...
+        )->id();
+
+        /** @var Cart|null $cart */
+        $cart->update(['abandoned_task_id' => $taskId]); // store taskId to Cancel it in Anytime!
+
         return [
             'status' => 'success',
             'message' => "Order for {$product->name} placed successfully!",
             'order_id' => $orderId,
             'total_cost' => $totalCost
         ];
+    }
+
+    // Not PLaced HandlerAttribute intentionally, so it's Not accesible by your users, this must be called from Code-Side.
+    public function finalizeOrder(Krubot $bot, string $orderId)
+    {
+
+        // Granting Product to User logicz......
+
+        $bot->userStorage()->increment('purchased_items'); // default: +1
+
+        $cart = \App\Models\Cart::findByOrder($orderId);
+
+        if($cart) {
+            // On purchase, cancel Reminder
+            if ($cart->abandoned_task_id) {
+                Lazarus::cancelTodo($cart->abandoned_task_id);
+            }
+            // Works perfectly. The `callable` array is correctly serialized/deserialized,
+            // and the cancellation logic removes it from both the DB and the live SplPriorityQueue todoHeap.
+        }
+
+        // other logicz....
     }
 
     /**
@@ -282,8 +314,6 @@ class GamePanelNexus
      * Renders a divine product page using RichMan's HTML output.
      * The name '.show_vip_product' is relative to 'game.dashboard'.
      * The final resolved URI will be /game/dashboard/show-vip-product/{productId}
-     *
-     * it will be: /webapps/game/dashboard/show_vip_product
      */
     #[WebPage('.show_vip_product.{productId}')]
     public function showVipProductPage(int $productId): Response
@@ -306,7 +336,7 @@ class GamePanelNexus
             ->line()
             ->buttons([
                 PowerButton::make("Show Wallet")->action('show_wallet'),
-                PowerButton::make("Buy for Another Friend")->action('order', ['id' => $productId])
+                PowerButton::make("I Want This!")->action('order', ['id' => $productId])
             ])
             ->buttons([
                 PowerButton::make('Open Mini-Store 🛒')->webApp('https://shop.game-store.io'),
@@ -390,7 +420,7 @@ class GamePanelNexus
 
             ->prepend( bold('TUV is Before::') ) // @see src/Render/RenderHelpers.php
 
-            ->prepend('Intro with <u>underlined text</u>, ==marked text==, and $x^2 + y^2$.')
+            ->prepend('Intro with <u>underlined text</u>, ==marked text==, and $x^3 + y^4$.')
 
             ->takeOver($article) // will be added to elements after mathematicalExpression('x^2 + y^2')
             ->seperator('═', 5)
@@ -527,6 +557,9 @@ This is an attempt to push software development toward something more elegant:
 - more joy in the act of creation.
 
 > ***Let's Become StoryCasters !***
+
+<img src="https://StoryKo.de/assets/img/StoryCasters.png" alt="StoryCasters MainBanner" width="100%" />
+
 ## Table of Contents
 
 - [The Manifesto 📜✨](#the-manifesto)
@@ -566,6 +599,8 @@ What *StoryCasters* Often Do ?
 - Write All Their Business Logics as Intent-driven Stories in sacred Nexuses.
 
 That is why it can feel magical at the first galance...
+
+<img src="https://StoryKo.de/assets/img/KrubiK/Craft-Bussiness-LogicZ.png" alt="StoryCasters Crafting BussinessLogics" width="600" />
 
 ## The Manifesto
 
