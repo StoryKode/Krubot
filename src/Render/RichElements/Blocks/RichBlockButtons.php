@@ -3,6 +3,7 @@
 namespace KrubiK\Render\RichElements\Blocks;
 
 use KrubiK\Render\RichElements\RichEntity;
+use KrubiK\Render\RichElements\Components\RichButton;
 
 /**
  * @see https://core.telegram.org/bots/api#richblockbuttons
@@ -10,7 +11,7 @@ use KrubiK\Render\RichElements\RichEntity;
 readonly class RichBlockButtons implements RichBlockEntity
 {
     /**
-     * @param list<\KrubiK\Render\RichElements\Components\RichButton> $buttons
+     * @param list<RichButton> $buttons
     */
     public function __construct(
         public array|RichEntity $buttons,
@@ -20,7 +21,13 @@ readonly class RichBlockButtons implements RichBlockEntity
     public static function make(array|callable $buttons, ?string $align = null): self
     {
         // Resolve buttons, as they might be a sent as closure.
-        return new self(self::resolveContent($buttons), $align);
+        $result = collect(self::resolveContent($buttons))->map(function ($button) {
+            return ($button instanceof RichButton) ? $button : RichButton::make($button);
+        })->toArray();
+        return new self(
+            ((count($result) === 1) ? $result[0] : $result),
+            $align
+        );
     }
 
     public function toArray(): array

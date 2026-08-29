@@ -46,7 +46,7 @@ use KrubiK\Render\RichElements\Texts\RichTextEntity;
 use KrubiK\Render\RichElements\Texts\RichText;
 use KrubiK\Render\Kernel\SoulHarvestor;
 
-// Introducing 10.3 Suport Button INSIDE Rich Messages
+// Introducing 10.3 Support Button INSIDE Rich Messages
 use KrubiK\Render\RichElements\Components\RichButton;
 use KrubiK\Keyboard\PowerButton;
 use KrubiK\Enums\ButtonType;
@@ -693,7 +693,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
         if($content)
             $this->add($content);
 
-        return $this
+        return $this;
     }
 
     public function space(int $count = 1): self
