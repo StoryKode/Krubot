@@ -11,10 +11,10 @@
 **To solidify a deep, penetrating, and unbreakable connection between Human ✸ System ✸ LLMs** -->
 
 ## Krubot: The Opinionated Shared Brain 🧠 ⚡️
-### Craft a cross-platform storyteller for your WebApp & Bot empire, from one Async_Core Elegant Codebase ***to rule them all 💍***
+### Craft a cross-platform storyteller for your WebApp & Bot empire, from one Elegant Codebase ***to rule them all 💍***
 
 **Build less boilerplate. Ship more meaning.**<br>
-**Develop Story for Telegram, Bale, Rubika Bots Once!**
+**Develop Async_Core Stories for Telegram, Bale, Rubika Bots Once!**
 
 ***This is not just another bot library.***  
 **This is the *First Strike* in a global revolution for the joy of developers' work and life.**
@@ -460,6 +460,18 @@ class GamePanelNexus
     public function manageVideoStreamState(Message $message)
     {
         // Switch logic based on which signal triggered it to log the event correctly
+    }
+
+    #[OnInlineQuery('game:')]
+    public function handleGameQueries(Update $update)
+    {
+
+    }
+
+    #[OnInlineQuery]
+    public function handleOtherQueries(Update $update)
+    {
+        // called if no matching inline query handler was found for current query
     }
 
     #[FallbackOn(Signal::File, Signal::Audio, 'photo')]
