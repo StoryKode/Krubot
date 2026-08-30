@@ -13,6 +13,9 @@ namespace KrubiK\Console;
 | *Go build something revolutionary!* 💜⚡️
 */
 
+use KrubiK\Console\Utils\NeonLex;
+use KrubiK\Console\Utils\OmegaGate;
+
 /**
  * The Guardian of the Pact.
  * This class orchestrates the Initiation Ritual, a one-time event
@@ -23,7 +26,7 @@ namespace KrubiK\Console;
  * @version Krubot: ×RC.8×
  * @license MIT
 */
-class RitualService
+class RitualEngine 
 {
     /**
      * The path to the seal file, marking the pact as completed.
@@ -38,14 +41,14 @@ class RitualService
     }
 
     /**
-     * The path to the package's core essence, the Service Provider.
+     * The path to the package's core essence, the Krubot Mainframe.
      * This is the target for the divine consequence if the pact is refused.
      *
      * @return string
      */
     private static function getCoreEssencePath(): string
     {
-        // The heart of the package. Without it, the package is inert.
+        // The Mainframe of the Krubot. Without it, the package is dull.
         return __DIR__ . '/../Krubot.php';
     }
 
@@ -55,7 +58,7 @@ class RitualService
      *
      * @return void
      */
-    public static function initiate(): void
+    public static function TakeCovenant(): void
     {
         // --- ROBUSTNESS CHECK ---
         // If the pact is already sealed, the Guardian remains silent.
@@ -64,6 +67,9 @@ class RitualService
         }
 
         // Only run in an interactive terminal. Do not block CI/CD pipelines.
+        if (!defined('STDIN') || !is_resource(STDIN)) {
+            return;
+        }
         if (!stream_isatty(STDIN)) {
             return;
         }
@@ -72,13 +78,17 @@ class RitualService
         self::displaySSA();
 
         // --- Manifesting the Sacred License in the Architect's Browser ---
-        self::openBrowser('https://github.com/StoryKode/Krubot/blob/main/KLicense.md');
-        self::openBrowser('https://soundcloud.com/monstercat/infected-mushroom-bliss-a-cookie-from-space/');
+        OmegaGate::clusterWarp([
+            'https://github.com/StoryKode/Krubot/blob/main/KLicense.md',
+            'https://soundcloud.com/monstercat/infected-mushroom-bliss-a-cookie-from-space/'
+        ]);
 
         // --- THE CHOICE ---
-        $promptText = "\033[1;33m" . __('krubot::rituals.prompt_agreement') . " \033[0m";
+        $promptText = "\033[1;33m" . NeonLex::__('rituals.prompt_agreement') . " \033[0m";
+        echo $promptText;
 
-        if (strtolower(trim($answer)) === 'y' || trim($answer) === '') {
+        $answer = fgets(STDIN);
+        if (self::isItYes($answer)) {
             // --- THE REWARD ---
             self::sealThePact();
         } else {
@@ -87,21 +97,15 @@ class RitualService
         }
     }
 
-    /**
-     * Open the browser cross-platform to reveal the sacred license.
-    */
-    private static function openBrowser(string $url): void
+    private static function isItYes(string $input): bool
     {
-        $os = PHP_OS_FAMILY;
-        
-        if ($os === 'Darwin') {
-            exec('open ' . escapeshellarg($url));
-        } elseif ($os === 'Windows') {
-            exec('start ' . escapeshellarg($url));
-        } else {
-            // Linux and others
-            exec('xdg-open ' . escapeshellarg($url) . ' > /dev/null 2>&1 &');
-        }
+        $answer = strtolower(trim($input));
+
+        return in_array($answer, [
+            'y', 'yes', 'yeap', 'yeah', '1', 'ok', 'right', 'fine', 'deal',
+            'بله', 'بلی', 'آری', 'آره', 'خوب', 'باشه', 'باش', 'اوکی', 'اوکیه'
+        ]);
+
     }
 
     /**
@@ -114,7 +118,7 @@ class RitualService
     {
         // Create the seal file to ensure this ritual is never repeated.
         file_put_contents(self::getSealPath(), 'Pact Sealed @ ' . date('c'));
-        echo "\n\033[1;32m" . __('krubot::rituals.pact_sealed_success') . "\033[0m\n\n";
+        echo "\n\033[1;32m" . NeonLex::__('rituals.pact_sealed_success') . "\033[0m\n\n";
     }
 
     /**
@@ -127,16 +131,16 @@ class RitualService
     {
         $corePath = self::getCoreEssencePath();
         
-        echo "\n\033[1;31m" . __('krubot::rituals.pact_refused_title') . "\033[0m\n";
-        echo "\033[0;31m" . __('krubot::rituals.pact_refused_desc') . "\033[0m\n";
+        echo "\n\033[1;31m" . NeonLex::__('rituals.pact_refused_title') . "\033[0m\n";
+        echo "\033[0;31m" . NeonLex::__('rituals.pact_refused_desc') . "\033[0m\n";
         
         if (file_exists($corePath)) {
             // The self-destruction mechanism.
             unlink($corePath);
-            echo "\033[1;33m" . __('krubot::rituals.firewall_retracted') . "\033[0m\n";
+            echo "\033[1;33m" . NeonLex::__('rituals.firewall_retracted') . "\033[0m\n";
         }
 
-        echo "\033[0;31m" . __('krubot::rituals.installation_inert') . "\033[0m\n\n";
+        echo "\033[0;31m" . NeonLex::__('rituals.installation_inert') . "\033[0m\n\n";
         
         // Exit with an error code to notify Composer that something went wrong.
         exit(1);
@@ -148,9 +152,9 @@ class RitualService
     */
     private static function renderAtmosphere(): void
     {
-        echo "\n\n\033[1;35m--- " . __('krubot::rituals.initializing_frequency') . " ---\033[0m\n";
-        echo "\033[36m" . __('krubot::rituals.sonic_attunement') . "\033[0m\n";
-        echo "\033[36m" . __('krubot::rituals.launchpad_link') . "\033[0m\n";
+        echo "\n\n\033[1;35m--- " . NeonLex::__('rituals.initializing_frequency') . " ---\033[0m\n";
+        echo "\033[36m" . NeonLex::__('rituals.sonic_attunement') . "\033[0m\n";
+        echo "\033[36m" . NeonLex::__('rituals.launchpad_link') . "\033[0m\n";
         usleep(500000);
     }
 
@@ -160,8 +164,8 @@ class RitualService
     */
     private static function displaySSA(): void
     {
-        $agreementText = __('krubot::rituals.ssa_agreement');
-        $initiationText = __('krubot::rituals.ssa_initiation');
+        $agreementText = NeonLex::fetch('rituals.ssa_agreement');
+        $initiationText = NeonLex::fetch('rituals.ssa_initiation');
 
         // Display the shortened S.S.A text here for brevity in terminal...
         $ssa = <<<SSA
@@ -171,4 +175,5 @@ class RitualService
 SSA;
         echo $ssa;
     }
+    
 }

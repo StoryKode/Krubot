@@ -32,7 +32,8 @@
         },
         "files": [
             "src/WarLording/Helpers.php",
-            "src/Render/RenderHelpers.php"
+            "src/Render/RenderHelpers.php",
+            "src/Render/RitualServitor.php"
         ]
     },
     "autoload-dev": {
@@ -53,11 +54,6 @@
                 "Article": "KrubiK\\Facades\\Article"
             }
         }
-    },
-    "scripts": {
-        "post-package-install": [
-            "KrubiK\\Console\\RitualService::initiate"
-        ]
     },
     "prefer-stable": true
 }

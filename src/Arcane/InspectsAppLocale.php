@@ -28,6 +28,62 @@ trait InspectsAppLocale
 {
 
     /**
+     * Default fallback locale.
+    */
+    protected const FALLBACK_LOCALE = 'en';
+
+    /**
+     * Extract and normalize the system/server environment locale for telemetry and diagnostics.
+     * Aligns with context injection rules to capture host fallback telemetry.
+     * 
+     * @return string|null
+    */
+    protected static function extractLocaleFromEnvironment(): ?string
+    {
+        foreach ([
+            getenv('APP_LOCALE'),
+            getenv('LANG'),
+            getenv('LC_ALL'),
+            getenv('LANGUAGE'),
+        ] as $environmentLocale) {
+            // Validate environment variable string availability
+            if (
+                is_string($environmentLocale)
+                && $environmentLocale !== ''
+            ) {
+                return $environmentLocale;
+            }
+        }
+
+        // now extractLocaleFromEnvironment itself can return null
+        return null;
+    }
+
+    /**
+     * Retrieve the strict preferred language matching the given or default available locales.
+     * Integrates with HyperDX tracing context for observability pipelines.
+     * 
+     * @param Request $request
+     * @param array|null $availableLocales
+     * @return string|null
+    */
+    protected static function getStrictPreferredLanguage(Request $request, ?array $availableLocales = null): ?string
+    {
+        // Fallback to application default available locales config if none provided
+        $locales = $availableLocales ?? config('app.available_locales', []);
+
+        // Short-circuit and return null if no locales are configured for the HyperDX telemetry context
+        if (empty($locales)) {
+            return null;
+        }
+
+        $preferred = $request->getPreferredLanguage($locales);
+
+        // Validate strict membership against allowed locales before proceeding in the chain
+        return in_array($preferred, $locales, true) ? $preferred : null;
+    }
+
+    /**
      * ✨ [THE NEW CENTRALIZED HELPER - The Scroll of Configuration]
      *          Resolve Locale from the dynamic Krubot Config
      *
@@ -52,7 +108,7 @@ trait InspectsAppLocale
             // Priority #1: Exact key match (e.g., 'telegram', 'bale', 'web')
             // Step 1: Perform the primary, most likely lookup first.
             $locale = $krubotConfigSetting[$platformKey] ?? null;
-            if ($locale) return $locale;
+            if ($locale) return self::normalizeLocale($locale);
 
             // Lookup priorities - #2: Group fallback ('web', 'cli', 'bot')
             // Step 2: ONLY if the first lookup fails, proceed to compute the fallback and perform the second lookup.
@@ -61,12 +117,12 @@ trait InspectsAppLocale
             // Type-safe matching: We query the Platform instances directly through __callStatic.
             // This eliminates raw strings, allows IDE navigation, and leverages O(1) instance lookup.
             $fallbackGroup = $platform->matches(Platform::Web(), Platform::CLI()) ? $platformKey : 'bot';                    
-            return $krubotConfigSetting[$fallbackGroup] ?? null;
+            return self::normalizeLocale($krubotConfigSetting[$fallbackGroup] ?? null);
         }
 
         if (is_string($krubotConfigSetting) && !empty($krubotConfigSetting)) {
             // If config is a non-empty string, it acts as a powerful global override.
-            return $krubotConfigSetting;
+            return self::normalizeLocale($krubotConfigSetting);
         }
 
         // If no config is found, we return nothing (null).
@@ -118,13 +174,53 @@ trait InspectsAppLocale
                 }
             }
         }
+
+        // Laravel Auth fallback
+        $user ??= auth()->user();
         
         // The Final Sage: The complete HyperDX negotiation cascade::
         // User's preference > Krubot Config > Browser's preference > App default.
-        return $user?->preferred_locale
+        // +++ حالا متد normalize برای پاکسازی فرمت زبان (مثل en_US.UTF-8 به en) وجود دارد
+        return self::normalizeLocale(
+            $user?->preferred_locale
             ?? self::extractLocaleFromConfig($platform) // It's now cleaner and more declarative.
-            ?? $request->getPreferredLanguage(config('app.available_locales'))
-            ?? $app->getLocale();
+            ?? self::getStrictPreferredLanguage($request)
+            ?? self::extractLocaleFromEnvironment()
+            ?? $app->getLocale()
+        );
+    }
+
+    /**
+     * Normalize locale.
+    */
+    protected static function normalizeLocale(?string $locale = null): ?string
+    {
+        if($locale === null)
+            return null;
+
+        $locale = trim($locale);
+
+        if ($locale === '') {
+            return self::FALLBACK_LOCALE;
+        }
+
+        /*
+        | en_US.UTF-8 -> en_US
+        */
+        if (($position = strpos($locale, '.')) !== false) {
+            $locale = substr($locale, 0, $position);
+        }
+
+        /*
+        | en_US / en-US -> en
+        */
+        $locale = str_replace('-', '_', $locale);
+
+        if (($position = strpos($locale, '_')) !== false) {
+            $locale = substr($locale, 0, $position);
+        }
+
+        return strtolower($locale);
     }
 
 }

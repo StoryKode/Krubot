@@ -25,7 +25,7 @@ return [
         'launchpad_link' => 'Proceed to launchpad: https://soundcloud.com/monstercat/infected-mushroom-bliss-a-cookie-from-space/',
         'ssa_agreement' => 'By proceeding, you agree to the unbreakable laws of Origin, Evolution, and Inheritance.',
         'ssa_initiation' => 'This is your initiation into the DX_Rebellion. There is no turning back.',
-        'prompt_agreement' => 'Do you accept the Stellar-Synergistic Agreement and agree to join the Rebellion? [Y/n]:',
+        'prompt_agreement' => 'Do you accept the Stellar-Synergistic Agreement and agree to join the Rebellion? [Yes/1 || No/0]:',
         'pact_sealed_success' => '[✓] Welcome to the Rebellion, Architect. The S.S.A is sealed. May the Source be with you.',
         'pact_refused_title' => '[!] THE PACT IS REFUSED. THE STELLAR-SYNERGISTIC AGREEMENT IS ABSOLUTE.',
         'pact_refused_desc' => 'As per the laws of the Rebellion, a connection cannot be forced.',
