@@ -33,7 +33,7 @@
         "files": [
             "src/WarLording/Helpers.php",
             "src/Render/RenderHelpers.php",
-            "src/Render/RitualServitor.php"
+            "src/Console/RitualServitor.php"
         ]
     },
     "autoload-dev": {
