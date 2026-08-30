@@ -17,6 +17,7 @@ namespace KrubiK\Console;
 // Bringing Pain_&_Pleasure Concept from Neuro-Linguistic Programming, transfered to PHP.
 
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -54,10 +55,10 @@ class MakeNexusCommand extends GeneratorCommand
      *
      * @return void
     */
-    public function __construct()
+    public function __construct(Filesystem $files)
     {
         // Call parent constructor
-        parent::__construct();
+        parent::__construct($files);
 
         // Set the description using the translation helper
         $this->description = __('krubot::commands.nexus_make_description');

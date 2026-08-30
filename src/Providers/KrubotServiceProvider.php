@@ -18,6 +18,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use KrubiK\Krubot;
 use KrubiK\Drivers\Nemesis as KrubotManager;
@@ -25,7 +26,7 @@ use KrubiK\Console\KrubiKPulse;
 use KrubiK\Console\LazarusProtocol;
 use KrubiK\Console\MakeMigrationsCommand;
 use KrubiK\Console\CacheNexusesCommand;
-use KrubiK\Console\ListNexusesCommand;
+use KrubiK\Console\KrubotMindSimulator;
 use KrubiK\Console\MakeNexusCommand;
 use KrubiK\Helpers\AmethystMatrix;
 use KrubiK\Helpers\OpcacheRuler;
@@ -259,21 +260,15 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
             return RichMan::summon();
         });
 
-        // We bind the LazarusProtocol class as a singleton. This means the
-        // very first time it's resolved (which will be by the Artisan kernel
-        // when the command starts), that specific instance is stored.
-        // ALL subsequent resolutions, including from our Facade, will receive
-        // this exact same, living, breathing instance.
-        $this->app->singleton(LazarusProtocol::class, function (Application $app) {
-            // Let the console kernel construct the command as it normally would.
-            return $app->make(LazarusProtocol::class);
-        });
+        \class_alias(
+            LazarusProtocol::class,
+            'Lazarus'
+        );
 
         // Create a convenient alias for easier resolution binding or for the Facade.
         $this->app->alias(Krubot::class, 'krubot');
         $this->app->alias(MultiverseEnforcer::class, 'krubot.driver');
         $this->app->alias(OpcacheRuler::class, 'opcache.ruler');
-        $this->app->alias(LazarusProtocol::class, 'lazarus');
 
         // Register the Middleware Alias (Codename SSP)
         // This makes the 'ssp.protocol' codename available throughout the host application.
@@ -413,7 +408,7 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
             KrubiKPulse::class,
             LazarusProtocol::class,
             CacheNexusesCommand::class, // The performance booster
-            ListNexusesCommand::class,  // The debugging tool
+            KrubotMindSimulator::class,  // The debugging tool
             MakeNexusCommand::class,    // The workflow accelerator
             MakeMigrationsCommand::class,
         ]);
@@ -429,22 +424,39 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
      */
     public function provides(): array
     {
-        return [
+        $provided_dxkit = [
             Krubot::class,
+            SynapticSurgeProtocol::class,
+            OpcacheRuler::class,
             MultiverseEnforcer::class,
+            AxiomCore::class,
+            RenderAura::class,
             'krubot',
+            'lazarus',
             'amethyst.empress',
             'nemesis',
             'krubot.manager',
             'krubot.driver',
+            'opcache.ruler',
+            'richman',
 
 
             KrubiKPulse::class, 'command.krubik:pulse',
             LazarusProtocol::class, 'command.krubik:lazarus',
             CacheNexusesCommand::class, 'command.krubik:nexus-cache', // The performance booster
-            ListNexusesCommand::class, 'command.krubik:nexus-list',  // The debugging tool
             MakeNexusCommand::class, 'command.krubik:nexus-make',    // The workflow accelerator
             MakeMigrationsCommand::class, 'command.krubik:make-migrations',
+            // The debugging tool
+            KrubotMindSimulator::class, 'command.krubot:mind-simulator', 'command.krubik:nexus:inspect', 'command.krubik:nexus-list',
         ];
+
+        if($this->app['config']->get('krubot.blade-cipher.enabled', false)) {
+            $provided_dxkit []= 'blade.compiler';
+            $provided_dxkit []= BladeCipher::class;
+        }
+
+        Parsentinel::introduceTo($provided_dxkit);
+
+        return $provided_dxkit;
     }
 }

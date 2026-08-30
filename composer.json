@@ -49,7 +49,6 @@
             ],
             "aliases": {
                 "KruboT": "KrubiK\\Facades\\KruboT",
-                "Lazarus": "KrubiK\\Facades\\Lazarus",
                 "Opcache": "KrubiK\\Facades\\Opcache",
                 "Article": "KrubiK\\Facades\\Article"
             }

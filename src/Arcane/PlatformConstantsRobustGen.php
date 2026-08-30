@@ -15,7 +15,7 @@ namespace KrubiK\Arcane;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Contracts\Foundation\ClassLoader;
+use Composer\Autoload\ClassLoader;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Arr;
 use KrubiK\Facades\Opcache;
@@ -161,14 +161,34 @@ trait PlatformConstantsRobustGen
     */
     private function buildGPlatformsContent(array $platforms, array $legions, array $aliases): string
     {
+        $emittedConstants = []; // نام ثابت‌های تولید شده
+
         // --- Section 1: Canonical Platform Constants ---
         $platformConsts = collect($platforms)
-            ->map(fn(string $name) => "    public const {$this->formatIdentifierAsConstantName($name)} = '{$name}';")
+            /// ->map(fn(string $name) => "    public const {$this->formatIdentifierAsConstantName($name)} = '{$name}';")
+            ->map(function (string $name) use (&$emittedConstants) {
+                $constantName = $this->formatIdentifierAsConstantName($name);
+                if (isset($emittedConstants[$constantName])) {
+                    return null; // تکراری است، رد شود
+                }
+                $emittedConstants[$constantName] = true;
+                return "    public const {$constantName} = '{$name}';";
+            })
+            ->filter()
             ->implode("\n");
 
         // --- Section 2: Alias Constants ---
         $aliasConsts = collect($aliases)
-            ->map(fn(string $canonical, string $alias) => "    public const {$this->formatIdentifierAsConstantName($alias)} = '{$canonical}';")
+            /// ->map(fn(string $canonical, string $alias) => "    public const {$this->formatIdentifierAsConstantName($alias)} = '{$canonical}';")
+            ->map(function (string $canonical, string $alias) use (&$emittedConstants) {
+                $constantName = $this->formatIdentifierAsConstantName($alias);
+                if (isset($emittedConstants[$constantName])) {
+                    return null; // تکراری است، رد شود
+                }
+                $emittedConstants[$constantName] = true;
+                return "    public const {$constantName} = '{$canonical}';";
+            })
+            ->filter()
             ->implode("\n");
 
         // --- Section 3: Legion Constants ---
@@ -300,24 +320,32 @@ PHP;
         if (empty($assocArray)) return '[]';
         $items = collect($assocArray)->map(fn($value, $key) => "'{$key}' => '{$value}'");
         return '[' . $items->implode(', ') . ']';
-    }
-    
+    }    
 
     /**
      * Formats a simple list of strings (numerically indexed array) into a modern, short-syntax PHP array string.
      * e.g., ['a', 'b'] becomes "['a', 'b']"
      * @param string[] \$list A flat array of strings.
      * @return string A string representing the array in PHP code.
-     */
+    */
     private function formatListForPhpExport(array $list): string
     {
         if (empty($list)) return '[]';
         sort($list); // Ensure consistent order
 
-        // 1. Wrap each string item in single quotes.
+        // 1. :_NEW_: Handle nested arrays while preserving the original string-list behavior.
+        if (is_array($list[0] ?? null)) {
+            $formattedItems = collect($list)->map(
+                fn(array $item) => $this->formatListForPhpExport($item)
+            );
+
+            return '[' . $formattedItems->implode(', ') . ']';
+        }
+
+        // 2. Wrap each string item in single quotes.
         $quotedItems = collect($list)->map(fn(string $item) => "'{$item}'");
 
-        // 2. Join them with a comma and a space AND Wrap the whole thing in square brackets..
+        // 3. Join them with a comma and a space AND Wrap the whole thing in square brackets..
         return '[' . $quotedItems->implode(', ') . ']';
     }
 
@@ -334,19 +362,26 @@ PHP;
         ksort($array);
     }
 
+    private function hasDuplicateConstants(string $content): bool
+    {
+        preg_match_all('/public\s+const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/', $content, $matches);
+        $constants = $matches[1] ?? [];
+        return count($constants) !== count(array_unique($constants));
+    }
+
     /**
      * Dynamically registers the PSR-4 autoloader for our generated class.
-     * --- CORRECTED ---
+     * --- RE-CORRECTED ---
     */
     private function registerGeneratedClassAutoloader(): void
     {
         if (file_exists($this->generatedPlatformsFilePath)) {
             // CHANGE: The namespace points to the generated classes directory.
-            // This allows us to have KrubiK\Generated\Platform class.
+            // This allows us to have App\Generated\Platform class.
 
-            // This is the clean, modern way to add a dynamic autoloader path in Laravel.
-            $this->app->make(ClassLoader::class)
-                ->addPsr4('App\\Generated\\', $this->generatedPlatformsDir);
+            // This is the clean, modern way to add a dynamic autoloader path to Composer.
+            foreach (ClassLoader::getRegisteredLoaders() as $loader)
+                $loader->addPsr4('App\\Generated\\', $this->generatedPlatformsDir, true);
         }
     }
 

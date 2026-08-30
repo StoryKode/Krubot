@@ -154,4 +154,16 @@ class Parsentinel
         $thisApp->bind(RichHTMLParser::class, fn () => new RichHTMLParser());
         $thisApp->bind(RichBladeFragmentParser::class, fn () => new RichBladeFragmentParser());
     }
+
+    public static function introduceTo(array &$provided): void
+    {
+        array_push(
+            $provided,
+
+            self::class,
+            RichMDParser::class,
+            RichHTMLParser::class,
+            RichBladeFragmentParser::class,
+        );
+    }
 }

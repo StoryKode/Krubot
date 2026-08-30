@@ -156,13 +156,6 @@ class LazarusProtocol extends Command
     /** Re-read DB every N loops so HTTP/Job-scheduled todos enter the hot window. */
     private const TODO_HYDRATE_EVERY_LOOPS = self::DB_PING_INTERVAL;
 
-    /**
-     * The name of the database table used to persist todo tasks.
-     *
-     * @var string
-     */
-    protected string $todoTableName;
-
 
     /** @var array<string, true> ids currently sitting in todoHeap (O(1) membership) */
     private array $todoIndex = [];
@@ -232,6 +225,7 @@ class LazarusProtocol extends Command
 
     private CacheLock $lock;
     private bool $shouldStop = false;
+    private static ?self $runningInstance = null;
 
     /**
      * The Entry Point.
@@ -266,8 +260,7 @@ class LazarusProtocol extends Command
         $tag = $this->option('tag');
         $isStealth = $this->option('stealth');
 
-        // Initialize the table name from configuration
-        $this->todoTableName = config('krubot.lazarus.todo_table_name', 'lazarus_todos');
+        self::$runningInstance = $this;
 
         // Cooperative runtime structures (must exist before first tick)
         $this->taskQueue = new SplQueue();
@@ -450,6 +443,8 @@ class LazarusProtocol extends Command
                 $this->cooperativeIdle((int) $interval);
             }
         } finally {
+            self::$runningInstance = null;
+
             // Polite cleanup
             ///optional($this->lock)->release();
 
@@ -646,7 +641,7 @@ class LazarusProtocol extends Command
     private function recoverOrphanedTodoClaims(): void
     {
         try {
-            DB::table($this->todoTableName)
+            DB::table(self::getTodoTableName())
                 ->where('status', self::TODO_STATUS_RUNNING)
                 ->update(['status' => self::TODO_STATUS_PENDING]);
         } catch (\Throwable $e) {
@@ -680,7 +675,7 @@ class LazarusProtocol extends Command
 
         // We only select pending tasks (status = 0).
         // This query fetches tasks that are either already due or will be due very soon.
-        $query = DB::table($this->todoTableName)
+        $query = DB::table(self::getTodoTableName())
             ->where('status', self::TODO_STATUS_PENDING)
             ->where('due_at', '<=', $dueBefore)
             ->orderBy('due_at', 'asc')
@@ -1595,40 +1590,55 @@ class LazarusProtocol extends Command
      * @return LazarusTask
      * @throws InvalidArgumentException HOW must be an array or a Closure that returns an array;
      */
-    public function todo(
+    public static function todo(
         \DateTimeInterface|\DateInterval|int|string $when,
         callable $what,
         array|\Closure|null $how = null    // Snapshot Ability: Capture an ID or any data at the moment of scheduling.
     ): LazarusTask {
-
-        // Fix: guard — todoHeap requires modern queue mode
-        if (!$this->useModernQueue || !isset($this->todoHeap)) {
-            $this->info('todo() rejected: modern queue is disabled.');
-            return LazarusTask::rejected();
-        }
-
-        // Check if the internal heap has reached its capacity limit.
-        if ($this->todoHeap->count() >= self::MAX_INTERNAL_QUEUE) {
-            $this->info('todo() rejected: internal heap is full.');
-
-            return LazarusTask::rejected();
-        }
 
         // Normalize the flexible 'when' input into a standard DateTime object.
         $due = advanceDateTime($when);
         $dueTs = (float) $due->format('U.u');
         $id = Str::uuid()->toString(); /// bin2hex(random_bytes(16)); // More entropy for safety
 
-        {{{ // HELP FOR LLM ::
-            Schema::create('lazarus_todos', function (Blueprint $table) {
-                $table->uuid('id')->primary();
-                $table->timestamp('due_at', 6); // با دقت میکروثانیه
-                $table->text('payload');
-                $table->tinyInteger('status')->comment('future-proofing')->default(0);
-                
-                $table->index(['status', 'due_at']); // ایندکس جادویی!
-            });
-        }}}
+         // instance زنده → مستقیم به heap
+        $instance = self::$runningInstance;
+        
+        if ($instance !== null) {
+
+            // Fix: guard — todoHeap requires modern queue mode
+            if (!$instance->useModernQueue || !isset($instance->todoHeap)) {
+                $instance->info('todo() rejected: modern queue is disabled.');
+                return LazarusTask::rejected();
+            }
+
+            // Check if the internal heap has reached its capacity limit.
+            if ($instance->todoHeap->count() >= self::MAX_INTERNAL_QUEUE) {
+                $instance->info('todo() rejected: internal heap is full.');
+
+                return LazarusTask::rejected();
+            }
+
+            // Hot cache only: live heap + due within this incarnation's lookahead.
+            $withinWindow = $dueTs <= ((float) now()->format('U.u') + self::TODO_LOAD_WINDOW_TTL);
+
+            if (
+                $instance->useModernQueue
+                && isset($instance->todoHeap)
+                && $withinWindow
+                && !isset($instance->todoIndex[$id])
+                && $instance->todoHeap->count() < self::MAX_INTERNAL_QUEUE
+            ) {
+                $instance->todoHeap->insert([
+                    'id'   => $id,
+                    'due'  => $dueTs,
+                    'what' => $what,
+                    'how'  => $how,
+                ], -$dueTs);
+
+                $instance->todoIndex[$id] = true;
+            }
+        }
 
         try {
             // Prepare payload for serialization.
@@ -1642,7 +1652,7 @@ class LazarusProtocol extends Command
             ];
 
             // تمام. یک INSERT اتمی، سریع و بدون Race Condition.
-            DB::table($this->todoTableName)->insert([
+            DB::table(self::getTodoTableName())->insert([
                 'id' => $id,
                 'due_at' => $due,
                 'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
@@ -1655,28 +1665,8 @@ class LazarusProtocol extends Command
             return LazarusTask::rejected();
         }
 
-        // Hot cache only: live heap + due within this incarnation's lookahead.
-        $withinWindow = $dueTs <= ((float) now()->format('U.u') + self::TODO_LOAD_WINDOW_TTL);
-
-        if (
-            $this->useModernQueue
-            && isset($this->todoHeap)
-            && $withinWindow
-            && !isset($this->todoIndex[$id])
-            && $this->todoHeap->count() < self::MAX_INTERNAL_QUEUE
-        ) {
-            $this->todoHeap->insert([
-                'id'   => $id,
-                'due'  => $dueTs,
-                'what' => $what,
-                'how'  => $how,
-            ], -$dueTs);
-
-            $this->todoIndex[$id] = true;
-        }
-
         // Return a fluent handle for potential cancellation or inspection.
-        return new LazarusTask($id, $due, $this);
+        return new LazarusTask($id, $due);
     }
 
     /**
@@ -1691,7 +1681,7 @@ class LazarusProtocol extends Command
         $id = (string) $todo['id'];
 
         // Source of truth: vanished row = cancelled / already done / never persisted.
-        $claimed = DB::table($this->todoTableName)
+        $claimed = DB::table(self::getTodoTableName())
             ->where('id', $id)
             ->where('status', self::TODO_STATUS_PENDING)
             ->update(['status' => self::TODO_STATUS_RUNNING]);
@@ -1710,14 +1700,14 @@ class LazarusProtocol extends Command
             $this->comment("✅ Execution completed for [{$todo['id']}]");
             
             // Mark as completed in the source of truth.
-            DB::table($this->todoTableName)->where('id', $todo['id'])->delete();
-            /// DB::table($this->todoTableName)->where('id', $todo['id'])->update(['status' => 2]);
+            DB::table(self::getTodoTableName())->where('id', $todo['id'])->delete();
+            /// DB::table(self::getTodoTableName())->where('id', $todo['id'])->update(['status' => 2]);
 
         }
         catch (Throwable $e) {
 
             // Mark as failed for inspection but prevent retrying forever.
-            DB::table($this->todoTableName)->where('id', $todo['id'])->update(['status' => self::TODO_STATUS_FAILED]); // @Todo: add `retries` field
+            DB::table(self::getTodoTableName())->where('id', $todo['id'])->update(['status' => self::TODO_STATUS_FAILED]); // @Todo: add `retries` field
 
             $this->error("🔥 Execution FAILED for todo [{$todo['id']}]", ['error' => $e->getMessage()]);
             report($e);
@@ -1805,22 +1795,43 @@ class LazarusProtocol extends Command
      * @param string $id
      * @return bool
      */
-    public function cancelTodo(string $id): bool
+    public static function cancelTodo(string $id): bool
     {
         // Ignore invalid IDs.
         if ($id === '') {
             return false;
         }
-        
-        // Add the ID to the cancellation list. This is an O(1) operation.
-        // The actual task is not removed from the heap, but will be ignored
-        // when it's processed in processDueTodos().
-        $this->cancelledTodos[$id] = true;
-        unset($this->todoIndex[$id]);
+
+        $instance = self::$runningInstance;
+
+        if ($instance !== null) {        
+            // Add the ID to the cancellation list. This is an O(1) operation.
+            // The actual task is not removed from the heap, but will be ignored
+            // when it's processed in processDueTodos().
+            $this->cancelledTodos[$id] = true;
+            unset($this->todoIndex[$id]);
+        }
 
         // Remove from database
-        DB::table($this->todoTableName)->where('id', $id)->delete();
+        DB::table(self::getTodoTableName())->where('id', $id)->delete();
 
         return true;
+    }
+
+    /**
+     * The name of the database table used to persist todo tasks.
+     *
+     * @var string
+     */
+    protected static ?string $todoTableName = null;
+
+    protected static function getTodoTableName(): string
+    {
+        if(self::$todoTableName !== null)
+            return self::$todoTableName;
+
+        // Initialize the table name from configuration
+        self::$todoTableName = config('krubot.lazarus.todo_table_name', 'lazarus_todos');
+        return self::$todoTableName;
     }
 }

@@ -72,7 +72,7 @@ class RitualService
         self::displaySSA();
 
         // --- Manifesting the Sacred License in the Architect's Browser ---
-        self::openBrowser('https://github.com/PolyMath-XK/Krubot/blob/main/KLicense.md');
+        self::openBrowser('https://github.com/StoryKode/Krubot/blob/main/KLicense.md');
         self::openBrowser('https://soundcloud.com/monstercat/infected-mushroom-bliss-a-cookie-from-space/');
 
         // --- THE CHOICE ---

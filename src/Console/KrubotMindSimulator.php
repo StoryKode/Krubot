@@ -95,9 +95,9 @@ class KrubotMindSimulator extends Command
                             {--lang=en : Set the Interface language (en, fa)}
                             {--theme=dark : Set the Color theme (dark, light)}
                             {--reveal|oracle|symfony|dump : Force Unleash a raw, deep introspection of manifests via the Symfony VarDumper}
-                            {--simple|p : Shortcut to force simple/basic mode. Overrides --mode}
+                            {--simple|s : Shortcut to force simple/basic mode. Overrides --mode}
                             {--pro|p : Shortcut to force complex/pro/details mode. Overrides --mode}
-                            {--live|p : Shortcut to force live/interactive mode. Overrides --mode}';
+                            {--live|l : Shortcut to force live/interactive mode. Overrides --mode}';
 
     /**
      * The console command aliases.

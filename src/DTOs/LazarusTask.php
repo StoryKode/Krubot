@@ -26,8 +26,7 @@ final class LazarusTask
 {
     public function __construct(
         private readonly string $id,
-        private readonly ?\DateTimeImmutable $due,
-        private readonly ?LazarusProtocol $protocol = null,
+        private readonly ?\DateTimeImmutable $due
     ) {}
 
     /**
@@ -36,7 +35,7 @@ final class LazarusTask
      */
     public static function rejected(): self
     {
-        return new self('', null, null);
+        return new self('', null);
     }
 
     /**
@@ -68,6 +67,6 @@ final class LazarusTask
     {
         // Delegate the cancellation call to the Lazarus instance that created this task.
         // The nullsafe operator (?->) gracefully handles rejected tasks where protocol is null.
-        return $this->protocol?->cancelTodo($this->id) ?? false;
+        return LazarusProtocol::cancelTodo($this->id) ?? false;
     }
 }
