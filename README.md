@@ -2,7 +2,7 @@
 
 <a href="https://StoryKo.de/"><img src="https://StoryKo.de/assets/img/KrubiK/Top-Banner.png" alt="StoryCasters TopBanner" width="600" /></a>
 
-<!-- # KRUBIK / KRUBOT
+<!-- # KRUBIK ^ KRUBOT
 
 < !-- ## The Hyper-DX Narrative Engine for Bots, Messengers, and Developer Joy.
 
