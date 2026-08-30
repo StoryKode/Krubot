@@ -260,10 +260,12 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
             return RichMan::summon();
         });
 
-        \class_alias(
-            LazarusProtocol::class,
-            'Lazarus'
-        );
+        if (!class_exists('Lazarus', false)) {
+            \class_alias(
+                LazarusProtocol::class,
+                'Lazarus'
+            );
+        }
 
         // Create a convenient alias for easier resolution binding or for the Facade.
         $this->app->alias(Krubot::class, 'krubot');
@@ -432,7 +434,6 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
             AxiomCore::class,
             RenderAura::class,
             'krubot',
-            'lazarus',
             'amethyst.empress',
             'nemesis',
             'krubot.manager',
