@@ -217,15 +217,14 @@ class GamePanelNexus
     }
 
     /**
-     * The WebAction endpoint that receives the product ID.
+     * The sexy WebAction endpoint that receives the product ID.
      * The name '.order_vip_product' is relative to 'game.dashboard'.
      * The final resolved URI will be /webapps/game/dashboard/order_vip_product
      *
-     * The sexy WebAction endpoint that receives the product ID.
      * Notice how '$productId' is just requested. The system will provide it, as demand.
      * 
-     * via PureJS:: `fetch('/webapps/game/dashboard/order_vip_product', {productId: 13, quantity: 3})`
-     * or via sendData:: `[Telegram|Bale].WebApp.sendData(JSON.stringify({action: 'order_vip_product', productId: 13, quantity: 3}))`
+     * via PureJS:: `fetch('/webapps/game/dashboard/order_vip_product', {method:'POST', body: {productId: 13, quantity: 3}})`
+     * or via sendData:: `[Telegram|Bale].WebApp.sendData(JSON.stringify({action: 'game.dashboard.order_vip_product', productId: 13, quantity: 3}))`
     */
     #[WebAction('.order_vip_product', methods: ['POST'])]
     public function orderVipProduct(Krubot $bot, int $productId, int $quantity = 1, string $optionalDumbMsg = 'H! There'): array
