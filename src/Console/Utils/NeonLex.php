@@ -96,7 +96,7 @@ final class NeonLex
 
     /**
      * Set a locale explicitly.
-     */
+    */
     public static function setLocale(string $locale): void
     {
         self::$locale = self::normalizeLocale($locale);
@@ -104,7 +104,7 @@ final class NeonLex
 
     /**
      * Forget explicit locale override.
-     */
+    */
     public static function resetLocale(): void
     {
         self::$locale = null;
@@ -243,7 +243,7 @@ final class NeonLex
 
     /**
      * Determine whether a translation exists.
-     */
+    */
     public static function has(string $key): bool
     {
         if ($key === '') {
@@ -270,7 +270,7 @@ final class NeonLex
 
     /**
      * Get the entire locale file.
-     */
+    */
     public static function all(?string $locale = null): array
     {
         return self::load(
@@ -282,7 +282,7 @@ final class NeonLex
 
     /**
      * Define a custom language directory.
-     */
+    */
     public static function path(string $path): void
     {
         self::$path = rtrim($path, '/\\');
@@ -295,7 +295,7 @@ final class NeonLex
 
     /**
      * Clear in-memory language cache.
-     */
+    */
     public static function flush(): void
     {
         self::$loaded = [];
@@ -303,7 +303,7 @@ final class NeonLex
     
     /**
      * Load a language file exactly once per process.
-     */
+    */
     private static function load(string $locale): array
     {
         if (isset(self::$loaded[$locale])) {
@@ -328,7 +328,7 @@ final class NeonLex
 
     /**
      * Resolve dot notation.
-     */
+    */
     private static function resolve(
         array $translations,
         string $key,
@@ -364,7 +364,7 @@ final class NeonLex
 
     /**
      * Resolve language file.
-     */
+    */
     private static function languageFile(string $locale): string
     {
         $directory = self::$path ?? self::getLanguagePath();

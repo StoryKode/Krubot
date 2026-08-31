@@ -15,7 +15,7 @@ namespace KrubiK\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static \App\Services\OpcacheService on(string $sapi)
+ * @method static \KrubiK\Helpers\OpcacheRuler on(string $sapi)
  * @method static array|bool|null status(string $scriptPath = null)
  * @method static array|null config()
  * @method static bool reset()

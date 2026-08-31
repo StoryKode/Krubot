@@ -12,9 +12,7 @@ use KrubiK\Render\RichElements\RichEntity;
  * block types (e.g., RichTextBlock, RichImageBlock).  This structure embodies
  * the core logic for all block-level components that build up the full entity.
  *
- * @package Krub\iK\Render\RichElements\Components
- * @author  [Your Name - Or Placeholder, for this example]
- * @since   1405/05/14
+ * @package KrubiK\Render\RichElements\Components
  * @abstract
  */
 abstract class RichComponentEntity extends RichEntity

@@ -13,8 +13,6 @@ use KrubiK\Render\RichElements\RichEntity;
  * the core logic for all block-level components that build up the full entity.
  *
  * @package KrubiK\Render\RichElements\Texts
- * @author  [Your Name - Or Placeholder, for this example]
- * @since   1405/05/14
  * @abstract
  */
 abstract class RichTextEntity extends RichEntity

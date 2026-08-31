@@ -155,7 +155,7 @@ class Parsentinel
         $thisApp->bind(RichBladeFragmentParser::class, fn () => new RichBladeFragmentParser());
     }
 
-    public static function introduceTo(array &$provided): void
+    public static function introduceWardenz(array &$provided): void
     {
         array_push(
             $provided,

@@ -204,21 +204,23 @@ trait InspectsAppLocale
             return self::FALLBACK_LOCALE;
         }
 
+        // Check if none of '.', '-', or '_' exist in the locale string
+        if (strpbrk($locale, '._-') === false)
+            return $locale;
+
         /*
         | en_US.UTF-8 -> en_US
         */
-        if (($position = strpos($locale, '.')) !== false) {
+        if (($position = strpos($locale, '.')) !== false)
             $locale = substr($locale, 0, $position);
-        }
 
         /*
         | en_US / en-US -> en
         */
         $locale = str_replace('-', '_', $locale);
 
-        if (($position = strpos($locale, '_')) !== false) {
+        if (($position = strpos($locale, '_')) !== false)
             $locale = substr($locale, 0, $position);
-        }
 
         return strtolower($locale);
     }

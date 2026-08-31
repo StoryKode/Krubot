@@ -445,18 +445,17 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
             KrubiKPulse::class, 'command.krubik:pulse',
             LazarusProtocol::class, 'command.krubik:lazarus',
             CacheNexusesCommand::class, 'command.krubik:nexus-cache', // The performance booster
-            MakeNexusCommand::class, 'command.krubik:nexus-make',    // The workflow accelerator
-            MakeMigrationsCommand::class, 'command.krubik:make-migrations',
-            // The debugging tool
+            MakeNexusCommand::class, 'command.krubik:nexus-make',     // The workflow accelerator
+            MakeMigrationsCommand::class, 'command.krubik:make-migrations', // Compiles multiverse schema config into DB Migration.
+
+            // The Hyper-DX debugging tool
             KrubotMindSimulator::class, 'command.krubot:mind-simulator', 'command.krubik:nexus:inspect', 'command.krubik:nexus-list',
         ];
 
-        if($this->app['config']->get('krubot.blade-cipher.enabled', false)) {
-            $provided_dxkit []= 'blade.compiler';
-            $provided_dxkit []= BladeCipher::class;
-        }
+        if($this->app['config']->get('krubot.blade-cipher.enabled', false))
+            BladeCipher::introduceTo($provided_dxkit);
 
-        Parsentinel::introduceTo($provided_dxkit);
+        Parsentinel::introduceWardenz($provided_dxkit);
 
         return $provided_dxkit;
     }

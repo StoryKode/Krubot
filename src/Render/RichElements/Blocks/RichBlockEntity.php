@@ -4,7 +4,7 @@ namespace KrubiK\Render\RichElements\Blocks;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-use KrubiK\Render\RichElements\Components\RichBlockCaption
+use KrubiK\Render\RichElements\Components\RichBlockCaption;
 
 /**
  * **RichBlockEntity**
@@ -14,8 +14,9 @@ use KrubiK\Render\RichElements\Components\RichBlockCaption
  * block types (e.g., RichTextBlock, RichImageBlock).  This structure embodies
  * the core logic for all block-level components that build up the full entity.
  *
+ * @package KrubiK\Render\RichElements\Blocks
  * @abstract
- */
+*/
 abstract class RichBlockEntity extends RichEntity
 {
 

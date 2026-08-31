@@ -8,7 +8,7 @@ use KrubiK\Render\RichElements\RichEntity;
  * It centralizes rendering logic, provides a global toggle for auto-prepending symbols,
  * and wraps symbols in a <span> for CSS control.
  */
-abstract readonly class RichTextSymbolLink extends RichTextEntity
+abstract class RichTextSymbolLink extends RichTextEntity
 {
 
     // --- Configuration ---
@@ -24,8 +24,11 @@ abstract readonly class RichTextSymbolLink extends RichTextEntity
      * A static method to fluently control the auto-prepending behavior application-wide.
      * @param bool $enabled Set to true to enable, false to disable.
      */
-    public static function toggleAutoPrepending(bool $enabled): void
+    public static function toggleAutoPrepending(?bool $enabled = null): void
     {
+        if($enabled === null)
+            $enabled = !self::$autoPrependSymbol;
+
         self::$autoPrependSymbol = $enabled;
     }
 

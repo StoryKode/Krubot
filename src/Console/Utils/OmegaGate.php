@@ -35,7 +35,7 @@ final class OmegaGate
                 'Windows' => self::windows($url),
                 'Linux'   => self::linux($url),
                 // macOS
-                'Darwin'  => self::unix([
+                'Darwin'  => self::spawnDetachedProcess([
                     '/usr/bin/open',
                     $url,
                 ]),
@@ -70,15 +70,10 @@ final class OmegaGate
 
         return $opened;
     }
-    
-    private static function isWin()
-    {
-        return PHP_OS_FAMILY === 'Windows';
-    }
 
     /**
      * Supports Windows 7 / 8 / 8.1 / 10 / 11.
-     */
+    */
     private static function windows(string $url): bool
     {
 
@@ -86,25 +81,9 @@ final class OmegaGate
         |------------------------------------------------------------------
         | Method #1 — Windows Explorer / Shell
         |------------------------------------------------------------------
-        | explorer.exe delegates the URL to the user's default browser.
+        | explorer.exe delegates the URL to the user's default browser / URL handler.
         | We execute it directly, bypassing cmd.exe.
         */
-        if (self::spawnDetachedProcess([
-            'explorer.exe',
-            $url,
-        ])) {
-            return true;
-        }
-        
-        /*
-        |--------------------------------------------------------------------------
-        | Primary: Explorer Shell
-        |--------------------------------------------------------------------------
-        |
-        | Works with the default URL handler.
-        |
-        */
-
         if (self::spawnDetachedProcess([
             'explorer.exe',
             $url,
@@ -134,10 +113,10 @@ final class OmegaGate
         | start "TITLE" "URL"
         |
         | IMPORTANT:
-        |
         | An empty title is intentional, it's required when the URL is quoted.
         |
         */
+
         $safeUrl = self::escapeWindowsCmd($url);
 
         $command =
@@ -177,56 +156,27 @@ final class OmegaGate
         }
         
         // Standard Linux desktop.
+        return self::unixFallback($url);
+    }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Other Unix-like systems
-        |--------------------------------------------------------------------------
-        */
+    /**
+     * Generic Unix fallback and Other Unix-like systems.
+    */
+    private static function unixFallback(string $url): bool
+    {
         foreach ([
             ['xdg-open', $url],
             ['gio', 'open', $url],
             ['sensible-browser', $url],
         ] as $launcher_command) {
 
-            if (!self::commandExists((string) $launcher_command[0])) 
+            if (!self::commandExists((string) $launcher_command[0]))
                 continue;
 
             return self::spawnDetachedProcess($launcher_command);
         }
 
         return false;
-        
-    }
-
-    /**
-     * Generic Unix fallback.
-     */
-    private static function unixFallback(string $url): bool
-    {
-        foreach ([
-            ['xdg-open', $url],
-            ['gio', 'open', $url],
-        ] as $command) {
-
-            if (!self::commandExists((string) $command[0])) {
-                continue;
-            }
-
-            return self::spawnDetachedProcess($command);
-        }
-
-        return false;
-    }
-
-    /**
-     * Platform null device.
-     */
-    private static function nullDevice(): string
-    {
-        return self::isWin()
-            ? 'NUL'
-            : '/dev/null';
     }
 
     /**
@@ -298,6 +248,8 @@ final class OmegaGate
         }
     }
 
+    // ————————— OmegaGate Helpers ————————— //
+
     /**
      * Validate HTTP(+S?) URL, without opening it.
      */
@@ -343,6 +295,11 @@ final class OmegaGate
             $value
         );
     }
+    
+    private static function isWin()
+    {
+        return PHP_OS_FAMILY === 'Windows';
+    }
 
     /**
      * Detect Windows Subsystem for Linux.
@@ -365,6 +322,16 @@ final class OmegaGate
         }
 
         return false;
+    }
+
+    /**
+     * Platform-aware null device.
+     */
+    private static function nullDevice(): string
+    {
+        return self::isWin()
+            ? 'NUL'
+            : '/dev/null';
     }
     
     /**

@@ -710,4 +710,13 @@ class BladeCipher
             }
         ?>";
     }
+
+    public static function introduceTo(array &$provided): void
+    {
+        array_push(
+            $provided,
+
+            self::class, 'blade.compiler'
+        );
+    }
 }
