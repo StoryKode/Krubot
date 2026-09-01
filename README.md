@@ -2004,7 +2004,7 @@ elevate WebEnergy across the CyberCitadel,
 and raise the Krubot (& Lazarus) online with a single orchestrated command.
 ```bash
 # 1. Establish KrubiK CyberCitadel ⚡🔰🏰📟️⚡
-composer require storykode/krubot
+composer require storykode/krubot:"dev-main"
 
 # 2. Let your Citadel Ascend ⚡🏰🪩💫⚡
 php artisan krubik:ascend
@@ -2018,7 +2018,7 @@ Now It's Time to [Activate The **Binary Core** Architecture / **Dual-Heart** Sys
 Or you may prefer full-control over every setup step ::
 ```bash
 # 1. Require the KrubiK Core via Composer
-composer require storykode/krubot
+composer require storykode/krubot:"dev-main"
 
 # 2. Publish configurations and assets
 php artisan vendor:publish --provider="KrubiK\Providers\KrubotServiceProvider"
@@ -2061,7 +2061,7 @@ php artisan key:generate
 ### 🌌 Phase 1: The Cosmic Summoning (Installation)
 Pull the core singularity into your Laravel project via Composer:
 ```bash
-composer require storykode/krubot
+composer require storykode/krubot:"dev-main"
 ```
 
 ### 📜 Phase 2: Extracting the Architect's Lexicon (Publishing)
