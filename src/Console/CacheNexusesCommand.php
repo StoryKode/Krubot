@@ -35,7 +35,7 @@ class CacheNexusesCommand extends Command
             File::delete($cachePath);
         }
 
-        if(config('krubot.cache.opcache_enabled', true))
+        if(config('krubot.cache.opcache.enabled', true))
             opcache(null); // sending null to opcache() helper Invalidates Entire OPCache Entries (internally runs Opcache::flush())
 
         // We need the *full* list, so we call the boot logic manually.

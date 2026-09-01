@@ -68,9 +68,9 @@ return [
             'cli'      => 'cli', // Registers the console runtime engine with the SmartEnum multiverse.
 
             'web'      => 'web', // Alias for standard web requests
-            'webapp'   => 'webapp',
-            'miniapp'  => 'miniapp', // Alias for Telegram MiniApps
-            'tgma'     => 'miniapp', // Shorthand for Telegram MiniApp
+            'webapp'   => 'web',
+            'miniapp'  => 'web', // Alias for Telegram MiniApps
+            'tgma'     => 'web', // Shorthand for Telegram MiniApp
             // Add your new aliases here...
         ],
 
@@ -136,6 +136,11 @@ return [
                 'timeout' => 45,
                 // ... سایر تنظیمات خاص تلگرام
             ]
+        ],
+
+        'web' => [
+            'driver'    => 'web',
+            'config'    => []
         ],
 
         'cli' => [
@@ -389,24 +394,25 @@ return [
         // Fast-enough
         'platform-constants-generation' => true, // $notInProduction,
 
-        /*
-        |----------------------------------------------------------------------
-        | Just-In-Time OPcache Refresh
-        |----------------------------------------------------------------------
-        |
-        | When enabled, the Nexus discovery engine will "refresh" each Nexus
-        | file in OPcache just before it's loaded into the server RAM.
-        | This guarantees that the latest version of the code is always used.
-        |
-        | RECOMMENDED: `true` for development, `false` for production.
-        | In production, you should rely on a pre-warmed OPcache and
-        | deployment scripts for cache invalidation.
-        |
-        */
-        'opcache_enabled'               => env('KRUBOT_OPCACHE_CACHE', $notInProduction),
-        'opcache_refresh_on_discover'   => env('KRUBOT_OPCACHE_FORCE_REFRESH_CACHE', $notInProduction),
-
         'opcache' => [
+
+            /*
+            |----------------------------------------------------------------------
+            | Just-In-Time OPcache Refresh
+            |----------------------------------------------------------------------
+            |
+            | When enabled, the Nexus discovery engine will "refresh" each Nexus
+            | file in OPcache just before it's loaded into the server RAM.
+            | This guarantees that the latest version of the code is always used.
+            |
+            | RECOMMENDED: `true` for development, `false` for production.
+            | In production, you should rely on a pre-warmed OPcache and
+            | deployment scripts for cache invalidation.
+            |
+            */
+            'enabled'               => env('KRUBOT_OPCACHE_CACHE', true), // $notInProduction,
+            'refresh_on_discover'   => env('KRUBOT_OPCACHE_FORCE_REFRESH_CACHE', $notInProduction),
+
             /*
             |--------------------------------------------------------------------------
             | OPcache Manager Bridge
@@ -438,7 +444,7 @@ return [
         |----------------------------------------------------------------------
         |
         | An array of file or directory paths that will ALWAYS be refreshed,
-        | even if the master 'opcache_refresh_on_discover' switch is false.
+        | even if the master 'opcache.refresh_on_discover' switch is false.
         | This is a god-tier feature for production hot-fixing.
         |
         | Supports wildcards (*). Paths should be relative to the project root.
@@ -475,7 +481,7 @@ return [
         |----------------------------------------------------------------------
         |
         | An array of file or directory paths that will NEVER be refreshed (until explicit `krubik:nexus-cache|nexus:cache` command),
-        | even if the master 'opcache_refresh_on_discover' switch is true, they won't be cached.
+        | even if the master 'opcache.refresh_on_discover' switch is true, they won't be cached.
         | This is a performance-tuning tool for development.
         |
         | This list has the HIGHEST priority. If a path is here, it will

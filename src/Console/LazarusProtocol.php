@@ -208,7 +208,7 @@ class LazarusProtocol extends Command
      * A list for tasks that are waiting for a specific condition (e.g., time) to be met.
      * Each element is an array: [Fiber $fiber, int $wakeUpTimestamp].
      * @var SplDoublyLinkedList<array>
-     */
+    */
     private SplDoublyLinkedList $deferredTasks;
 
     /** @var SplPriorityQueue<float, array{id:string,due:float,what:callable,how:array|\Closure|null}>
@@ -216,6 +216,13 @@ class LazarusProtocol extends Command
      * This must be separate from the main priorityQueue, which is ordered by task priority.
     */
     private SplPriorityQueue $todoHeap;
+
+    /**
+     * The name of the database table used to persist todo tasks.
+     *
+     * @var string
+    */
+    protected static ?string $todoTableName = null;
 
     /** @var list<\Fiber<mixed,mixed,mixed,mixed>> */
     protected array $fibers = [];
@@ -225,7 +232,9 @@ class LazarusProtocol extends Command
 
     private CacheLock $lock;
     private bool $shouldStop = false;
-    private static ?self $runningInstance = null;
+
+    // keeps running Instance of Lazarus
+    private static ?self $iDaemon = null;
 
     /**
      * The Entry Point.
@@ -260,7 +269,7 @@ class LazarusProtocol extends Command
         $tag = $this->option('tag');
         $isStealth = $this->option('stealth');
 
-        self::$runningInstance = $this;
+        self::$iDaemon = $this;
 
         // Cooperative runtime structures (must exist before first tick)
         $this->taskQueue = new SplQueue();
@@ -443,7 +452,7 @@ class LazarusProtocol extends Command
                 $this->cooperativeIdle((int) $interval);
             }
         } finally {
-            self::$runningInstance = null;
+            self::$iDaemon = null; // die.....
 
             // Polite cleanup
             ///optional($this->lock)->release();
@@ -1602,7 +1611,7 @@ class LazarusProtocol extends Command
         $id = Str::uuid()->toString(); /// bin2hex(random_bytes(16)); // More entropy for safety
 
          // instance زنده → مستقیم به heap
-        $instance = self::$runningInstance;
+        $instance = self::$iDaemon;
         
         if ($instance !== null) {
 
@@ -1802,7 +1811,7 @@ class LazarusProtocol extends Command
             return false;
         }
 
-        $instance = self::$runningInstance;
+        $instance = self::$iDaemon;
 
         if ($instance !== null) {        
             // Add the ID to the cancellation list. This is an O(1) operation.
@@ -1817,13 +1826,6 @@ class LazarusProtocol extends Command
 
         return true;
     }
-
-    /**
-     * The name of the database table used to persist todo tasks.
-     *
-     * @var string
-     */
-    protected static ?string $todoTableName = null;
 
     protected static function getTodoTableName(): string
     {

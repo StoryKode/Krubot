@@ -13,7 +13,7 @@ use KrubiK\Render\Arcane\HasHyperIntrospection;
  * It extends RichEntity to inherit serialization helpers like
  * normalize() and filterEmpty(), and requires all concrete models
  * to implement their own toArray() method.
- */
+*/
 abstract class BaseObject extends RichEntity
 {
     /**
@@ -22,7 +22,7 @@ abstract class BaseObject extends RichEntity
      *
      * @param mixed ...$args The arguments to pass to the object's constructor.
      * @return static A new instance of the called class.
-     */
+    */
     public static function make(...$args): static
     {
         return new static(...$args);

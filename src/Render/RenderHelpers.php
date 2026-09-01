@@ -70,7 +70,7 @@ use KrubiK\Render\RichElements\Texts\RichTextUrl;
 
 use KrubiK\Render\RichElements\Texts\RichTextButton;
 use KrubiK\Render\RichElements\Blocks\RichBlockButtons;
-use KrubiK\Render\RichElements\Blocks\RichBlockButtonRow;
+// use KrubiK\Render\RichElements\Blocks\RichBlockButtonRow; // sacrificed to keep global consistency
 use KrubiK\Render\RichElements\Components\RichButton;
 use KrubiK\Keyboard\PowerButton;
 use KrubiK\Enums\ButtonType;
@@ -831,9 +831,16 @@ function buttons(array $buttons, ?string $align = null): RichBlockButtons
     return RichBlockButtons::make($buttons, $align);
 }
 
+/*
 function buttonRow(array $buttons, ?string $align = null): RichBlockButtonRow // exactly-same as RichBlockButtons
 {
     return RichBlockButtonRow::make($buttons, $align);
+}
+*/
+
+function buttonRow(array $buttons, ?string $align = null): RichBlockButtons
+{
+    return RichBlockButtons::make($buttons, $align);
 }
 
 /// Custom-Helpers

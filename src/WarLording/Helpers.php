@@ -240,7 +240,7 @@ if (!function_exists('opcache')) {
      *   passing along all arguments.
      *
      * @param  mixed  ...$parameters
-     * @return \App\Services\KrubiK\OpcacheManager|bool
+     * @return \KrubiK\Helpers\OpcacheRuler|bool
      */
     function opcache(...$parameters)
     {

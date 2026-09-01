@@ -68,7 +68,8 @@ trait PlatformConstantsRobustGen
             // Immediately after generating, we compile the fresh file into OPcache.
             // This ensures subsequent requests hit the memory cache immediately,
             // maintaining O(1) class loading speed.
-            Opcache::compile($this->generatedPlatformsFilePath);
+            if(config('krubot.cache.opcache.enabled', true))
+                Opcache::compile($this->generatedPlatformsFilePath);
         });
         
         // This part runs for EVERY request, after the lock attempt.
@@ -442,10 +443,15 @@ PHP;
             return $initialism . $pascalCasedRest;
         }
 
-        // Rule 2: Handle general short names, WITH a critical exception for 'app'.
+        // Rule 2: Handle general short names, WITH a critical exception for 'web' and 'app'.
         // This catches anything 3 chars or less that didn't match Rule 1.
-        if (mb_strlen($identifier) <= 3 && strtolower($identifier) !== 'app') {
-            return strtoupper($identifier);
+        if (mb_strlen($identifier) <= 3) {
+
+            if(strtolower($identifier) === 'web')
+                return 'Web';
+
+            if(strtolower($identifier) !== 'app')
+                return strtoupper($identifier);
         }
 
         // Rule 3: Default to PascalCase for everything else, also handling kebab-case.

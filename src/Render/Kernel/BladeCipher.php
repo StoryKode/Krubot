@@ -38,6 +38,7 @@ namespace KrubiK\Render\Kernel;
 */
 
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Blade;
 use KrubiK\Render\RichElements\RichEntity;
 use KrubiK\Render\RichMan;
 use KrubiK\Facades\Parsentinel;
@@ -53,7 +54,7 @@ use LogicException;
  * This respects the "build-then-create" philosophy of the RichMan architecture.
  *
  * @version 3.0 - The Composer Stack architecture
- */
+*/
 class BladeCipher
 {
     public const BUILDER_CLASS = BladeCipher::class;
@@ -63,7 +64,7 @@ class BladeCipher
     /**
      * [CORRECTED] GROUP 1: VOID / SELF-CLOSING DIRECTIVES
      * Added missing simple directives.
-     */
+    */
     private const VOID_MAP = [
         'Anchor'                => 'anchor',
         'CustomEmoji'           => 'customEmoji',
@@ -79,12 +80,13 @@ class BladeCipher
         'Audio'                 => 'audio',
         'VoiceNote'             => 'voiceNote',
         'Map'                   => 'map',
+        'Document'              => 'document',
     ];
 
     /**
      * [CORRECTED] GROUP 2: WRAPPER DIRECTIVES
      * Added missing aliases for better DX.
-     */
+    */
     private const WRAPPER_MAP = [
         // Simple Text Wrappers
         'Text'          => 'text',
@@ -124,12 +126,16 @@ class BladeCipher
         'Reference'     => 'reference',
         'ReferenceLink' => 'referenceLink',
         'Caption'       => 'caption',
+
+        'Button'        => 'button',
+        'Buttons'       => 'buttons',
+        'ButtonRow'     => 'buttonRow', // same as above, made for clarity
     ];
 
     /**
      * [CORRECTED] GROUP 3: STRUCTURAL BLOCK DIRECTIVES
      * Added specific list directives for better semantics.
-     */
+    */
     private const STRUCTURE_MAP = [
         // Generic
         'BlockQuotation'    => 'blockQuotation',
@@ -150,7 +156,7 @@ class BladeCipher
     /**
      * The stack of RichMan instances. The end of the array is the active composer.
      * @var RichMan[]
-     */
+    */
     private array $composerStack = [];
 
     /**
@@ -244,7 +250,7 @@ class BladeCipher
     /**
      * [THE GENESIS] Begins the story capture process.
      * A root composer is created to hold the entire story.
-     */
+    */
     public function begin(): void
     {
         if (!self::$active) {
@@ -266,7 +272,7 @@ class BladeCipher
      * [THE ASCENSION] Ends the story capture, returning the final masterpiece.
      *
      * @return SoulHarvestor Ends the capture and returns the final "SoulHarvestor" treasure chest, containing the entire nested structures.
-     */
+    */
     public function end(): ?SoulHarvestor
     {
         if (!$this->isCapturing) {
@@ -322,7 +328,7 @@ class BladeCipher
      *
      * @param string $helperFunctionName The name of the helper function (e.g., 'details', 'blockQuotation').
      * @param array $arguments The arguments passed to the directive, EXCLUDING the children.
-     */
+    */
     public function startComponent(string $helperFunctionName, array $arguments): void
     {
         $this->captureBufferedContent();
@@ -340,7 +346,7 @@ class BladeCipher
     /**
      * [THE CONVERGENCE] A structural component ends.
      * The child composer is consumed, the final entity is built, and it's added to its parent.
-     */
+    */
     public function endComponent(): void
     {
         $this->captureBufferedContent();
@@ -442,7 +448,7 @@ class BladeCipher
     
     /**
      * [THE ATOMIZATION] Adds a simple, non-structural entity to the current composer.
-     */
+    */
     public function addComponent(RichEntity $element): void
     {
         $this->captureBufferedContent();
@@ -456,7 +462,7 @@ class BladeCipher
     /**
      * Captures any buffered plain text (like spaces, newlines, or text outside directives)
      * and adds it as a RichTextPlain entity to the current composer.
-     */
+    */
     private function captureBufferedContent(): void
     {
         if (!$this->isCapturing) return;
@@ -679,7 +685,7 @@ class BladeCipher
      *
      * @param string $parserType The key for the parser ('RichMD', 'RichHTML').
      * @return string The PHP code string to be embedded in the compiled view.
-     */
+    */
     private static function generateContentParsingEndDirectiveLogic(string $parserType): string
     {
         // We get the full class names to avoid namespace issues in the compiled view.

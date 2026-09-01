@@ -41,6 +41,7 @@ use Illuminate\Support\Facades\Route;
 use KrubiK\Drivers\RubikaDriver;
 use KrubiK\Drivers\BaleDriver;
 use KrubiK\Drivers\TelegramDriver;
+use KrubiK\WebApps\Drivers\WebAppDriver;
 use KrubiK\Enums\Platform;
 
 /**
@@ -404,7 +405,7 @@ class Nemesis extends Manager
         
         // You might create a specialized MiniAppDriver that extends TelegramDriver,
         // but for now, reusing TelegramDriver is efficient and correct.
-        return new TelegramDriver($config);
+        return new WebAppDriver($config);
     }
 
     /**

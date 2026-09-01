@@ -25,6 +25,7 @@ use Krubot\Helpers\AmethystMatrix as Log;
 use KrubiK\Drivers\Nemesis as KrubotManager;    // 🧠 The Brain
 use KrubiK\DTOs\UniversalInboundUpdate;         // ⚗️ The Alchemist
 use KrubiK\Jobs\HandleDriverUpdate;             // 🚀 The Executor
+use KrubiK\WebApps\UniversalIdentity;
 
 use KrubiK\WebApps\DTOs\WebRequest; // ⚡ Our Sacred WebRequest HyperDTO, for WebApp calls.
 
@@ -274,6 +275,7 @@ class QuantumGatewayController extends Controller
             // We report the error to the global handler (Sentry, Log, etc.)
             // while maintaining the user experience with a clean, localized error response.
             report($e);
+            /// dd($e);
             
             return response()->json([
                 'status' => 'error',

@@ -426,9 +426,9 @@ class OpcacheRuler
     private function executeViaBridge(string $action, array $payload)
     {
         try {
-            $response = Http::withHeaders(['X-Opcache-Secret' => config('opcache.bridge_secret')])
+            $response = Http::withHeaders(['X-Opcache-Secret' => config('krubot.cache.opcache.bridge_secret')])
                 ->timeout(15)
-                ->post(url(config('opcache.bridge_uri')), [
+                ->post(url(config('krubot.cache.opcache.bridge_uri')), [
                     'action' => $action,
                     ...$payload
                 ]);

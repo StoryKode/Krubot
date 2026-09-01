@@ -53,9 +53,9 @@ use KrubiK\Attributes\OnRegEx;
 use KrubiK\Attributes\OnText;
 use KrubiK\Attributes\OnType;
 use KrubiK\Attributes\RestrictTo;
-use KrubiK\Attributes\WebApp;
-use KrubiK\Attributes\WebAction;
-use KrubiK\Attributes\WebPage;
+use KrubiK\WebApps\Attributes\WebApp;
+use KrubiK\WebApps\Attributes\WebPage;
+use KrubiK\WebApps\Attributes\WebAction;
 
 // --- Laravel Prompts - The HyperDX Engine ---
 use function Laravel\Prompts\{
@@ -94,10 +94,19 @@ class KrubotMindSimulator extends Command
                             {--mode=pro : Mode (simple|basic|legacy, details|complex|pro, live|advanced|interactive)}
                             {--lang=en : Set the Interface language (en, fa)}
                             {--theme=dark : Set the Color theme (dark, light)}
-                            {--reveal|oracle|symfony|dump : Force Unleash a raw, deep introspection of manifests via the Symfony VarDumper}
-                            {--simple|s : Shortcut to force simple/basic mode. Overrides --mode}
-                            {--pro|p : Shortcut to force complex/pro/details mode. Overrides --mode}
-                            {--live|l : Shortcut to force live/interactive mode. Overrides --mode}';
+                            {--reveal : Force Unleash a raw, deep introspection of manifests via the Symfony VarDumper}
+                            {--oracle : Alias for --reveal}
+                            {--symfony : Alias for --reveal}
+                            {--dump : Alias for --reveal}
+                            {--simple : Shortcut to force simple/basic mode. Overrides --mode}
+                            {--basic : Alias for --simple}
+                            {--legacy : Alias for --simple}
+                            {--pro : Shortcut to force complex/pro/details mode. Overrides --mode}
+                            {--complex : Alias for --pro}
+                            {--details : Alias for --pro}
+                            {--live : Shortcut to force live/interactive mode. Overrides --mode}
+                            {--advanced : Alias for --live}
+                            {--interactive : Alias for --live}';
 
     /**
      * The console command aliases.
@@ -204,6 +213,46 @@ class KrubotMindSimulator extends Command
     ];
 
     /**
+     * Hyper-Alias Mapping for CLI Options.
+     * کلید: نام اصلی | مقدارها: تمام مترادف‌های مجاز
+    */
+    protected array $optionAliases = [
+        'reveal'  => ['oracle', 'symfony', 'dump'],
+        'simple'  => ['basic', 'legacy'],
+        'pro'     => ['complex', 'details'],
+        'live'    => ['advanced', 'interactive'],
+    ];
+
+    /**
+     * Dynamic option lookup supporting Hyper-Aliases.
+     *
+     * @param string|null $key
+     * @return mixed
+    */
+    public function option($key = null)
+    {
+        // اگر متد بدون پارامتر صدا زده شود (دریافت کل گزینه‌ها)
+        if ($key === null) {
+            return parent::option();
+        }
+
+        // اگر کلید در ماتریس Aliasهای ما تعریف شده باشد
+        if (isset($this->optionAliases[$key])) {
+            $candidates = array_merge([$key], $this->optionAliases[$key]);
+
+            foreach ($candidates as $candidate) {
+                if (parent::option($candidate)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return parent::option($key);
+    }
+
+    /**
      * Execute the console command.
      * 
      * The traffic controller for routing command execution to the appropriate mode.
@@ -252,7 +301,7 @@ class KrubotMindSimulator extends Command
             case 'details':
             default: // 'pro' is our default and ultimate fallback
                     // We'll pass control to our new handler for complex mode
-                    return $this->handleComplexModeTEST($miracler);
+                    return $this->handleComplexMode($miracler);
         }
     }
 

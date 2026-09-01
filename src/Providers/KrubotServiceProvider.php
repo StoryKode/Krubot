@@ -32,6 +32,7 @@ use KrubiK\Helpers\AmethystMatrix;
 use KrubiK\Helpers\OpcacheRuler;
 use KrubiK\WebApps\AxiomCore;
 use KrubiK\Render\RenderAura;
+use KrubiK\WebApps\UniversalIdentity;
 use Krubot\Render\RichMan;
 use KrubiK\Render\Kernel\BladeCipher;
 use KrubiK\Render\Parsers\Parsentinel;
@@ -260,6 +261,7 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
             return RichMan::summon();
         });
 
+        // define a Fake-Facade, so we can access Lazarus::todo() anywhere without importing LazarusProtocol.
         if (!class_exists('Lazarus', false)) {
             \class_alias(
                 LazarusProtocol::class,

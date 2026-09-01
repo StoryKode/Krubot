@@ -50,11 +50,13 @@ use KrubiK\Attributes\Middleware;
 use KrubiK\Attributes\OnCommand;
 use KrubiK\Attributes\OnText;
 use KrubiK\Attributes\OnRegEx;
-use KrubiK\Attributes\Receive;
-use KrubiK\Attributes\When;
 use KrubiK\Attributes\OnInlineQuery;
+use KrubiK\Attributes\Receive;
+use KrubiK\Enums\Signal;
+use KrubiK\Attributes\When;
 use KrubiK\Attributes\Fallback;
 use KrubiK\Attributes\FallbackOn;
+use KrubiK\Attributes\RestrictTo;
 use KrubiK\Attributes\ForceJoin;
 use KrubiK\Middlewares\ConversationMiddleware; // ⚡ Import Middleware
 use KrubiK\WarLording\CommandOutcomeShifter;
@@ -79,6 +81,9 @@ use Traversable;
 use KrubiK\Helpers\AmethystMatrix; // ⚡ Import the Sorceress
 
 use KrubiK\WebApps\DTOs\WebRequest; // ⚡ Our Sacred WebRequest HyperDTO
+use KrubiK\WebApps\Attributes\WebApp;
+use KrubiK\WebApps\Attributes\WebPage;
+use KrubiK\WebApps\Attributes\WebAction;
 
 use KrubiK\Facades\Opcache; // ✨ OpCaching came into the game ✨
 
@@ -163,18 +168,18 @@ class Krubot implements Countable // ⚡️✅️⚡️
     private const RT_TEXT       = 'text';
     private const RT_REGEX      = 'regex';
     private const RT_COMMAND    = 'cmd';
-    private const RT_TYPE       = 'type';    // ✨ NEW
+    private const RT_TYPE       = 'type';    // ✨ NEW {[=__=]} RelatedTO=> #[Receive(Singal::***)]
     private const RT_INLINE     = 'inline';  // ✨ NEW
 
-    private const RT_WEB        = 'web';   // ✨ NEW
-    private const RT_WEB_APP    = 'web_app';   // ✨ NEW
+    private const RT_WEB        = 'web';        // ✨ NEW
+    private const RT_WEB_APP    = 'web_app';    // ✨ NEW
     private const RT_WEB_PAGE   = 'web_page';   // ✨ NEW
     private const RT_WEB_ACTION = 'web_action'; // ✨ NEW
 
     private const RT_NONE    = 'none';
 
     // The constants RT_WEB_APP_DATA is now deprecated and removed
-    // as its logic has been unified into the system differently.
+    // as its logic has been unified into the system differently. (Merged into RT_WEB_ACTION)
 
     // ⚡ AUTO-LOAD: میدل‌ور مکالمه به صورت پیش‌فرض در اینجا تعریف می‌شود
     // The hardcoded value is removed. It will be loaded from config via constructor.
@@ -1107,7 +1112,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 };
 
                 // Step D.2: The Configuration Helper Closure 🛠 //To-Do:: Support PlatformRestricion Here
-                $_configureRoute = function (?Route $route, ?string $accessPolicy) use ($routeName, $finalMiddlewareStack, $finalPlatformRestrictions, $whenGuardInstances, $finalForceJoinChannels, $finalForceJoinFailMessage, $enrichRoutePatternAndParams, $handlerCallback) {
+                $_configureRoute = function (?Route $route = null, ?string $accessPolicy = null) use ($routeName, $finalMiddlewareStack, $finalPlatformRestrictions, $whenGuardInstances, $finalForceJoinChannels, $finalForceJoinFailMessage, $enrichRoutePatternAndParams, $handlerCallback) {
                     if (!$route) return;
 
                     // [THE BRAIN] enrichmentation central decision point. Clean, simple, and powerful.
@@ -1418,8 +1423,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         // ✨ STEP 0: CHECK THE MASTER SWITCHS ✨
         // Read the config value just once before the loop for efficiency.
-        $opcacheMasterSwitch = config('krubot.cache.opcache_enabled', true);
-        $opcacheGlobalRefreshSwitch = config('krubot.cache.opcache_refresh_on_discover', false);
+        $opcacheMasterSwitch = config('krubot.cache.opcache.enabled', true);
+        $opcacheGlobalRefreshSwitch = config('krubot.cache.opcache.refresh_on_discover', false);
 
         // ✨ PLUS: LOAD THE ENTIRE STRATEGIC CONFIGURATION ✨
         $forceList = config('krubot.cache.force_refresh', []);
