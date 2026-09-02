@@ -2283,7 +2283,10 @@ class Krubot implements Countable // ⚡️✅️⚡️
             // We provide the raw path as the payload.
             // Parameters (from JSON body) are passed for the handler.
 
-            return [self::RT_WEB, $webRequest->path, $webRequest->body->all(), $envelopeSignal, $contentSignal];
+            // 🔥 ادغام query و body (body اولویت دارد)
+            $params = array_merge($webRequest->query->all(), $webRequest->body->all());
+
+            return [self::RT_WEB, $webRequest->path, $params, $envelopeSignal, $contentSignal];
 
             // We return a generic RT_WEB signal. The router's "Finder" phase will then
             // be responsible for matching the provided path against all registered web route
