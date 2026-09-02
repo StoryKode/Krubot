@@ -168,7 +168,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     private const RT_TEXT       = 'text';
     private const RT_REGEX      = 'regex';
     private const RT_COMMAND    = 'cmd';
-    private const RT_TYPE       = 'type';    // ✨ NEW {[=__=]} RelatedTO=> #[Receive(Singal::***)]
+    private const RT_SIGNAL     = 'signal';  // ✨ NEW {[=__=]}
     private const RT_INLINE     = 'inline';  // ✨ NEW
 
     private const RT_WEB        = 'web';        // ✨ NEW
@@ -1633,7 +1633,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         if (!str_starts_with($command, '/')) {
             $command = '/' . $command;
         }
-        return $this->addRoute($command, $handler, $attributes + ['_route_type' => self::RT_COMMAND]);
+        return $this->addRoute($command, $handler, self::RT_COMMAND, $attributes);
     }
 
     /**
@@ -1642,7 +1642,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function onText(string $pattern, array|callable $handler, array $attributes = []): Route
     {
-        return $this->addRoute($pattern, $handler, $attributes + ['_route_type' => self::RT_TEXT]);
+        return $this->addRoute($pattern, $handler, self::RT_TEXT, $attributes);
     }
 
     /**
@@ -1662,7 +1662,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         if (!preg_match('/^\/.*\/[a-zA-Z]*$/', $pattern))
             $pattern = '/' . $pattern . '/';
 
-        return $this->onText($pattern, $handler, $attributes + ['_route_type' => self::RT_REGEX]);
+        return $this->onText($pattern, $handler, self::RT_REGEX, $attributes);
     }
 
     /**
@@ -1674,7 +1674,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     {
         // ⚡ We prefix button payloads with 'CBK::' internally.
         // This prevents collisions with regular user text like "remove_item".
-        return $this->addRoute('CBK::' . $payload, $handler, $attributes + ['_route_type' => self::RT_ACTION]);
+        return $this->addRoute('CBK::' . $payload, $handler, self::RT_ACTION, $attributes);
     }
 
     /**
@@ -1684,7 +1684,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     public function onAction(string $action, array|callable $handler, array $attributes = []): Route
     {
         // Internal namespaced pattern to avoid collision with normal text
-        return $this->addRoute('CBK::' . $action, $handler, $attributes + ['_route_type' => self::RT_ACTION]);
+        return $this->addRoute('CBK::' . $action, $handler, self::RT_ACTION, $attributes);
     }
 
     /**
@@ -1719,7 +1719,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
             $processedPattern = '/^' . preg_quote($pattern, '/') . '/i';
         }
 
-        return $this->addRoute($processedPattern, $handler, $attributes + ['_route_type' => self::RT_INLINE]);
+        return $this->addRoute($processedPattern, $handler, self::RT_INLINE, $attributes);
     }
 
     /**
@@ -1743,12 +1743,11 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
                 // ✨ 2A. ENRICHMENT: Prepare the final attributes with the strategy flag.
                 $finalAttributes = $attributes + [
-                    '_route_type' => self::RT_TYPE,
                     '_signal_class' => $isEnvelope 
                 ];
 
                 // Internal namespaced pattern 'TYPE::photo' to avoid collision with normal text
-                $createdRoutes[] = $this->addRoute('TYPE::' . strtolower($type), $handler, $finalAttributes);
+                $createdRoutes[] = $this->addRoute('TYPE::' . strtolower($type), $handler, self::RT_SIGNAL, $finalAttributes);
             }
             return $createdRoutes;
         }
@@ -1758,14 +1757,13 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         // ✨ 2B. ENRICHMENT: Prepare the final attributes with the strategy flag.
         $finalAttributes = $attributes + [
-            '_route_type' => self::RT_TYPE,
             '_signal_class' => $isEnvelope, // The crucial flag is now stored!
         ];
 
         // Single Type Registration
         // ✨ 3. PERSISTENCE: Register the route with the enriched attributes.
         // The Route object now permanently holds the correct detection strategy.
-        return $this->addRoute('TYPE::' . strtolower($types), $handler, $finalAttributes);
+        return $this->addRoute('TYPE::' . strtolower($types), $handler, self::RT_SIGNAL, $finalAttributes);
     }
 
     /**
@@ -1787,7 +1785,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
             $attributes['http_methods'] = is_string($methods) ? [$methods] : $methods;
 
         // Use a distinct internal prefix to identify these root routes.
-        return $this->addRoute('WAPP::' . $path, $handler, $attributes + ['_route_type' => self::RT_WEB_APP]);
+        return $this->addRoute('WAPP::' . $path, $handler, self::RT_WEB_APP, $attributes);
     }
 
     /**
@@ -1807,7 +1805,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         // We store the allowed HTTP methods directly in the route's attributes for the dispatcher to use.
         if($methods)
             $attributes['http_methods'] = is_string($methods) ? [$methods] : $methods;
-        return $this->addRoute('WACT::' . $path, $handler, $attributes + ['_route_type' => self::RT_WEB_ACTION]);
+        return $this->addRoute('WACT::' . $path, $handler, self::RT_WEB_ACTION, $attributes);
     }
 
     /**
@@ -1821,7 +1819,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     public function onWebPage(string $path, array|callable $handler, array $attributes = []): Route
     {
         // We use an internal prefix to avoid collisions with other route types.
-        return $this->addRoute('WAPP::' . $path, $handler, $attributes + ['_route_type' => self::RT_WEB_PAGE]);
+        return $this->addRoute('WAPP::' . $path, $handler, self::RT_WEB_PAGE, $attributes);
     }
 
     /**
@@ -1843,8 +1841,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
             // If a class-level prefix exists, the method name is a child of it.
             // The method's identity is completed by its parent's identity.
             if ($prefix) {
-                // Concatenate prefix and the name (without the leading dot).
-                return $prefix . ltrim($name, '.');
+                // Concatenate prefix and the name(without the redundant dots).
+                return rtrim($prefix, '.') . '.' . ltrim($name, '.');
             }
             
             // If no prefix exists, the name stands on its own, but the '.' is just a convention.
@@ -1859,10 +1857,10 @@ class Krubot implements Countable // ⚡️✅️⚡️
     /**
      * Internal method to create and store Route.
     */
-    protected function addRoute(string $pattern, mixed $handler, array $attributes = []): Route
+    protected function addRoute(string $pattern, mixed $handler, string $routeType, array $attributes = []): Route
     {
         // Apply Group Attributes (Prefix, Middlewares)
-        $attrs = $this->getGroupAttributes();
+        $attrs = array_merge($this->getGroupAttributes(), $attributes);
         
         // Handle Prefix
         if (isset($attrs['prefix'])) {
@@ -1879,6 +1877,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         // Create the Route Object (Class Signature #2)
         $route = new Route($pattern, $handler, $attrs); //|// , $registrar
+
+        // [THE UPGRADE] The Route becomes self-aware of its type upon birth.
+        $route->type = $routeType;
         
         // Store in routes array
         $this->routes[$pattern] = $route;
@@ -1894,6 +1895,44 @@ class Krubot implements Countable // ⚡️✅️⚡️
         $this->registerRouteToGroup($route);
         
         return $route;
+    }
+
+    /**
+     * بازگرداندن تمام مسیرهای ثبت‌شده به همراه جزئیات کامل
+     *
+     * @return array
+    */
+    public function getRoutes(): array
+    {
+        $result = [];
+        foreach ($this->routes as $pattern => $route) {
+            if ($route instanceof Route) {
+                $result[] = [
+                    'pattern'      => $pattern,
+                    'type'         => $route->type,
+                    'action'       => $route->getAction(),
+                    'middleware'   => $route->getMiddlewareStack(),
+                    'platforms'    => $route->getPlatforms(),
+                    'guards'       => $route->getGuards(),
+                    'forceJoin'    => $route->forceJoinChannels ?? [],
+                    'name'         => $route->getName(),
+                    'parameters'   => $route->pathParameters ?? [],
+                    // 'http_methods' => $route->getAttribute('http_methods', []),
+                    'attrs'        => $route->attributes,
+                    'autoEnrich'   => $route->autoEnrichPattern ?? false,
+                    'accessPolicy' => method_exists($route, 'getAccessPolicy') ? $route->getAccessPolicy() : null,
+                ];
+            } else {
+                // برای سازگاری با ساختار قدیمی (آرایه‌ای)
+                $result[] = [
+                    'pattern'    => $pattern,
+                    'type'       => $route['attributes']['_route_type'] ?? 'unknown',
+                    'action'     => $route['action'] ?? null,
+                    'middleware' => $route['attributes']['middleware'] ?? [],
+                ];
+            }
+        }
+        return $result;
     }
 
     // =========================================================================
@@ -2211,7 +2250,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * envelope and content signals to the main processing loop, eliminating redundant calculations.
      *
      * @return array{
-     *   0: string, // routingType (e.g., self::RT_TEXT, self::RT_TYPE)
+     *   0: string, // routingType (e.g., self::RT_TEXT, self::RT_SIGNAL)
      *   1: string, // routingPayload (e.g., '/start', 'TYPE::photo')
      *   2: array<string,mixed>, // actionParams
      *   3: string, // envelopeSignal (pre-computed)
@@ -2308,7 +2347,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         // An envelope signal is "meaningful" if it's different from the content signal,
         // indicating a specific event wrapper like 'edited_message' or 'poll_answer'.
         if ($envelopeSignal !== $contentSignal && $envelopeSignal !== Signal::Void) {
-            $routingType = self::RT_TYPE;
+            $routingType = self::RT_SIGNAL;
             $routingPayload = 'TYPE::' . $envelopeSignal;
         
         // B) No specific envelope, so we use the Content signal.
@@ -2318,8 +2357,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 $routingType = self::RT_TEXT;
                 $routingPayload = $message->text ?? '';
             } else {
-                // It's a media or other content type. Route as RT_TYPE for sensory matching.
-                $routingType = self::RT_TYPE;
+                // It's a media or other content type. Route as RT_SIGNAL for sensory matching.
+                $routingType = self::RT_SIGNAL;
                 $routingPayload = 'TYPE::' . $contentSignal;
             }
         }
@@ -3038,7 +3077,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
             self::RT_INLINE       => [self::RT_INLINE],
 
             // A message type signal (photo, video) matches type routes.
-            self::RT_TYPE         => [self::RT_TYPE],
+            self::RT_SIGNAL         => [self::RT_SIGNAL],
 
             // A direct Web Request signal can match a WebPage or a WebAction.
             // This is for direct browser/AJAX calls to Laravel.
@@ -3146,14 +3185,30 @@ class Krubot implements Countable // ⚡️✅️⚡️
             // STRATEGY 2: [NEW] PARAMETERIZED WEB PATH MATCHER (CURLY BRACE NOTATION)
             // It runs ONLY for web signals on patterns that contain in-url parameters.
             // It is now the primary engine for WebApp/WebAction routes.
-            elseif (
-                $routingType === self::RT_WEB &&            // Only for web requests
-                method_exists($this, 'demystifyWebPath') && // if HasWebInterface Trait is Loaded
-                str_contains($pattern, '{')                 // Only for patterns with potential parameters
-            ) {
-                // We delegate the complex matching logic to a new, dedicated helper method.
-                // This keeps the main loop clean and readable.
-                [$isMatch, $matches] = $this->demystifyWebPath($pattern, $text);
+            elseif ($routingType === self::RT_WEB) {
+                // حذف پیشوندهای مربوط به وب
+                $webPrefixes = ['WAPP::', 'WACT::'];
+                $cleanPattern = $pattern;
+                foreach ($webPrefixes as $prefix) {
+                    if (str_starts_with($pattern, $prefix)) {
+                        $cleanPattern = substr($pattern, strlen($prefix));
+                        break;
+                    }
+                }
+            
+                // اگر الگوی تمیز دارای پارامتر باشد، از demystifyWebPath استفاده کن
+                if (
+                    method_exists($this, 'demystifyWebPath') &&     // if HasWebInterface Trait is Loaded
+                    str_contains($cleanPattern, '{')                // Only for patterns with potential parameters
+                ) {
+                    // We delegate the complex matching logic to a new, dedicated helper method.
+                    // This keeps the main loop clean and readable.
+                    [$isMatch, $matches] = $this->demystifyWebPath($cleanPattern, $text);
+                } else {
+                    // تطبیق ساده
+                    $isMatch = ($text === $cleanPattern);
+                    $matches = [];
+                }
             }
             // Strategy 3: NEW ✨ INLINE QUERY MATCH (HYPER-OPTIMIZED) ✨
             // This block will only be evaluated if the Great Filter passed an RT_INLINE_QUERY signal.

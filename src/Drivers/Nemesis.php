@@ -41,7 +41,8 @@ use Illuminate\Support\Facades\Route;
 use KrubiK\Drivers\RubikaDriver;
 use KrubiK\Drivers\BaleDriver;
 use KrubiK\Drivers\TelegramDriver;
-use KrubiK\WebApps\Drivers\WebAppDriver;
+use KrubiK\Drivers\WebAppDriver;
+use KrubiK\Drivers\CLIDriver; // made specifically for nexus:inspect|KrubotMindSimulator
 use KrubiK\Enums\Platform;
 
 /**

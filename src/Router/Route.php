@@ -42,9 +42,9 @@ class Route
     public string $pattern;
 
     /**
-     * @var int The type of the route (e.g., Command, WebPage). See Router::RT_* constants.
+     * @var string The type of the route (e.g., Command, WebPage). See Krubot::RT_* constants.
      */
-    public ?int $type = null; // Or RT_NONE
+    public ?string $type = null; // Or RT_NONE
 
     /**
      * The handler action (Controller array, Closure, or Invokable class string).
@@ -196,11 +196,6 @@ class Route
         // 4. Store remaining attributes (recipients, drivers, limits, etc.)
         $this->attributes = array_merge($this->attributes, $attributes);
 
-        // [THE UPGRADE] The Route becomes self-aware of its type upon birth.
-        if (isset($attributes['_route_type'])) {
-            $this->type = $attributes['_route_type'];
-        }
-
         // ✨ THE Path_AWAKEN ✨
         // The Route object now analyzes itself upon creation.
         $this->extractPathParameters();
@@ -336,7 +331,7 @@ class Route
      * @param array $globalMiddlewares The list of middlewares defined globally in the Bot.
      * @return array The final ordered list of middlewares to execute.
      */
-    public function getMiddlewareStack(array $globalMiddlewares): array
+    public function getMiddlewareStack(array $globalMiddlewares = []): array
     {
         // 1. Process Globals
         $globalsToRun = [];
