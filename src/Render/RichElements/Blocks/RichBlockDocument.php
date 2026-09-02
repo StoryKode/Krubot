@@ -8,7 +8,7 @@ use KrubiK\Render\RichElements\Components\RichBlockCaption;
 /**
  * A block containing a Document inside the Article.
 */
-readonly class RichBlockDocument extends RichBlockEntity
+class RichBlockDocument extends RichBlockEntity
 {
     /**
      * @param array $document The document object, expected as an array.

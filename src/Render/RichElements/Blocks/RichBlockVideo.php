@@ -5,7 +5,7 @@ use KrubiK\Render\RichElements\RichEntity;
 use KrubiK\Render\DTOs\Video as VideoDTO;
 use KrubiK\Render\RichElements\Components\RichBlockCaption;
 
-readonly class RichBlockVideo extends RichBlockEntity
+class RichBlockVideo extends RichBlockEntity
 {
     public function __construct(public VideoDTO|array $video, public ?bool $has_spoiler = null, public RichBlockCaption|RichEntity|string|null $caption = null) {}
 

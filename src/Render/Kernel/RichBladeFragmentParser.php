@@ -45,7 +45,7 @@ class RichBladeFragmentParser implements SyntaxWarden
      * Parses a string containing Blade directives by compiling and executing it entirely in-memory.
      *
      * @param string $input The string fragment, e.g., "And then @Bold()This@EndBold() happened...".
-     * @return array<int, \Krubot\Render\RichElements\RichEntity> An array of entities.
+     * @return array<int, \KrubiK\Render\RichElements\RichEntity> An array of entities.
      */
     public function decipher(string $input): array
     {

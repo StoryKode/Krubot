@@ -1,7 +1,7 @@
 <?php
 namespace KrubiK\Render\RichElements\Blocks;
 
-readonly class RichBlockDivider extends RichBlockEntity
+class RichBlockDivider extends RichBlockEntity
 {
     public function __construct() {}
     /**

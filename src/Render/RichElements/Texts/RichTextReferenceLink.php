@@ -3,7 +3,7 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextReferenceLink extends RichTextEntity
+class RichTextReferenceLink extends RichTextEntity
 {
     public function __construct(public RichEntity|string|array $text, public string $reference_name) {}
 

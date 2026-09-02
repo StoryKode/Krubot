@@ -2,7 +2,7 @@
 namespace KrubiK\Render\RichElements\Blocks;
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichBlockPreformatted extends RichBlockEntity
+class RichBlockPreformatted extends RichBlockEntity
 {
     public function __construct(public RichEntity|string|array $text, public ?string $language = null) {}
 

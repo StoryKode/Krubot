@@ -3,7 +3,7 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextMention extends RichTextEntity
+class RichTextMention extends RichTextEntity
 {
     public function __construct(public RichEntity|string|array $text, public string $username) {}
 

@@ -97,7 +97,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * This is a high-performance, direct-path method that bypasses __call.
      *
      * @return bool
-     */
+    */
     protected final function targetsWeb(): bool
     {
         // Direct enum comparison is the fastest possible()) check in PHP 8.1+.
@@ -109,7 +109,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * This is a high-performance, direct-path method that bypasses __call.
      *
      * @return bool
-     */
+    */
     protected final function targetsTelegram(): bool
     {
         return $this->aura()->platform->matches(Platform::Telegram());
@@ -120,7 +120,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * This is a high-performance, direct-path method that bypasses __call.
      *
      * @return bool
-     */
+    */
     protected final function targetsRubika(): bool
     {
         return $this->aura()->platform->matches(Platform::Rubika());
@@ -131,7 +131,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * This is a high-performance, direct-path method that bypasses __call.
      *
      * @return bool
-     */
+    */
     protected final function targetsCli(): bool
     {
         return $this->aura()->platform->matches(Platform::CLI());
@@ -157,7 +157,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * @param array $arguments The arguments passed to the method (ignored in this case).
      * @return bool True if the current rendering platform matches the one in the method name.
      * @throws BadMethodCallException if the method name does not match the `renderFor[Platform]` pattern.
-     */
+    */
     public function __call(string $name, array $arguments): bool
     {
         // Define the magic prefixs we are looking for.
@@ -216,7 +216,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * `null` (default): Inherit/off. `true`: Enable Markdown. `false`: Disable Markdown.
      *
      * @var bool|null
-     */
+    */
     protected static ?bool $globalMarkdownFlag = null;
 
     /**
@@ -225,7 +225,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * `null` (default): Inherit from global. `true`: Enable Markdown. `false`: Disable Markdown.
      *
      * @var bool|null
-     */
+    */
     protected ?bool $useMarkdown = null;
 
     /**re4
@@ -235,7 +235,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      *
      * @param bool $enable Sets the desired global state.
      * @return void
-     */
+    */
     public static function markdownAll(bool $enable = true): void
     {
         static::$globalMarkdownFlag = $enable;
@@ -248,7 +248,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      *
      * @param bool $enable The desired state for this instance.
      * @return static Returns the instance for method chaining.
-     */
+    */
     public function autoMarkdown(bool $enable = true): static
     {
         $this->useMarkdown = $enable;
@@ -266,7 +266,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * This logic is elegantly executed using the null coalescing operator.
      *
      * @return bool True if Markdown rendering should be used, false otherwise.
-     */
+    */
     public function shouldRenderMarkdown(): bool
     {
         // Return the first non-null value in the chain: instance -> global -> false.
@@ -353,7 +353,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * @param mixed $data The data to be normalized and filtered. Can be an array,
      *                    an Arrayable object, or any other type `normalize` supports.
      * @return array A fully processed, serializable array with no top-level `null` values.
-     */
+    */
     protected function filterEmpty(mixed $data, ?bool $deep_mode = false): array
     {
         // Step 1: Delegate the complex task of recursive type conversion to the normalize method.

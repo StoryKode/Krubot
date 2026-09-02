@@ -8,7 +8,7 @@ use KrubiK\Render\RichElements\Components\RichBlockCaption;
 /**
  * A block containing a voice note.
 */
-readonly class RichBlockVoiceNote extends RichBlockEntity
+class RichBlockVoiceNote extends RichBlockEntity
 {
     /**
      * @param array $voice_note The voice note object, expected as an array.

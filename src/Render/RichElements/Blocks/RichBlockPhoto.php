@@ -6,7 +6,7 @@ use KrubiK\Render\DTOs\PhotoSize as PhotoSizeDTO;
 use KrubiK\Render\RichElements\Components\RichBlockCaption;
 use Illuminate\Support\Arr;
 
-readonly class RichBlockPhoto extends RichBlockEntity
+class RichBlockPhoto extends RichBlockEntity
 {
     public function __construct(public PhotoSizeDTO|array $photo, public ?bool $has_spoiler = null, public RichBlockCaption|RichEntity|string|null $caption = null) {}
     /**

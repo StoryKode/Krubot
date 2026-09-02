@@ -13,8 +13,8 @@ use InvalidArgumentException;
  * for creating checklist items, abstracting away the underlying boolean flags of its parent.
  * It inherits all rendering logic from RichBlockListItem, as the parent already knows
  * how to render checkboxes. This class's primary role is to simplify object construction.
- */
-readonly class RichBlockCheckListItem extends RichBlockListItem
+*/
+class RichBlockCheckListItem extends RichBlockListItem
 {
     /**
      * Creates a new checklist item.

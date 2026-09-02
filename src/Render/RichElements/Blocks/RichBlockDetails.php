@@ -4,7 +4,7 @@ namespace KrubiK\Render\RichElements\Blocks;
 use KrubiK\Render\RichElements\RichEntity;
 use Illuminate\Contracts\Support\Arrayable;
 
-readonly class RichBlockDetails extends RichBlockEntity
+class RichBlockDetails extends RichBlockEntity
 {
     /** @param RichBlockEntity[] $blocks */
     public function __construct(public RichEntity|string|array $summary, public array|Arrayable $blocks, public ?bool $is_open = null) {}

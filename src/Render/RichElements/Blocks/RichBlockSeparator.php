@@ -1,7 +1,7 @@
 <?php
-namespace Krubot\Render\RichElements\Blocks;
+namespace KrubiK\Render\RichElements\Blocks;
 
-use Krubot\Render\RichElements\Blocks\RichBlockEntity;
+use KrubiK\Render\RichElements\Blocks\RichBlockEntity;
 
 /**
  * Represents a text-based separator block entity.
@@ -9,7 +9,7 @@ use Krubot\Render\RichElements\Blocks\RichBlockEntity;
  * that acts as a visual, textual separator within the content flow.
  * It is immutable by design.
  */
-readonly class RichBlockSeparator extends RichBlockEntity
+class RichBlockSeparator extends RichBlockEntity
 {
     /**
      * Constructs a new RichBlockSeparator instance.

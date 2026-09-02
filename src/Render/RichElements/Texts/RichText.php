@@ -7,8 +7,8 @@ use KrubiK\Render\RichElements\RichEntity;
  * Represents a generic text container. It can be a simple string or a complex nested structure.
  * The type property for this element will be determined by the context it is used in (e.g., 'plain').
  * This is a utility class for internal representation.
- */
-readonly class RichText extends RichTextEntity
+*/
+class RichText extends RichTextEntity
 {
     /** @param RichEntity|string|array $text */
     public function __construct(public RichEntity|string|array $text) {}

@@ -8,7 +8,7 @@ use KrubiK\Render\RichElements\Components\RichBlockCaption;
 /**
  * A block with a map.
 */
-readonly class RichBlockMap extends RichBlockEntity
+class RichBlockMap extends RichBlockEntity
 {
     /**
      * @param LocationDTO|array $location Central LocationDTO object.

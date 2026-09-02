@@ -7,7 +7,7 @@ use KrubiK\Render\RichElements\RichEntity;
  * An abstract base class for symbol-based links with "HyperDX" features.
  * It centralizes rendering logic, provides a global toggle for auto-prepending symbols,
  * and wraps symbols in a <span> for CSS control.
- */
+*/
 abstract class RichTextSymbolLink extends RichTextEntity
 {
 

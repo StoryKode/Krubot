@@ -7,8 +7,8 @@ use KrubiK\Render\RichElements\RichEntity;
  * Represents a caption for media blocks like photos, videos, etc.
  * This is a component, not a top-level block.
  * It implements Htmlable to be rendered directly in Telegram, Blade or other contexts.
- */
-readonly class RichBlockCaption extends RichComponentEntity
+*/
+class RichBlockCaption extends RichComponentEntity
 {
     /**
      * @param RichEntity|string|array $text The main caption text.

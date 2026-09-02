@@ -4,7 +4,7 @@ namespace KrubiK\Render\RichElements\Blocks;
 use KrubiK\Render\RichElements\RichEntity;
 use Illuminate\Contracts\Support\Arrayable;
 
-readonly class RichBlockExpandableBlockQuotation extends RichBlockEntity
+class RichBlockExpandableBlockQuotation extends RichBlockEntity
 {
     public function __construct(public RichEntity|string|array|null $text, public RichEntity|string|array|null $credit = null) {}
     /**

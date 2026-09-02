@@ -2,7 +2,7 @@
 
 namespace KrubiK\Render\RichElements\Blocks;
 
-readonly class RichBlockMathematicalExpression extends RichBlockEntity
+class RichBlockMathematicalExpression extends RichBlockEntity
 {
     public function __construct(public string $expression) {}
 

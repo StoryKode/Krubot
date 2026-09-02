@@ -3,7 +3,7 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextBankCardNumber extends RichTextEntity
+class RichTextBankCardNumber extends RichTextEntity
 {
     public function __construct(public RichEntity|string|array $text, public string $bank_card_number) {}
 

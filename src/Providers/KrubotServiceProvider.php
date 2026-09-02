@@ -33,7 +33,7 @@ use KrubiK\Helpers\OpcacheRuler;
 use KrubiK\WebApps\AxiomCore;
 use KrubiK\Render\RenderAura;
 use KrubiK\WebApps\UniversalIdentity;
-use Krubot\Render\RichMan;
+use KrubiK\Render\RichMan;
 use KrubiK\Render\Kernel\BladeCipher;
 use KrubiK\Render\Parsers\Parsentinel;
 use KrubiK\Arcane\PlatformConstantsRobustGen; // Ensure the PlatformConstants Trait is imported

@@ -20,8 +20,8 @@ use KrubiK\Render\RichElements\RichEntity;
  * - ::make('Begin', '/start', 'jobs_bot')
  *
  * This class is readonly and immutable after construction.
- */
-readonly class RichTextBotCommand extends RichTextSymbolLink
+*/
+class RichTextBotCommand extends RichTextSymbolLink
 {
     /**
      * The functional bot_command string, always starting with '/'.

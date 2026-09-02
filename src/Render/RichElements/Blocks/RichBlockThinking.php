@@ -6,7 +6,7 @@ use KrubiK\Render\RichElements\RichEntity;
 /**
  * A "Thinking..." placeholder block.
 */
-readonly class RichBlockThinking extends RichBlockEntity
+class RichBlockThinking extends RichBlockEntity
 {
     /** @param RichEntity|string|array $text */
     public function __construct(public RichEntity|string|array $text) {}

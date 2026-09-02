@@ -1,7 +1,7 @@
 <?php
 namespace KrubiK\Render\RichElements\Texts;
 
-readonly class RichTextMathematicalExpression extends RichTextEntity
+class RichTextMathematicalExpression extends RichTextEntity
 {
     public function __construct(public string $expression) {}
 

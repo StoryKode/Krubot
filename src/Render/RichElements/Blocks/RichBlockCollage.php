@@ -4,7 +4,7 @@ namespace KrubiK\Render\RichElements\Blocks;
 use KrubiK\Render\RichElements\RichEntity;
 use Illuminate\Contracts\Support\Arrayable;
 
-readonly class RichBlockCollage extends RichBlockEntity
+class RichBlockCollage extends RichBlockEntity
 {
     /** @param RichBlockEntity[] $blocks */
     public function __construct(public array|Arrayable $blocks, public RichBlockCaption|RichEntity|string|null $caption = null) {}

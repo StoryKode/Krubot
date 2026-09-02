@@ -4,7 +4,7 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextDateTime extends RichTextEntity
+class RichTextDateTime extends RichTextEntity
 {
     public function __construct(public RichEntity|string|array $text, public int $unix_time, public string $date_time_format) {}
     /**

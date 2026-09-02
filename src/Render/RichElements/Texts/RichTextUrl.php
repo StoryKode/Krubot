@@ -2,7 +2,7 @@
 namespace KrubiK\Render\RichElements\Texts;
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextUrl extends RichTextEntity
+class RichTextUrl extends RichTextEntity
 {
     /** @param RichEntity|string|array $text */
     public function __construct(public RichEntity|string|array $text, public string $url) {}

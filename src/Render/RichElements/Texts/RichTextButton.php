@@ -8,7 +8,7 @@ use KrubiK\Keyboard\PowerButton;
 /**
  * @see https://core.telegram.org/bots/api#richtextbutton
 */
-readonly class RichTextButton implements RichTextEntity
+class RichTextButton implements RichTextEntity
 {
     public function __construct(
         public PowerButton|RichButton $button,

@@ -4,7 +4,7 @@ namespace KrubiK\Render\RichElements\Texts;
 use KrubiK\Render\RichElements\RichEntity;
 use InvalidArgumentException;
 
-readonly class RichTextCashtag extends RichTextSymbolLink
+class RichTextCashtag extends RichTextSymbolLink
 {
     public string $cashtag;
 

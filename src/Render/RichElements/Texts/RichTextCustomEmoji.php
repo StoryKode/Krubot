@@ -2,7 +2,7 @@
 
 namespace KrubiK\Render\RichElements\Texts;
 
-readonly class RichTextCustomEmoji extends RichTextEntity
+class RichTextCustomEmoji extends RichTextEntity
 {
     public function __construct(public string $custom_emoji_id, public string $alternative_text) {}
 

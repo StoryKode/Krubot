@@ -3,10 +3,10 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextCode extends RichTextEntity
+class RichTextCode extends RichTextEntity
 {
-    /** @param RichElementEntity|string|array $text */
-    public function __construct(public RichElementEntity|string|array $text) {}
+    /** @param RichEntity|string|array $text */
+    public function __construct(public RichEntity|string|array $text) {}
 
     /**
      * Static factory to create a new RichTextCode instance.

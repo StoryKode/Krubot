@@ -3,7 +3,7 @@ namespace KrubiK\Render\RichElements\Blocks;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichBlockParagraph extends RichBlockEntity
+class RichBlockParagraph extends RichBlockEntity
 {
     public function __construct(public RichEntity|string|array $text) {}
     /**

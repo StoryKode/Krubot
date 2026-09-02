@@ -2,7 +2,7 @@
 
 namespace KrubiK\Render\RichElements\Blocks;
 
-readonly class RichBlockAnchor extends RichBlockEntity
+class RichBlockAnchor extends RichBlockEntity
 {
     public function __construct(public string $name) {}
     public static function make(string $name): self { return new self($name); }

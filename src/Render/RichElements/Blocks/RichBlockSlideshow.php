@@ -8,7 +8,7 @@ use KrubiK\Render\RichElements\Components\RichBlockCaption;
 /**
  * A slideshow of other blocks.
 */
-readonly class RichBlockSlideshow extends RichBlockEntity
+class RichBlockSlideshow extends RichBlockEntity
 {
     /**
      * @param RichBlockEntity[] $blocks Elements of the slideshow.

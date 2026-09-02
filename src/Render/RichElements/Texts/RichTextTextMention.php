@@ -4,7 +4,7 @@ use KrubiK\Render\RichElements\RichEntity;
 
 use KrubiK\Render\DTOs\User;
 
-readonly class RichTextTextMention extends RichTextEntity
+class RichTextTextMention extends RichTextEntity
 {
     /**
      * @param RichEntity|string|array $text The visible text of the mention.

@@ -21,7 +21,7 @@ use Illuminate\Http\JsonResponse;
 use KrubiK\Krubot;
 use KrubiK\Enums\Platform;
 use KrubiK\DTOs\Message;
-use Krubot\Helpers\AmethystMatrix as Log;
+use KrubiK\Helpers\AmethystMatrix as Log;
 use KrubiK\Drivers\Nemesis as KrubotManager;    // 🧠 The Brain
 use KrubiK\DTOs\UniversalInboundUpdate;         // ⚗️ The Alchemist
 use KrubiK\Jobs\HandleDriverUpdate;             // 🚀 The Executor
@@ -58,7 +58,7 @@ use KrubiK\WebApps\DTOs\WebRequest; // ⚡ Our Sacred WebRequest HyperDTO, for W
  * @link https://StoryKo.de/Krubot Official website of engine.
  * @version Krubot: ×RC.8×
  * @license MIT
- */
+*/
 class QuantumGatewayController extends Controller
 {
 
@@ -193,8 +193,7 @@ class QuantumGatewayController extends Controller
      * @param Request $request The incoming HTTP request carrying the payload.
      * @param string $path The resolved routing path.
      * @return JsonResponse|Response
-     */
-
+    */
     public function handleWebApp(Request $request, string $path): JsonResponse|Response
     {
         try {
@@ -284,11 +283,11 @@ class QuantumGatewayController extends Controller
         }
     }
 
-     /**
+    /**
      * =========================================================================
      *  THE REBEL MAGICIAN'S UTILITY BELT
      * =========================================================================
-     */
+    */
 
     /**
      * 🧙‍♂️ The Time-Turner: Conditionally dispatches a job.
@@ -298,7 +297,7 @@ class QuantumGatewayController extends Controller
      *
      * @param object $job The job instance to be dispatched.
      * @param Request $request The current HTTP request.
-     */
+    */
     private function dispatchConditionally(object $job, Request $request): void
     {
         // The Gatekeeper's job is done. The pure DTO and its identity are handed off to ::
@@ -351,7 +350,7 @@ class QuantumGatewayController extends Controller
      * @param string $signature Unique identifier (from Raw or DTO).
      * @param string $driver    The resolved driver identity.
      * @return bool True if it's a duplicate.
-     */
+    */
     private function isDuplicate(string $signature, string $driver): bool
     {
         // Namespaced by driver to prevent cross-platform collisions.

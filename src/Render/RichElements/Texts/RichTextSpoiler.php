@@ -3,7 +3,7 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextSpoiler extends RichTextEntity
+class RichTextSpoiler extends RichTextEntity
 {
     /** @param RichEntity|string|array $text */
     public function __construct(public RichEntity|string|array $text) {}

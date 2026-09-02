@@ -7,7 +7,7 @@ use KrubiK\Render\RichElements\Components\RichBlockListItem;
 /**
  * A list of blocks, corresponding to the HTML tag <ul> or <ol>.
 */
-readonly class RichBlockList extends RichBlockEntity
+class RichBlockList extends RichBlockEntity
 {
     /**
      * Create a new RichTextList instance.

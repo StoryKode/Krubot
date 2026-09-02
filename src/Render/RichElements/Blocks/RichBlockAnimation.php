@@ -5,7 +5,7 @@ use KrubiK\Render\RichElements\RichEntity;
 use KrubiK\Render\DTOs\Animation as AnimationDTO;
 use KrubiK\Render\RichElements\Components\RichBlockCaption;
 
-readonly class RichBlockAnimation extends RichBlockEntity
+class RichBlockAnimation extends RichBlockEntity
 {
     public function __construct(public AnimationDTO|array $animation, public ?bool $has_spoiler = null, public RichBlockCaption|RichEntity|string|null $caption = null) {}
     /**

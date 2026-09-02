@@ -5,7 +5,7 @@ use KrubiK\Render\RichElements\RichEntity;
 use KrubiK\Render\DTOs\Audio as AudioDTO;
 use KrubiK\Render\RichElements\Components\RichBlockCaption;
 
-readonly class RichBlockAudio extends RichBlockEntity
+class RichBlockAudio extends RichBlockEntity
 {
     public function __construct(public AudioDTO|array $audio, public RichBlockCaption|RichEntity|string|null $caption = null) {}
     /**

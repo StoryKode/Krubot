@@ -7,7 +7,7 @@ use Illuminate\Contracts\Support\Arrayable;
 /**
  * Represents a row of cells within a RichBlockTable.
 */
-readonly class RichBlockTableRow extends RichComponentEntity
+class RichBlockTableRow extends RichComponentEntity
 {
     /**
      * @param RichBlockTableCell[] $cells An array of table cell components.

@@ -87,7 +87,7 @@ use KrubiK\Render\RichElements\Blocks\RichBlockExpandableBlockQuotation;
 use KrubiK\Render\RichElements\Blocks\RichBlockCollage;
 use KrubiK\Render\RichElements\Blocks\RichBlockDetails;
 use KrubiK\Render\RichElements\Blocks\RichBlockDivider;
-use Krubot\Render\RichElements\Blocks\RichBlockSeparator; // Not Telegram Original !
+use KrubiK\Render\RichElements\Blocks\RichBlockSeparator; // Not Telegram Original !
 use KrubiK\Render\RichElements\Blocks\RichBlockFooter;
 use KrubiK\Render\RichElements\Blocks\RichBlockHeading;
 use KrubiK\Render\RichElements\Blocks\RichBlockList;
@@ -637,7 +637,7 @@ function divider(): RichBlockDivider
  * @param string $char The character to repeat.
  * @param int $length The number of repetitions.
  * @return RichBlockSeparator The constructed separator entity.
- */
+*/
 function separator(string $char = '—', int $length = 20): RichBlockSeparator
 {
     return RichBlockSeparator::make($char, $length);

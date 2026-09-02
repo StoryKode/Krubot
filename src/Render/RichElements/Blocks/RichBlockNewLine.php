@@ -2,7 +2,7 @@
 
 namespace KrubiK\Render\RichElements\Blocks;
 
-readonly class RichBlockNewLine extends RichBlockEntity
+class RichBlockNewLine extends RichBlockEntity
 {
     public function __construct() {}
     public static function make(): self { return new self(); }

@@ -8,7 +8,7 @@ use KrubiK\Render\RichElements\Components\RichButton;
 /**
  * @see https://core.telegram.org/bots/api#richblockbuttons
 */
-readonly class RichBlockButtons implements RichBlockEntity
+class RichBlockButtons implements RichBlockEntity
 {
     /**
      * @param list<RichButton> $buttons

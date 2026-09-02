@@ -3,7 +3,7 @@ namespace KrubiK\Render\RichElements\Blocks;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichBlockSectionHeading extends RichBlockEntity
+class RichBlockSectionHeading extends RichBlockEntity
 {
     public function __construct(public RichEntity|string|array $text, public int $size = 3) {}
     /**

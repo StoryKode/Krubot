@@ -3,7 +3,7 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextPre extends RichTextEntity
+class RichTextPre extends RichTextEntity
 {
     /** @param RichEntity|string|array $text */
     public function __construct(public RichEntity|string|array $text, public ?string $language = null) {}

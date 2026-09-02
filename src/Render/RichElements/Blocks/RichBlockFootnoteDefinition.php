@@ -5,8 +5,8 @@ use Illuminate\Contracts\Support\Arrayable;
 
 /**
  * Represents the definition block for a footnote at the end of a document.
- */
-readonly class RichBlockFootnoteDefinition extends RichBlockEntity // Not Telegram Original !
+*/
+class RichBlockFootnoteDefinition extends RichBlockEntity // Not Telegram Original !
 {
     /**
      * @param string $name The unique identifier for the footnote (e.g., "fn:id1").

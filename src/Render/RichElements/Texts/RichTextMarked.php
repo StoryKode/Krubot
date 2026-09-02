@@ -3,9 +3,9 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextMarked extends RichTextEntity
+class RichTextMarked extends RichTextEntity
 {
-    public function __construct(public RichElementEntity|string|array $text) {}
+    public function __construct(public RichEntity|string|array $text) {}
 
     /**
      * Static factory to create a new RichTextMarked instance for highlighted text.

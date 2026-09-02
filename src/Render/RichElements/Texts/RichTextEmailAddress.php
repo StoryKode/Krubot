@@ -4,7 +4,7 @@ namespace KrubiK\Render\RichElements\Texts;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichTextEmailAddress extends RichTextEntity
+class RichTextEmailAddress extends RichTextEntity
 {
     public function __construct(public RichEntity|string|array $text, public string $email_address) {}
 

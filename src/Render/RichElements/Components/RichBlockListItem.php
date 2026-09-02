@@ -7,8 +7,8 @@ use Illuminate\Contracts\Support\Arrayable;
 /**
  * Represents a single item within a RichBlockList.
  * This is a component, not a top-level block.
- */
-readonly class RichBlockListItem extends RichComponentEntity
+*/
+class RichBlockListItem extends RichComponentEntity
 {
     /**
      * @param string $label Label of the item.

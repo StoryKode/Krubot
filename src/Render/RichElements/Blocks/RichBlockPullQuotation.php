@@ -3,7 +3,7 @@ namespace KrubiK\Render\RichElements\Blocks;
 
 use KrubiK\Render\RichElements\RichEntity;
 
-readonly class RichBlockPullQuotation extends RichBlockEntity
+class RichBlockPullQuotation extends RichBlockEntity
 {
     public function __construct(public RichEntity|string|array $text, public RichEntity|string|array|null $credit = null) {}
     /**

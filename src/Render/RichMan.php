@@ -86,6 +86,7 @@ use function KrubiK\Render\Helpers\{
     dateTime,
     details,
     divider,
+    separator, // not telegram original
     emailAddress,
     footnoteDefinition,
     footer,
@@ -1250,7 +1251,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     {
         return $this->addBlock(heading($text, $size));
     }
-    public function headline(RichEntity|callable|string|array $text, int $level = 1, int $margin = 1): self
+    public function headline(RichEntity|callable|string|array $text, int $size = 1, int $margin = 1): self
     {
         return $this->heading($text, $size)->newLine($margin);
     }

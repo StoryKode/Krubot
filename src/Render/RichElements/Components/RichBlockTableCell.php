@@ -6,7 +6,7 @@ use KrubiK\Render\RichElements\RichEntity;
 /**
  * Represents a single cell within a RichBlockTable.
 */
-readonly class RichBlockTableCell extends RichComponentEntity
+class RichBlockTableCell extends RichComponentEntity
 {
     public function __construct(
         public RichEntity|string|array|null $text = null,
