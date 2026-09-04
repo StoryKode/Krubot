@@ -6,19 +6,22 @@ class RichBlockDivider extends RichBlockEntity
     public function __construct() {}
     /**
      * Static factory to create a new RichBlockDivider instance.
-     * Represents a thematic break (<hr>).
+     * Represents a thematic break (<hr/>).
      *
      * @return self Returns a new instance of the class.
     */
     public static function make(): self { return new self(); }
     public function toArray(): array { return ['type' => 'divider']; }
+
     public function toHtml(): string
     {
         // Renders a horizontal rule.
-        return '<hr/>';
+        return '<hr class="richy-divider" aria-hidden="true"/>';
     }
+
     public function toMd()
     {
+        // ---  (three dashes on own line)
         return '---';
     }
 }

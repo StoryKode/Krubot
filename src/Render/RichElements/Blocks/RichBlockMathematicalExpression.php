@@ -49,4 +49,10 @@ class RichBlockMathematicalExpression extends RichBlockEntity
         // The most logical plain text representation is the raw expression itself.
         return $this->expression;
     }
+
+    public function toMd(): string
+    {
+        // TG 10.x: block math uses double $$...$$
+        return '$$' . $this->expression . '$$';
+    }
 }

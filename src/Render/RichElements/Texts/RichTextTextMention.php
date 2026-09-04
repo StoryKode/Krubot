@@ -24,10 +24,10 @@ class RichTextTextMention extends RichTextEntity
      * @param UserDTO|array $user The UserDTO or array of the user being mentioned.
      * @return self
     */
-    public static function make(RichEntity|callable|string|array $text, UserDTO|array $user): self
+    public static function make(RichEntity|callable|string|array $text, UserDTO|callable|array $user): self
     {
         // Resolve the display text, as it might be a closure.
-        return new self(self::resolveContent($text), $user);
+        return new self(self::resolveContent($text), self::resolveContent($user, true));
     }
 
     /**
@@ -50,13 +50,60 @@ class RichTextTextMention extends RichTextEntity
 
     public function toHtml(): string
     {
-        // Creates a tg:// link to mention a user by their ID.
-        return '<a href="tg://user?id=' . $this->user->id . '">' . $this->renderHtml($this->text) . '</a>';
+        $user     = $this->user instanceof User
+                        ? $this->user->toArray()
+                        : (array)$this->user;
+
+        $userId   = $this->esc((string)($user['id'] ?? ''));
+        $username = $this->esc($user['username'] ?? '');
+        $target = ' target="_blank" rel="noopener noreferrer"';
+
+        if ($username) {
+
+            $href = $this->getPrefixByPlatform() . $username;
+
+        }
+        elseif((!empty($userId)) && $this->targetsTelegram()) {
+
+            // Creates a tg:// link for mention a user by their ID.
+            $href = 'tg://user?id=' . $userId;
+
+        }
+        else {
+
+            $href = '#';
+            $target = '';
+
+        }
+
+        return '<a href="' . $href . '"' . $target
+            . ' class="richy-text-mention" data-richy-user-id="' . $userId . '">'
+            . $this->renderHtml($this->text)
+            . '</a>';
     }
 
-    public function toMd()
+    public function toMd(): string
     {
-        $userId =  ($this->user instanceof User) ? $this->user->id() : $this->user['id'];
-        return '[' . $this->renderText($this->text) . '](tg://user?id=' . $userId . ')';
+        $userId = $username = null;
+        if($this->user instanceof User) {
+            $userId = $this->user->id();
+            $username = $this->user->username();
+        }
+        else {
+            $user = (array)$this->user;
+            $userId = $user['id'] ?? 0;
+            $username = $user['username'] ?? '';
+        }
+        if($username)
+            $username = $this->esc($username);
+
+        $url = '#';
+        if($userId && $this->targetsTelegram())
+            $url = 'tg://user?id=' . $userId;
+        elseif($username)
+            $url = $this->getPrefixByPlatform() . str_replace(['\\', ')'], ['\\\\', '\\)'], ltrim($username, '@'));
+        
+        $label  = $this->renderText($this->text);
+        return '[' . $label . '](' . $url . ')';
     }
 }

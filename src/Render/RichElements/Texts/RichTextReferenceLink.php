@@ -23,8 +23,22 @@ class RichTextReferenceLink extends RichTextEntity
     public function toArray(): array { return ['type' => 'reference_link', 'text' => $this->normalize($this->text), 'reference_name' => $this->reference_name]; }
     public function toHtml(): string
     {
-        // Creates a link to a <tg-reference> element. This is functionally similar to an anchor link.
+        // Creates a link to a <tg|richy-reference> element. This is functionally similar to an anchor link.
         $escapedRefName = $this->esc($this->reference_name);
-        return '<a href="#' . $escapedRefName . '">' . $this->renderHtml($this->text) . '</a>';
+
+        if($this->targetsTelegram())
+            return '<a href="#' . $escapedRefName . '">' . $this->renderHtml($this->text) . '</a>';
+
+        // JS scrolls to the matching footnote definition.
+        return '<a class="richy-reference-link" href="#" data-richy-ref="' . $escapedRefName . '">'
+            . $this->renderHtml($this->text)
+            . '</a>';
+    }
+
+    public function toMd(): string
+    {
+        // [label][^referenceName] .......
+        $label = $this->renderText($this->text);
+        return $label . '[^' . $this->escForMd($this->reference_name) . ']';
     }
 }

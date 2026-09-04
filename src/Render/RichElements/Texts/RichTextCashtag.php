@@ -75,10 +75,15 @@ class RichTextCashtag extends RichTextSymbolLink
     // --- Implementation of abstract methods ---
     protected function getSymbol(): string { return '$'; }
     protected function getDataType(): string { return 'cashtag'; }
+    protected function getDisplayType(): string { return 'Cashtag'; }
     protected function buildHref(string $value): string
     {
         // Telegram treats cashtag search like hashtag, just with a leading '$'
-        return 'tg://search_hashtag?hashtag=' . rawurlencode('$' . $value);
+        $escapedValue = rawurlencode('$' . $value);
+        if($this->targetsTelegram())
+            return 'tg://search_hashtag?hashtag=' . $escapedValue;
+
+        return $this->getPrefixByPlatform() . 'search?cashtag=' . $escapedValue;
     }
     
 }

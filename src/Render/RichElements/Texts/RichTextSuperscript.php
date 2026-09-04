@@ -21,9 +21,16 @@ class RichTextSuperscript extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'superscript', 'text' => $this->normalize($this->text)]; }
+
     public function toHtml(): string
     {
         // Renders content within <sup> tags.
-        return '<sup>' . $this->renderHtml($this->text) . '</sup>';
+        return '<sup class="richy-superscript">' . $this->renderHtml($this->text) . '</sup>';
+    }
+
+    public function toMd(): string
+    {
+        // Note: TG MDV2 has no superscript; emit as HTML tag (TG MDV2 allows HTML inline)
+        return '<sup>' . $this->renderText($this->text) . '</sup>';
     }
 }

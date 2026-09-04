@@ -52,7 +52,7 @@ class LocationAddress extends BaseObject
      * @param string|null $value If provided, sets the 'state'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function state(?string $value = null): static|?string
+    public function state(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -71,7 +71,7 @@ class LocationAddress extends BaseObject
      * @param string|null $value If provided, sets the 'city'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function city(?string $value = null): static|?string
+    public function city(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -90,7 +90,7 @@ class LocationAddress extends BaseObject
      * @param string|null $value If provided, sets the 'street'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function street(?string $value = null): static|?string
+    public function street(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {

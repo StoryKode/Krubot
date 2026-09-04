@@ -24,7 +24,8 @@ class Voice extends BaseObject
         protected string $file_unique_id,
         protected int $duration,
         protected ?string $mime_type = null,
-        protected ?int $file_size = null
+        protected ?int $file_size = null,
+        protected ?string $file_url = null // custom url for rendering on web
     ) {}
 
     // [Hi-DX] Auto-Generated Methods
@@ -92,7 +93,7 @@ class Voice extends BaseObject
      * @param string|null $value If provided, sets the 'mime_type'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function mimeType(?string $value = null): static|?string
+    public function mimeType(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -111,7 +112,7 @@ class Voice extends BaseObject
      * @param int|null $value If provided, sets the 'file_size'. Otherwise, returns the current value.
      * @return static|int|null The instance for chaining (setter) or the value (getter).
      */
-    public function fileSize(?int $value = null): static|?int
+    public function fileSize(?int $value = null): static|int|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {

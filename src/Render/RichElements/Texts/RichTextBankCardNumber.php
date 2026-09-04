@@ -24,6 +24,7 @@ class RichTextBankCardNumber extends RichTextEntity
 
     /**
      * Renders the bank card number as an inline <span> element.
+     * JS copies raw digits on click.
      *
      * A <span> is used as a neutral inline container. A specific CSS class `tg-bank-card-number`
      * is added for styling, and a `data-card-number` attribute holds the raw number,
@@ -36,8 +37,11 @@ class RichTextBankCardNumber extends RichTextEntity
     {
         // Define attributes declaratively for our helper.
         $attributes = [
-            'class' => 'richy-bank-card-number copyable-element',
-            'data-card-number' => $this->bank_card_number,
+            'class' => 'richy-bank-card richy-bank-card-number copyable-element',
+            'data-richy-card-number' => $this->bank_card_number,
+            'title' => 'Click to copy',
+            'tabindex' => '0',
+            'role' => 'button'
         ];
         
         // Let the central helper handle escaping and string conversion.
@@ -47,6 +51,14 @@ class RichTextBankCardNumber extends RichTextEntity
         $renderedText = $this->renderHtml($this->text);
         
         // Assemble the final tag.
-        return "<span{$attrString}>{$renderedText}</span>";
+        return "<span {$attrString}>{$renderedText}</span>";
+    }
+
+    public function toMd(): string
+    {
+        // Render as inline code for visual distinction
+        // and Inside inline code, only backtick and backslash need escaping.
+        $inner = str_replace(['\\', '`'], ['\\\\', '\\`'], $this->bank_card_number);
+        return '`' . $inner . '`';
     }
 }

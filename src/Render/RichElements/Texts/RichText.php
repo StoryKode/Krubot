@@ -30,4 +30,10 @@ class RichText extends RichTextEntity
     public function toHtml():string {
         return $this->renderHtml($this->text);
     }
+
+    // No RichText concept in TG messages; render text only
+    public function toMd(): string
+    {
+        return $this->renderText($this->text);
+    }
 }

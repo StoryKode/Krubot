@@ -38,6 +38,7 @@ use KrubiK\Render\Kernel\BladeCipher;
 use KrubiK\Render\Parsers\Parsentinel;
 use KrubiK\Arcane\PlatformConstantsRobustGen; // Ensure the PlatformConstants Trait is imported
 use KrubiK\Middlewares\SynapticSurgeProtocol; // Import the Lazarus SSP
+use KrubiK\Controllers\QuantumGatewayController; // Import the Web Renderers
 
 /**
  * =========================================================================
@@ -120,6 +121,8 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
         /// $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
         /// Moved To: KrubotRouteProvider
 
+        $this->transportKrubot(); // Welcome to the Client-Realm, Warlord!
+
         /**
          * Register The Identity Gateway :: Attach or Retrieve the Universal Identity Card via Symfony ParameterBag.
          * Archetype: The Conduit (State Mutator & Accessor)
@@ -172,8 +175,6 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
                 );
 
             });
-
-            /// $this->transportKrubot();
     }
 
     /**
@@ -381,24 +382,51 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
     public function transportKrubot(): bool
     {
         // مسیر فایل منبع داخل پکیج
-        $source = __DIR__ . '/Client/Res/__main__/Krubot.js';
+        $sourceDirectory = __DIR__ . '/../Client/Res/__main__';
 
         // مسیر مقصد در فولدر public
-        $destination = public_path('engine/krubot/Krubot.js');
-
-        if (File::exists($destination)) {
-            return true; // <<--- cheap and idiot! dont be like him in your life!
-        }
+        $destinationDirectory = public_path('engine/krubot');
 
         // ایجاد فولدر مقصد در صورت عدم وجود
-        if (!File::exists(dirname($destination))) {
-            File::makeDirectory(dirname($destination), 0755, true);
+        File::ensureDirectoryExists($destinationDirectory, 0755, true);
+
+        $result = true;
+        foreach ([
+            'js',
+            'css',
+        ] as $extension) {
+
+            try {
+
+                $asset       = QuantumGatewayController::$webRenderFileName . '.' . $extension;
+                $source      = $sourceDirectory . DIRECTORY_SEPARATOR . $asset;
+                $destination = $destinationDirectory . DIRECTORY_SEPARATOR . $asset;
+
+                if (!File::exists($source)) {
+                    // در صورت نبود فایل سورس، رد شو
+                    $result = false;
+                    continue;
+                }
+
+                /*
+                * Publish only when:
+                * 1. destination does not exist, or
+                * 2. source is newer than destination.
+                */
+                if (
+                    !File::exists($destination)
+                    || File::lastModified($source) > File::lastModified($destination)
+                ) {
+                    // کپی کردن فایل
+                    $result = File::copy($source, $destination) && $result;
+                }
+            
+            } catch (\Throwable $th) {
+                $result = false;
+            }
         }
 
-        // کپی کردن فایل
-        File::copy($source, $destination);
-
-        return true;
+        return $result;
     }
 
     /**

@@ -12,15 +12,15 @@ class RichBlockPhoto extends RichBlockEntity
     /**
      * Static factory to create a new RichBlockPhoto instance.
      *
-     * @param PhotoSizeDTO|array $photo The PhotoSize DTO or array.
+     * @param PhotoSizeDTO|callable|array $photo The PhotoSize DTO or array.
      * @param bool|null $hasSpoiler Whether the photo is hidden by a spoiler.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return self Returns a new instance of the class.
     */
-    public static function make(PhotoSizeDTO|array $photo, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    public static function make(PhotoSizeDTO|callable|array $photo, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         $resolvedCaption = self::resolveContent($caption); // Resolve the caption if it's a callable closure.
-        return new self($photo, $hasSpoiler, $resolvedCaption);
+        return new self(self::resolveContent($photo, true), $hasSpoiler, $resolvedCaption);
     }
     public function toArray(): array { return $this->filterEmpty(['type' => 'photo', 'photo' => $this->normalize($this->photo), 'has_spoiler' => $this->has_spoiler, 'caption' => $this->normalizeCaption($this->caption)]); }
 
@@ -99,5 +99,65 @@ class RichBlockPhoto extends RichBlockEntity
         }
         
         return $figureTag;
+    }
+
+    // URL resolution: host app exposes a route; we use data-richy-file-id
+    public function toHtml2(): string
+    {
+        $photo = $this->photo instanceof PhotoSizeDTO
+            ? $this->photo->toArray()
+            : (array)$this->photo;
+
+        $fileId = $this->esc($photo['file_id'] ?? '');
+        $width  = (int)($photo['width']  ?? 0);
+        $height = (int)($photo['height'] ?? 0);
+        $alt    = 'Photo';
+
+        // Build the src: if host provides a resolved URL, use it;
+        // otherwise emit data-richy-file-id for JS lazy-resolution.
+        $src = $this->esc($photo['url'] ?? '');
+        $srcAttr = $src
+            ? 'src="' . $src . '"'
+            : 'src="" data-richy-file-id="' . $fileId . '" data-richy-pending="1"';
+
+        $sizingAttr = ($width && $height)
+            ? ' width="' . $width . '" height="' . $height . '"'
+            : '';
+
+        $hasSpoiler = $this->has_spoiler === true;
+        $spoilerClass = $hasSpoiler ? ' richy-photo--spoiler' : '';
+
+        $overlayHtml = $hasSpoiler
+            ? '<div class="richy-photo__overlay">🔞 Spoiler — tap to reveal</div>'
+            : '';
+
+        $imgHtml = '<img ' . $srcAttr . $sizingAttr
+            . ' alt="' . $this->esc($alt) . '" loading="lazy" decoding="async">';
+
+        $captionHtml = $this->caption !== null
+            ? $this->renderHtml($this->caption)
+            : '';
+
+        return '<figure class="richy-photo' . $spoilerClass . '">'
+            . '<div class="richy-photo__wrap">' . $imgHtml . $overlayHtml . '</div>'
+            . ($captionHtml ? '<figcaption>' . $captionHtml . '</figcaption>' : '')
+            . '</figure>';
+    }
+
+    public function toMd(): string
+    {
+        $photo = $this->photo instanceof PhotoSizeDTO
+            ? $this->photo->toArray()
+            : (array)$this->photo;
+
+        $url     = $photo['url'] ?? '';
+        $caption = $this->caption !== null
+            ? $this->renderText($this->caption)
+            : '';
+
+        $safeUrl = str_replace(['\\', ')'], ['\\\\', '\\)'], $url);
+        $md = '![ ](' . $safeUrl . ($caption ? ' "' . addslashes($caption) . '"' : '') . ')';
+
+        return $this->has_spoiler ? '||' . $md . '||' . "\n" : $md . "\n";
     }
 }

@@ -69,6 +69,11 @@ class QuantumGatewayController extends Controller
     private ?bool $shouldDispatchSync = null;
 
     /**
+     * Base filename for the Web Render assets (JS/CSS).
+    */
+    public static $webRenderFileName = 'Krubot-Web-Render';
+
+    /**
      * The constructor now depends on the KrubotManager, our Single Source of Truth for the request's state.
     */
     public function __construct(
@@ -281,6 +286,57 @@ class QuantumGatewayController extends Controller
                 'message' => 'An internal gateway error occurred while processing your WebApp request.'
             ], 500);
         }
+    }
+
+    /**
+     * Serves the embeddable widget snippet.
+     * Drop <script src="/krubot.js"></script> anywhere on your site.
+    */
+    public function embedWebRendererz(): Response
+    {
+        $base = request()->root(); // rtrim((string) config('app.url'), '/');
+
+        $jsPath  = public_path('engine/krubot/'.self::$webRenderFileName.'.js');
+        $cssPath = public_path('engine/krubot/'.self::$webRenderFileName.'.css');
+
+        $jsUrl = $base
+            . '/engine/krubot/'.self::$webRenderFileName.'.js?v='
+            . filemtime($jsPath);
+
+        $cssUrl = $base
+            . '/engine/krubot/'.self::$webRenderFileName.'.css?v='
+            . filemtime($cssPath);
+
+        $jsUrl  = json_encode($jsUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $cssUrl = json_encode($cssUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return response(
+            <<<JS
+(function () {
+    var css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.type = 'text/css';
+    css.media = 'all';
+    css.href = {$cssUrl};
+    document.head.appendChild(css);
+
+    var script = document.createElement('script');
+    script.src = {$jsUrl};
+    script.defer = true;
+    document.head.appendChild(script);
+})();
+JS,
+            200,
+            [
+                'Content-Type' => 'application/javascript; charset=UTF-8',
+
+                // Absolute cache prevention for Manifestor.
+                'Cache-Control' => 'no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate',
+                'Surrogate-Control'   => 'no-store',
+                'Pragma'        => 'no-cache',
+                'Expires'       => '0',
+            ]
+        );
     }
 
     /**

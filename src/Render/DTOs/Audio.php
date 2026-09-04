@@ -32,7 +32,8 @@ class Audio extends BaseObject
         protected ?string $file_name = null,
         protected ?string $mime_type = null,
         protected ?int $file_size = null,
-        protected ?PhotoSize $thumbnail = null
+        protected ?PhotoSize $thumbnail = null,
+        protected ?string $file_url = null // custom url for rendering on web
     ) {}
 
     // [Hi-DX] Auto-Generated Methods
@@ -100,7 +101,7 @@ class Audio extends BaseObject
      * @param string|null $value If provided, sets the 'performer'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function performer(?string $value = null): static|?string
+    public function performer(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -119,7 +120,7 @@ class Audio extends BaseObject
      * @param string|null $value If provided, sets the 'title'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function title(?string $value = null): static|?string
+    public function title(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -138,7 +139,7 @@ class Audio extends BaseObject
      * @param string|null $value If provided, sets the 'file_name'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function fileName(?string $value = null): static|?string
+    public function fileName(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -157,7 +158,7 @@ class Audio extends BaseObject
      * @param string|null $value If provided, sets the 'mime_type'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function mimeType(?string $value = null): static|?string
+    public function mimeType(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -176,7 +177,7 @@ class Audio extends BaseObject
      * @param int|null $value If provided, sets the 'file_size'. Otherwise, returns the current value.
      * @return static|int|null The instance for chaining (setter) or the value (getter).
      */
-    public function fileSize(?int $value = null): static|?int
+    public function fileSize(?int $value = null): static|int|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -195,7 +196,7 @@ class Audio extends BaseObject
      * @param PhotoSize|null $value If provided, sets the 'thumbnail'. Otherwise, returns the current value.
      * @return static|PhotoSize|null The instance for chaining (setter) or the value (getter).
      */
-    public function thumbnail(?PhotoSize $value = null): static|?PhotoSize
+    public function thumbnail(?PhotoSize $value = null): static|PhotoSize|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {

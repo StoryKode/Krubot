@@ -23,11 +23,14 @@ class RichBlockHeading extends RichBlockEntity
     {
         // Generates a heading tag from <h1> to <h6> based on the size property.
         // We ensure size is within the valid 1-6 range.
-        $size = max(1, min(6, $this->size));
-        return "<h{$size}>" . $this->renderHtml($this->text) . "</h{$size}>";
+        $level = max(1, min(6, $this->size));
+        return "<h{$level} class=\"richy-heading richy-heading-{$level}\">" . $this->renderHtml($this->text) . "</h{$level}>";
     }
+
     public function toMd()
     {
-        return str_repeat('#', $this->size) . ' ' . $this->renderText($this->text);
+        // TG-MD 10.x:  # Heading 1  ## Heading 2  … ###### Heading 6
+        $level  = max(1, min(6, (int)$this->size));
+        return str_repeat('#', $level) . ' ' . $this->renderText($this->text) . "\n\n";
     }
 }

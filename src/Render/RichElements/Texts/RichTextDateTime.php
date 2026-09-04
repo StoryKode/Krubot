@@ -22,10 +22,33 @@ class RichTextDateTime extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'date_time', 'text' => $this->normalize($this->text), 'unix_time' => $this->unix_time, 'date_time_format' => $this->date_time_format]; }
+
+    // Renders a custom <{tg-}? time> tag with unix timestamp and format, so JS can reformat to local timezone.
     public function toHtml(): string
     {
-        // Renders a custom <tg-time> tag with unix timestamp and format.
-        $escapedFormat = $this->esc($this->date_time_format);
-        return '<tg-time unix="' . $this->unix_time . '" format="' . $escapedFormat . '">' . $this->renderHtml($this->text) . '</tg-time>';
+        $tagString = $this->targetsTelegram() ? 'tg-time' : 'time';
+
+        // Define attributes declaratively for our helper.
+        $attributes = [
+            'class'   => 'richy-datetime',
+            'datetime'=> date('c', $this->unixTime),
+            'unix'    => ((int)$this->unixTime),
+            'format'  => $this->dateTimeFormat
+        ];
+
+        // Let the central helper handle escaping and string conversion.
+        $attrString = $this->attributesToString($attributes);
+
+        // Assemble the final tag.
+        return "<{$tagString} {$attrString}>" . $this->renderHtml($this->text) . "</{$tagString}>";
+    }
+
+    // TG Extended Markdown — Renders as interactive date widget in TG clients.
+    public function toMd(): string
+    {
+        $label  = $this->renderText($this->text);
+        $url    = 'tg://time?unix=' . (int)$this->unixTime . '&format=' . urlencode($this->dateTimeFormat);
+        $safeUrl = str_replace(['\\', ')'], ['\\\\', '\\)'], $url);
+        return '![' . $label . '](' . $safeUrl . ')';
     }
 }

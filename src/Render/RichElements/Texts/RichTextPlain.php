@@ -30,4 +30,9 @@ class RichTextPlain extends RichTextEntity
         // Use the centralized escaping function from the trait.
         return $this->esc($this->text);
     }
+
+    public function toMd(): string
+    {
+        return $this->escForMd($this->text);
+    }
 }

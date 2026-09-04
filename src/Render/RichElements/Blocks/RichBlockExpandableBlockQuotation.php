@@ -30,20 +30,44 @@ class RichBlockExpandableBlockQuotation extends RichBlockEntity
         ]);
     }
 
+    // Renders a expandable blockquote, including all nested blocks.
     public function toHtml(): string
     {
-        // Renders a expandable blockquote, including all nested blocks.
-        // An optional <cite> tag is added for the credit.
-        $html = '<blockquote expandable>';
-        $html .= $this->renderHtml($this->text);
-        if ($this->credit) {
-            $html .= '<cite>' . $this->renderHtml($this->credit) . '</cite>';
+        if($this->targetsTelegram()) {
+            $html = '<blockquote expandable>';
+            $html .= $this->renderHtml($this->text);
+            if ($this->credit) {
+                // An optional <cite> tag is added for the credit.
+                $html .= '<cite>' . $this->renderHtml($this->credit) . '</cite>';
+            }
+            $html .= '</blockquote>';
+            return $html;
         }
-        $html .= '</blockquote>';
-        return $html;
+
+        $svgChevron = '<svg class="richy-expandable-quote__chevron" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+            . '<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+            . '</svg>';
+
+        $creditText = $this->credit !== null
+            ? $this->renderHtml($this->credit)
+            : 'Spoiler';
+
+        $bodyHtml = $this->text !== null
+            ? $this->renderHtml($this->text)
+            : '';
+
+        // Collapsed by default; JS toggles .richy-open
+        return '<div class="richy-expandable-quote">'
+            . '<div class="richy-expandable-quote__trigger" role="button" tabindex="0" aria-expanded="false">'
+            .   $svgChevron
+            .   '<span>' . $creditText . '</span>'
+            . '</div>'
+            . '<div class="richy-expandable-quote__body">' . $bodyHtml . '</div>'
+            . '</div>';
     }
 
-    public function toMd(): string
+    /*
+    public function toMdOld(): string
     {
         // تبدیل متن به خطوط جداگانه
         $lines = explode("\n", $this->renderText($this->blocks));
@@ -63,5 +87,29 @@ class RichBlockExpandableBlockQuotation extends RichBlockEntity
         $quotedLines[$totalLines - 1] .= '||';
 
         return implode("\n", $quotedLines);
+    }
+    */
+
+    // Matches TG spec exactly: **>first line\n>...\n>last line||
+    // start with a bold entity (**>)
+    // end with the expandability mark ||
+    public function toMd(): string
+    {
+        $bodyText = $this->text !== null ? $this->renderText($this->text) : '';
+        $lines    = explode("\n", rtrim($bodyText));
+
+        $result = '';
+        foreach ($lines as $i => $line) {
+            if ($i === 0) {
+                // First line gets the **> prefix (bold empty entity trick from TG spec)
+                $result .= '**>' . $line . "\n";
+            } else {
+                $result .= '>' . $line . "\n";
+            }
+        }
+
+        // Last line ends with expandability mark ||
+        $result  = rtrim($result, "\n") . "||\n\n";
+        return $result;
     }
 }

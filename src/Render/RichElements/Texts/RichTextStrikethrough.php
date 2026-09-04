@@ -21,10 +21,16 @@ class RichTextStrikethrough extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'strikethrough', 'text' => $this->normalize($this->text)]; }
+
     public function toHtml(): string
     {
+        $content = $this->renderHtml($this->text);
+
+        if($this->targetsWeb())
+            return '<del class="richy-strikethrough">' . $content . '</del>';
+
         // Renders content within <s> tags.
-        return '<s>' . $this->renderHtml($this->text) . '</s>';
+        return '<s>' . $content . '</s>';
     }
     public function toMd()
     {

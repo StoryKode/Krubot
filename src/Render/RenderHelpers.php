@@ -88,6 +88,7 @@ use KrubiK\Render\RichElements\Blocks\RichBlockCollage;
 use KrubiK\Render\RichElements\Blocks\RichBlockDetails;
 use KrubiK\Render\RichElements\Blocks\RichBlockDivider;
 use KrubiK\Render\RichElements\Blocks\RichBlockSeparator; // Not Telegram Original !
+use KrubiK\Render\RichElements\Blocks\RichBlockNewLine;   // Not Telegram Original !
 use KrubiK\Render\RichElements\Blocks\RichBlockFooter;
 use KrubiK\Render\RichElements\Blocks\RichBlockHeading;
 use KrubiK\Render\RichElements\Blocks\RichBlockList;
@@ -111,7 +112,7 @@ use InvalidArgumentException;
  *
  * @param RichEntity|callable|string|array $text The content to be wrapped.
  * @return RichText
- */
+*/
 function text(RichEntity|callable|string|array $text): RichText
 {
     // Delegates object creation to the static factory method for consistency.
@@ -124,7 +125,7 @@ function text(RichEntity|callable|string|array $text): RichText
  *
  * @param string $name The unique name for the anchor.
  * @return RichBlockAnchor
- */
+*/
 function anchor(string $name): RichBlockAnchor
 {
     return RichBlockAnchor::make($name);
@@ -137,7 +138,7 @@ function anchor(string $name): RichBlockAnchor
  * @param RichEntity|callable|string|array $text The visible, clickable text.
  * @param string $anchorName The name of the anchor (e.g., "section-2") to link to.
  * @return RichTextAnchorLink
- */
+*/
 function anchorLink(RichEntity|callable|string|array $text, string $anchorName): RichTextAnchorLink
 {
     return RichTextAnchorLink::make($text, $anchorName);
@@ -150,8 +151,13 @@ function anchorLink(RichEntity|callable|string|array $text, string $anchorName):
  * @param RichEntity|callable|string|array $text The visible text, often a masked version of the card number.
  * @param string $bankCardNumber The full bank card number string.
  * @return RichTextBankCardNumber
- */
+*/
 function bankCardNumber(RichEntity|callable|string|array $text, string $bankCardNumber): RichTextBankCardNumber
+{
+    return RichTextBankCardNumber::make($text, $bankCardNumber);
+}
+
+function bankCard(RichEntity|callable|string|array $text, string $bankCardNumber): RichTextBankCardNumber
 {
     return RichTextBankCardNumber::make($text, $bankCardNumber);
 }
@@ -162,7 +168,7 @@ function bankCardNumber(RichEntity|callable|string|array $text, string $bankCard
  *
  * @param RichEntity|callable|string|array $text The content to render as bold.
  * @return RichTextBold
- */
+*/
 function bold(RichEntity|callable|string|array $text): RichTextBold
 {
     return RichTextBold::make($text);
@@ -175,8 +181,8 @@ function bold(RichEntity|callable|string|array $text): RichTextBold
  * @param RichEntity|callable|string|array $text The visible text of the command.
  * @param string $botCommand The actual command string to be executed (e.g., "/help").
  * @return RichTextBotCommand
- */
-function botCommand(RichEntity|callable|string|array $text, string $botCommand): RichTextBotCommand
+*/
+function botCommand(RichEntity|callable|string|array $text, ?string $botCommand = null): RichTextBotCommand
 {
     return RichTextBotCommand::make($text, $botCommand);
 }
@@ -188,8 +194,8 @@ function botCommand(RichEntity|callable|string|array $text, string $botCommand):
  * @param RichEntity|callable|string|array $text The visible text of the cashtag.
  * @param string $cashtag The cashtag identifier (e.g., "KRUB").
  * @return RichTextCashtag
- */
-function cashtag(RichEntity|callable|string|array $text, string $cashtag): RichTextCashtag
+*/
+function cashtag(RichEntity|callable|string|array $text, ?string $cashtag = null): RichTextCashtag
 {
     return RichTextCashtag::make($text, $cashtag);
 }
@@ -200,7 +206,7 @@ function cashtag(RichEntity|callable|string|array $text, string $cashtag): RichT
  *
  * @param RichEntity|callable|string|array $text The code snippet.
  * @return RichTextCode
- */
+*/
 function code(RichEntity|callable|string|array $text): RichTextCode
 {
     return RichTextCode::make($text);
@@ -213,7 +219,7 @@ function code(RichEntity|callable|string|array $text): RichTextCode
  * @param string $customEmojiId The unique identifier for the custom emoji.
  * @param string $alternativeText The fallback text description of the emoji (for accessibility).
  * @return RichTextCustomEmoji
- */
+*/
 function customEmoji(string $customEmojiId, string $alternativeText): RichTextCustomEmoji
 {
     return RichTextCustomEmoji::make($customEmojiId, $alternativeText);
@@ -227,7 +233,7 @@ function customEmoji(string $customEmojiId, string $alternativeText): RichTextCu
  * @param int $unixTime The timestamp in Unix epoch format.
  * @param string $dateTimeFormat A string describing the format (e.g., "YYYY-MM-DD HH:mm").
  * @return RichTextDateTime
- */
+*/
 function dateTime(RichEntity|callable|string|array $text, int $unixTime, string $dateTimeFormat): RichTextDateTime
 {
     return RichTextDateTime::make($text, $unixTime, $dateTimeFormat);
@@ -240,7 +246,7 @@ function dateTime(RichEntity|callable|string|array $text, int $unixTime, string 
  * @param RichEntity|callable|string|array $text The visible text of the email link. Can be a simple string or other RichElement entities.
  * @param string $email_address The actual email address (e.g., 'user@example.com').
  * @return RichTextEmailAddress
- */
+*/
 function emailAddress(RichEntity|callable|string|array $text, string $email_address): RichTextEmailAddress
 {
     // This helper function uses 'email_address' as the parameter name to align with
@@ -256,8 +262,8 @@ function emailAddress(RichEntity|callable|string|array $text, string $email_addr
  * @param RichEntity|callable|string|array $text The visible text of the hashtag.
  * @param string $hashtag The hashtag string without the '#' prefix.
  * @return RichTextHashtag
- */
-function hashtag(RichEntity|callable|string|array $text, string $hashtag): RichTextHashtag
+*/
+function hashtag(RichEntity|callable|string|array $text, ?string $hashtag = null): RichTextHashtag
 {
     return RichTextHashtag::make($text, $hashtag);
 }
@@ -268,7 +274,7 @@ function hashtag(RichEntity|callable|string|array $text, string $hashtag): RichT
  *
  * @param RichEntity|callable|string|array $text The content to be marked/highlighted.
  * @return RichTextMarked
- */
+*/
 function marked(RichEntity|callable|string|array $text): RichTextMarked
 {
     return RichTextMarked::make($text);
@@ -280,7 +286,7 @@ function marked(RichEntity|callable|string|array $text): RichTextMarked
  *
  * @param RichEntity|callable|string|array $text The content to render as italic.
  * @return RichTextItalic
- */
+*/
 function italic(RichEntity|callable|string|array $text): RichTextItalic
 {
     return RichTextItalic::make($text);
@@ -293,7 +299,7 @@ function italic(RichEntity|callable|string|array $text): RichTextItalic
  * @param RichEntity|callable|string|array $text The visible text of the mention.
  * @param string $username The username being mentioned, without the '@' prefix.
  * @return RichTextMention
- */
+*/
 function mention(RichEntity|callable|string|array $text, string $username): RichTextMention
 {
     return RichTextMention::make($text, $username);
@@ -306,7 +312,7 @@ function mention(RichEntity|callable|string|array $text, string $username): Rich
  * @param RichEntity|callable|string|array $text The visible text for the phone number.
  * @param string $phoneNumber The phone number in a callable format (e.g., "+15551234567").
  * @return RichTextPhoneNumber
- */
+*/
 function phoneNumber(RichEntity|callable|string|array $text, string $phoneNumber): RichTextPhoneNumber
 {
     return RichTextPhoneNumber::make($text, $phoneNumber);
@@ -318,7 +324,7 @@ function phoneNumber(RichEntity|callable|string|array $text, string $phoneNumber
  *
  * @param callable|string $text The plain text content.
  * @return RichTextPlain
- */
+*/
 function plain(string $text): RichTextPlain
 {
     return RichTextPlain::make($text);
@@ -330,7 +336,7 @@ function plain(string $text): RichTextPlain
  *
  * @param callable|string $expression The mathematical expression as a string.
  * @return RichTextMathematicalExpression
- */
+*/
 function mathematicalExpression(string $expression): RichTextMathematicalExpression
 {
     return RichTextMathematicalExpression::make($expression);
@@ -343,7 +349,7 @@ function mathematicalExpression(string $expression): RichTextMathematicalExpress
  * @param RichEntity|callable|string|array $text The content of the pre-formatted block.
  * @param string|null $language The programming language for syntax highlighting (e.g., "php", "javascript").
  * @return RichTextPre
- */
+*/
 function pre(RichEntity|callable|string|array $text, ?string $language = null): RichTextPre
 {
     return RichTextPre::make($text, $language);
@@ -356,7 +362,7 @@ function pre(RichEntity|callable|string|array $text, ?string $language = null): 
  * @param RichEntity|callable|string|array $text The visible text of the reference.
  * @param string $name The unique name or ID of the item being referenced.
  * @return RichTextReference
- */
+*/
 function reference(RichEntity|callable|string|array $text, string $name): RichTextReference
 {
     return RichTextReference::make($text, $name);
@@ -369,7 +375,7 @@ function reference(RichEntity|callable|string|array $text, string $name): RichTe
  * @param RichEntity|callable|string|array $text The visible, clickable text.
  * @param string $referenceName The name of the reference to link to.
  * @return RichTextReferenceLink
- */
+*/
 function referenceLink(RichEntity|callable|string|array $text, string $referenceName): RichTextReferenceLink
 {
     return RichTextReferenceLink::make($text, $referenceName);
@@ -382,8 +388,8 @@ function referenceLink(RichEntity|callable|string|array $text, string $reference
  * @param string $name The unique identifier for the footnote (e.g., "fn-1", "fn:identifier"). This must match the name used in the corresponding footnote referenceLink.
  * @param RichBlockEntity[] $blocks The content blocks of the footnote.
  * @return RichBlockFootnoteDefinition
- */
-function footnoteDefinition(string $name, array|Arrayable $blocks): RichBlockFootnoteDefinition
+*/
+function footnoteDefinition(string $name, array|Arrayable|callable $blocks): RichBlockFootnoteDefinition
 {
     return RichBlockFootnoteDefinition::make($name, $blocks);
 }
@@ -394,7 +400,7 @@ function footnoteDefinition(string $name, array|Arrayable $blocks): RichBlockFoo
  *
  * @param RichEntity|callable|string|array $text The content to be concealed.
  * @return RichTextSpoiler
- */
+*/
 function spoiler(RichEntity|callable|string|array $text): RichTextSpoiler
 {
     return RichTextSpoiler::make($text);
@@ -406,7 +412,7 @@ function spoiler(RichEntity|callable|string|array $text): RichTextSpoiler
  *
  * @param RichEntity|callable|string|array $text The content to strike through.
  * @return RichTextStrikethrough
- */
+*/
 function strikethrough(RichEntity|callable|string|array $text): RichTextStrikethrough
 {
     return RichTextStrikethrough::make($text);
@@ -418,7 +424,7 @@ function strikethrough(RichEntity|callable|string|array $text): RichTextStriketh
  *
  * @param RichEntity|callable|string|array $text The content to be subscripted.
  * @return RichTextSubscript
- */
+*/
 function subscript(RichEntity|callable|string|array $text): RichTextSubscript
 {
     return RichTextSubscript::make($text);
@@ -430,7 +436,7 @@ function subscript(RichEntity|callable|string|array $text): RichTextSubscript
  *
  * @param RichEntity|callable|string|array $text The content to be superscripted.
  * @return RichTextSuperscript
- */
+*/
 function superscript(RichEntity|callable|string|array $text): RichTextSuperscript
 {
     return RichTextSuperscript::make($text);
@@ -441,10 +447,10 @@ function superscript(RichEntity|callable|string|array $text): RichTextSuperscrip
  * Represents an inline mention of a user, often using their full name as clickable text.
  *
  * @param RichEntity|callable|string|array $text The visible text of the mention (e.g., "John Doe").
- * @param UserDTO|array $user The UserDTO or an array representation of the user being mentioned.
+ * @param UserDTO|callable|array $user The UserDTO or an array representation of the user being mentioned.
  * @return RichTextTextMention
- */
-function textMention(RichEntity|callable|string|array $text, UserDTO|array $user): RichTextTextMention
+*/
+function textMention(RichEntity|callable|string|array $text, UserDTO|callable|array $user): RichTextTextMention
 {
     return RichTextTextMention::make($text, $user);
 }
@@ -455,7 +461,7 @@ function textMention(RichEntity|callable|string|array $text, UserDTO|array $user
  *
  * @param RichEntity|callable|string|array $text The content to underline.
  * @return RichTextUnderline
- */
+*/
 function underline(RichEntity|callable|string|array $text): RichTextUnderline
 {
     return RichTextUnderline::make($text);
@@ -468,7 +474,7 @@ function underline(RichEntity|callable|string|array $text): RichTextUnderline
  * @param RichEntity|callable|string|array $text The visible, clickable text.
  * @param string $url The destination URL.
  * @return RichTextUrl
- */
+*/
 function href(RichEntity|callable|string|array $text, string $url): RichTextUrl // non-standard name, because Laravel aleardy uses `url()` helper-func
 {
     return RichTextUrl::make($text, $url);
@@ -481,7 +487,7 @@ function href(RichEntity|callable|string|array $text, string $url): RichTextUrl 
  * @param RichEntity|callable|string|array $text The main caption text.
  * @param RichEntity|callable|string|array|null $credit Optional credit text, like a citation.
  * @return RichBlockCaption
- */
+*/
 function caption(RichEntity|callable|string|array $text, RichEntity|callable|string|array|null $credit = null): RichBlockCaption
 {
     // Delegates object creation to the static factory method, directly passing all arguments.
@@ -499,10 +505,10 @@ function caption(RichEntity|callable|string|array $text, RichEntity|callable|str
  * @param string|null $type For ordered lists, the type of the item label; must be one of “a” (lowercase letters), “A” (uppercase), “i” (lowercase Roman), “I” (uppercase Roman), or “1” (numbers).
  * @return RichBlockListItem
  * @throws InvalidArgumentException if the provided 'type' is invalid.
- */
+*/
 function listItem(
     string $label,
-    array|Arrayable $blocks,
+    array|Arrayable|callable $blocks = [],
     ?bool $hasCheckbox = null,
     ?bool $isChecked = null,
     ?int $value = null,
@@ -522,7 +528,7 @@ function listItem(
  * @param string $valign The vertical alignment of the cell's content ('top', 'middle', 'bottom').
  * @return RichBlockTableCell
  * @throws InvalidArgumentException if alignment values are invalid.
- */
+*/
 function tableCell(
     RichEntity|callable|string|array|null $text = null,
     ?bool $isHeader = null,
@@ -549,12 +555,12 @@ function cell(
  * Creates a RichBlockAnimation instance.
  * Represents an embedded animation (e.g., GIF).
  *
- * @param AnimationDTO|array $animation The Animation model object or its array representation.
+ * @param AnimationDTO|callable|array $animation The Animation model object or its array representation.
  * @param bool|null $hasSpoiler If true, the animation is hidden behind a spoiler overlay.
  * @param RichBlockCaption|null $caption An optional caption for the animation.
  * @return RichBlockAnimation
- */
-function animation(AnimationDTO|array $animation, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockAnimation
+*/
+function animation(AnimationDTO|callable|array $animation, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockAnimation
 {
     // Note: The helper function's parameter name ($hasSpoiler) is normalized to snake_case
     // for DSL consistency, matching the readonly property name. The underlying ::make() must
@@ -566,11 +572,11 @@ function animation(AnimationDTO|array $animation, ?bool $hasSpoiler = null, Rich
  * Creates a RichBlockAudio instance.
  * Represents an embedded audio file.
  *
- * @param AudioDTO|array $audio The Audio model object or its array representation.
+ * @param AudioDTO|callable|array $audio The Audio model object or its array representation.
  * @param RichBlockCaption|null $caption An optional caption for the audio file.
  * @return RichBlockAudio
- */
-function audio(AudioDTO|array $audio, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockAudio
+*/
+function audio(AudioDTO|callable|array $audio, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockAudio
 {
     return RichBlockAudio::make($audio, $caption);
 }
@@ -582,8 +588,8 @@ function audio(AudioDTO|array $audio, RichBlockCaption|RichEntity|callable|strin
  * @param RichBlockEntity[] $blocks An array of block entities that form the content of the quote.
  * @param RichEntity|callable|string|array|null $credit Optional attribution or credit for the quote.
  * @return RichBlockBlockQuotation
- */
-function blockQuotation(array|Arrayable $blocks, RichEntity|callable|string|array|null $credit = null): RichBlockBlockQuotation
+*/
+function blockQuotation(array|Arrayable|callable $blocks, RichEntity|callable|string|array|null $credit = null): RichBlockBlockQuotation
 {
     return RichBlockBlockQuotation::make($blocks, $credit);
 }
@@ -600,8 +606,8 @@ function expandableBlockQuotation(RichEntity|callable|string|array|null $text, R
  * @param RichBlockEntity[] $blocks An array of block entities to include in the collage.
  * @param RichBlockCaption|null $caption An optional caption for the entire collage.
  * @return RichBlockCollage
- */
-function collage(array|Arrayable $blocks, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockCollage
+*/
+function collage(array|Arrayable|callable $blocks, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockCollage
 {
     return RichBlockCollage::make($blocks, $caption);
 }
@@ -614,8 +620,8 @@ function collage(array|Arrayable $blocks, RichBlockCaption|RichEntity|callable|s
  * @param RichBlockEntity[] $blocks The content that is hidden until the block is opened.
  * @param bool|null $isOpen If true, the details block is initially rendered in an open state.
  * @return RichBlockDetails
- */
-function details(RichEntity|callable|string|array $summary, array|Arrayable $blocks, ?bool $isOpen = null): RichBlockDetails
+*/
+function details(RichEntity|callable|string|array $summary, array|Arrayable|callable $blocks, ?bool $isOpen = null): RichBlockDetails
 {
     return RichBlockDetails::make($summary, $blocks, $isOpen);
 }
@@ -625,7 +631,7 @@ function details(RichEntity|callable|string|array $summary, array|Arrayable $blo
  * Represents a horizontal rule or thematic break.
  *
  * @return RichBlockDivider
- */
+*/
 function divider(): RichBlockDivider
 {
     return RichBlockDivider::make();
@@ -643,13 +649,24 @@ function separator(string $char = '—', int $length = 20): RichBlockSeparator
     return RichBlockSeparator::make($char, $length);
 }
 
+function newLine(): RichBlockNewLine
+{
+    return RichBlockNewLine::make();
+}
+
+function space(int $count = 1): RichTextPlain
+{
+    $spaceStr = \Article::targetsWeb() ? '&nbsp;' : ' ';
+    return plain(str_repeat($spaceStr, $count));
+}
+
 /**
  * Creates a RichBlockHeading instance.
  *
  * @param RichEntity|callable|string|array $text The text of the heading.
  * @param int $size The heading level (e.g., 1 for <h1>, 2 for <h2>).
  * @return RichBlockHeading
- */
+*/
 function heading(RichEntity|callable|string|array $text, int $size): RichBlockHeading
 {
     return RichBlockHeading::make($text, $size);
@@ -661,7 +678,7 @@ function heading(RichEntity|callable|string|array $text, int $size): RichBlockHe
  *
  * @param RichEntity|callable|string|array $text The content of the footer.
  * @return RichBlockFooter
- */
+*/
 function footer(RichEntity|callable|string|array $text): RichBlockFooter
 {
     return RichBlockFooter::make($text);
@@ -676,8 +693,8 @@ function footer(RichEntity|callable|string|array $text): RichBlockFooter
  * @param string $style The list style. Must be either 'bullet' or 'ordered'.
  * @return RichBlockList
  * @throws InvalidArgumentException if an invalid style is provided.
- */
-function listBlock(array|Arrayable $items, string $style = 'bullet'): RichBlockList
+*/
+function listBlock(array|Arrayable|callable $items, string $style = 'bullet'): RichBlockList
 {
     return RichBlockList::make($items, $style);
 }
@@ -686,14 +703,14 @@ function listBlock(array|Arrayable $items, string $style = 'bullet'): RichBlockL
  * Creates a RichBlockMap instance.
  * Represents an embedded map.
  *
- * @param LocationDTO|array $location The central Location object or its array representation.
+ * @param LocationDTO|callable|array $location The central Location object or its array representation.
  * @param int $zoom The map zoom level (typically 13-20).
  * @param int $width The expected width of the map in pixels.
  * @param int $height The expected height of the map in pixels.
  * @param RichBlockCaption|null $caption An optional caption for the map.
  * @return RichBlockMap
- */
-function map(LocationDTO|array $location, int $zoom, int $width, int $height, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockMap
+*/
+function map(LocationDTO|callable|array $location, int $zoom, int $width, int $height, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockMap
 {
     return RichBlockMap::make($location, $zoom, $width, $height, $caption);
 }
@@ -704,7 +721,7 @@ function map(LocationDTO|array $location, int $zoom, int $width, int $height, Ri
  *
  * @param RichEntity|callable|string|array $text The content of the paragraph.
  * @return RichBlockParagraph
- */
+*/
 function paragraph(RichEntity|callable|string|array $text): RichBlockParagraph
 {
     return RichBlockParagraph::make($text);
@@ -714,12 +731,12 @@ function paragraph(RichEntity|callable|string|array $text): RichBlockParagraph
  * Creates a RichBlockPhoto instance.
  * Represents an embedded photo.
  *
- * @param PhotoSizeDTO|array $photo The PhotoSize model object or its array representation.
+ * @param PhotoSizeDTO|callable|array $photo The PhotoSize model object or its array representation.
  * @param bool|null $hasSpoiler If true, the photo is hidden behind a spoiler overlay.
  * @param RichBlockCaption|null $caption An optional caption for the photo.
  * @return RichBlockPhoto
- */
-function photo(PhotoSizeDTO|array $photo, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockPhoto
+*/
+function photo(PhotoSizeDTO|callable|array $photo, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockPhoto
 {
     return RichBlockPhoto::make($photo, $hasSpoiler, $caption);
 }
@@ -731,7 +748,7 @@ function photo(PhotoSizeDTO|array $photo, ?bool $hasSpoiler = null, RichBlockCap
  * @param RichEntity|callable|string|array $text The text of the pull quote.
  * @param RichEntity|callable|string|array|null $credit Optional attribution or credit for the quote.
  * @return RichBlockPullQuotation
- */
+*/
 function pullQuotation(RichEntity|callable|string|array $text, RichEntity|callable|string|array|null $credit = null): RichBlockPullQuotation
 {
     return RichBlockPullQuotation::make($text, $credit);
@@ -743,8 +760,8 @@ function pullQuotation(RichEntity|callable|string|array $text, RichEntity|callab
  * @param RichBlockEntity[] $blocks An array of block entities that form the slides.
  * @param RichBlockCaption|null $caption An optional caption for the entire slideshow.
  * @return RichBlockSlideshow
- */
-function slideshow(array|Arrayable $blocks, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockSlideshow
+*/
+function slideshow(array|Arrayable|callable $blocks, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockSlideshow
 {
     return RichBlockSlideshow::make($blocks, $caption);
 }
@@ -752,13 +769,13 @@ function slideshow(array|Arrayable $blocks, RichBlockCaption|RichEntity|callable
 /**
  * Creates a RichBlockTable instance.
  *
- * @param RichBlockTableCell[][] $cells A 2D array|Arrayable of RichBlockTableCell objects.
+ * @param RichBlockTableCell[][] $cells A 2D array|Arrayable|callable of RichBlockTableCell objects.
  * @param bool|null $isBordered If true, the table should have borders.
  * @param bool|null $isStriped If true, table rows should be striped (alternating background colors).
  * @param RichEntity|callable|string|array|null $caption An optional caption for the table (distinct from RichBlockCaption).
  * @return RichBlockTable
- */
-function table(array|Arrayable $cells, ?bool $isBordered = null, ?bool $isStriped = null, RichEntity|callable|string|array|null $caption = null): RichBlockTable
+*/
+function table(array|Arrayable|callable $cells, ?bool $isBordered = null, ?bool $isStriped = null, RichEntity|callable|string|array|null $caption = null): RichBlockTable
 {
     return RichBlockTable::make($cells, $isBordered, $isStriped, $caption);
 }
@@ -769,7 +786,7 @@ function table(array|Arrayable $cells, ?bool $isBordered = null, ?bool $isStripe
  *
  * @param RichEntity|callable|string|array $text The text content, often empty or a placeholder.
  * @return RichBlockThinking
- */
+*/
 function thinking(RichEntity|callable|string|array $text): RichBlockThinking
 {
     return RichBlockThinking::make($text);
@@ -778,12 +795,12 @@ function thinking(RichEntity|callable|string|array $text): RichBlockThinking
 /**
  * Creates a RichBlockVideo instance.
  *
- * @param VideoDTO|array $video The Video model object or its array representation.
+ * @param VideoDTO|callable|array $video The Video model object or its array representation.
  * @param bool|null $hasSpoiler If true, the video is hidden behind a spoiler overlay.
  * @param RichBlockCaption|null $caption An optional caption for the video.
  * @return RichBlockVideo
- */
-function video(VideoDTO|array $video, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockVideo
+*/
+function video(VideoDTO|callable|array $video, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockVideo
 {
     return RichBlockVideo::make($video, $hasSpoiler, $caption);
 }
@@ -792,11 +809,11 @@ function video(VideoDTO|array $video, ?bool $hasSpoiler = null, RichBlockCaption
  * Creates a RichBlockVoiceNote instance.
  * Represents an embedded voice note message.
  *
- * @param VoiceDTO|array $voiceNote The Voice model object or its array representation.
+ * @param VoiceDTO|callable|array $voiceNote The Voice model object or its array representation.
  * @param RichBlockCaption|null $caption An optional caption for the voice note.
  * @return RichBlockVoiceNote
- */
-function voiceNote(VoiceDTO|array $voiceNote, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockVoiceNote
+*/
+function voiceNote(VoiceDTO|callable|array $voiceNote, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockVoiceNote
 {
     return RichBlockVoiceNote::make($voiceNote, $caption);
 }
@@ -807,11 +824,11 @@ function voiceNote(VoiceDTO|array $voiceNote, RichBlockCaption|RichEntity|callab
  * Creates a RichBlockDocument instance.
  * Represents an embedded document in the article.
  *
- * @param DocumentDTO|array $document The Document model object or its array representation.
+ * @param DocumentDTO|callable|array $document The Document model object or its array representation.
  * @param RichBlockCaption|null $caption An optional caption for the document.
  * @return RichBlockDocument
- */
-function document(DocumentDTO|array $document, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockVoiceNote
+*/
+function document(DocumentDTO|callable|array $document, RichBlockCaption|RichEntity|callable|string|null $caption = null): RichBlockVoiceNote
 {
     return RichBlockDocument::make($document, $caption);
 }
@@ -826,7 +843,7 @@ function button(PowerButton|RichButton|string|RichEntity|callable $text, ?string
     return RichTextButton::make($btn);
 }
 
-function buttons(array $buttons, ?string $align = null): RichBlockButtons
+function buttons(array|Arrayable|callable $buttons, ?string $align = null): RichBlockButtons
 {
     return RichBlockButtons::make($buttons, $align);
 }
@@ -838,7 +855,7 @@ function buttonRow(array $buttons, ?string $align = null): RichBlockButtonRow //
 }
 */
 
-function buttonRow(array $buttons, ?string $align = null): RichBlockButtons
+function buttonRow(array|Arrayable|callable $buttons, ?string $align = null): RichBlockButtons
 {
     return RichBlockButtons::make($buttons, $align);
 }

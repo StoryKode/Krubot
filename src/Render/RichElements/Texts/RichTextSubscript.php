@@ -21,9 +21,16 @@ class RichTextSubscript extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'subscript', 'text' => $this->normalize($this->text)]; }
+
     public function toHtml(): string
     {
         // Renders content within <sub> tags.
-        return '<sub>' . $this->renderHtml($this->text) . '</sub>';
+        return '<sub class="richy-subscript">' . $this->renderHtml($this->text) . '</sub>';
+    }
+
+    public function toMd(): string
+    {
+        // Note: TG MDV2 has no subscript; emit as HTML tag (TG MDV2 allows HTML inline)
+        return '<sub>' . $this->renderText($this->text) . '</sub>';
     }
 }

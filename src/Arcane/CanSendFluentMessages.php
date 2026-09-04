@@ -18,6 +18,7 @@ use InvalidArgumentException;
 use KrubiK\Keyboard\Keyboard;       // کلاس کیبورد شیشه‌ای
 use KrubiK\Keyboard\ReplyKeyboard;  // کلاس کیبورد منو
 use KrubiK\Arcane\MetaTextTransformer;
+use KrubiK\Render\RichMan;
 
 /**
  * Trait CanSendFluentMessages
@@ -39,7 +40,7 @@ trait CanSendFluentMessages
     use MetaTextTransformer; // parse rich-blocks to rubika-compatible format
 
     // --- Text & Options State ---
-    protected ?string $fText = null;
+    protected string|RichMan|null $fText = null;
     protected string $fParseMode = 'MarkdownMode';
     protected ?int $fReplyTo = null;
     protected bool $fSilent = false;
@@ -65,7 +66,7 @@ trait CanSendFluentMessages
      * تنظیم متن پیام.
      * به صورت پیش‌فرض از پارسر MarkdownMode استفاده می‌کند.
      */
-    public function message(string $text): static
+    public function message(string|RichMan $text): static
     {
         $this->fText = $text;
         $this->fParseMode = 'MarkdownMode';

@@ -25,9 +25,35 @@ class RichBlockThinking extends RichBlockEntity
     }
 
     public function toArray(): array { return ['type' => 'thinking', 'text' => $this->normalize($this->text)]; }
+
     public function toHtml(): string
     {
-        // Renders the thinking placeholder.
-        return '<tg-thinking>' . $this->renderHtml($this->text) . '</tg-thinking>';
+        $content = $this->renderHtml($this->text);
+
+        if($this->targetsTelegram())
+            // Renders the thinking placeholder.
+            return '<tg-thinking>' . $content . '</tg-thinking>';
+
+        // Animated dots + collapsible body for AI "thinking" states
+        return '<div class="richy-thinking">'
+            . '<div class="richy-thinking__header">'
+            .   '<span class="richy-thinking__dots">'
+            .     '<span class="richy-thinking__dot"></span>'
+            .     '<span class="richy-thinking__dot"></span>'
+            .     '<span class="richy-thinking__dot"></span>'
+            .   '</span>'
+            .   '<span>Thinking…</span>'
+            . '</div>'
+            . '<div class="richy-thinking__content">' . $content . '</div>'
+            . '</div>';
+    }
+
+    // No Markdown native equivalent; renders as italic blockquote.
+    public function toMd(): string
+    {
+        $inner = $this->renderText($this->text);
+        $lines = explode("\n", rtrim($inner));
+        $quoted = implode("\n", array_map(fn($l) => '>_' . $l . '_', $lines));
+        return $quoted . "\n\n";
     }
 }

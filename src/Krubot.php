@@ -66,6 +66,7 @@ use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 use KrubiK\Jobs\HandleDriverUpdate;
 use KrubiK\DTOs\UniversalInboundUpdate;
 use KrubiK\Arcane\Update; // Update-Marker to be catched in Receive(Singal::***)
+use KrubiK\Render\RichMan;
 use KrubiK\Render\RenderAura;
 use KrubiK\Enums\Platform;
 use ReflectionClass;
@@ -284,7 +285,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
 
     // Properties for Krubot's core fluent builder
-    protected ?string $text = null;
+    protected string|RichMan|null $text = null;
     protected ?string $chatId = null;
     protected ?string $replyToMessageId = null;
 
@@ -4011,7 +4012,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     /**
      * Helper to send message without reply (Say), and without auto-send.
     */
-    public function say(string $text): static
+    public function say(string|RichMan $text): static
     {
         if (!$this->chatId())
             return $this;
@@ -4023,7 +4024,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * Helper to reply to the current message.
      * Automatically sets replyTo ID if available.
     */
-    public function reply(string $text): static
+    public function reply(string|RichMan $text): static
     {
         if (!$this->chatId()) {
             $this->message($text);
@@ -4126,7 +4127,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     /**
      * Send a message to a SPECIFIC target (User/Group GUID) directly.
     */
-    public function to(string $targetChatId, string $text): array
+    public function to(string $targetChatId, string|RichMan $text): array
     {
         return $this->chat($targetChatId)
             ->message($text)

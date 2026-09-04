@@ -18,9 +18,25 @@ class RichTextMathematicalExpression extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'mathematical_expression', 'expression' => $this->expression]; }
+
+    // KaTeX auto-render picks up .richy-math if loaded on the page.
+    // Falls back gracefully to <code>.
     public function toHtml(): string
     {
-        // Renders a custom <tg-math> tag. Content is escaped to be displayed literally.
-        return '<tg-math>' . $this->esc($this->expression) . '</tg-math>';
+        // Content is escaped to be displayed literally.
+        $safeExpr = $this->esc($this->expression);
+
+        if($this->targetsTelegram()) // Renders a custom <tg-math> tag. 
+            return '<tg-math>' . $this->esc($this->expression) . '</tg-math>';
+
+        return '<span class="richy-math" data-richy-math="' . $safeExpr . '">'
+            . '<code>' . $safeExpr . '</code>'
+            . '</span>';
+    }
+
+    public function toMd(): string
+    {
+        // TG 10.2: inline math uses single $...$
+        return '$' . $this->expression . '$';
     }
 }

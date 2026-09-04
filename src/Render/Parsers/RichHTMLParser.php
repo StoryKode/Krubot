@@ -147,26 +147,26 @@ class RichHTMLParser implements SyntaxWarden
     /**
      * The final stack of RichEntity objects representing the message structure.
      * @var RichEntity[]
-     */
+    */
     private array $stack = [];
     
     /**
      * The DOMDocument instance for the current parsing operation.
      * @var DOMDocument
-     */
+    */
     private DOMDocument $dom;
 
     /**
      * The DOMXPath instance for efficient querying of the DOM.
      * @var DOMXPath
-     */
+    */
     private DOMXPath $xpath;
     
     /**
      * Holds parsed footnote definitions found during the pre-processing stage.
      * The structure is: ['footnote_name' => RichBlockFootnoteDefinition, ...]
      * @var array<string, RichBlockFootnoteDefinition>
-     */
+    */
     private array $footnoteDefinitions = [];
 
     /**
@@ -175,7 +175,7 @@ class RichHTMLParser implements SyntaxWarden
      *
      * @param string $html The normalized RichHTML string.
      * @return array<RichEntity> An array of rich entities representing the document structure.
-     */
+    */
     public function decipher(string $html): array
     {
         // Reset state for a fresh parse.
@@ -222,7 +222,7 @@ class RichHTMLParser implements SyntaxWarden
      * Retrieves the final stack of parsed RichEntity objects.
      *
      * @return RichEntity[] An array of RichEntity objects, possibly empty.
-     */
+    */
     public function getStack(): array
     {
         return $this->stack;
@@ -234,7 +234,7 @@ class RichHTMLParser implements SyntaxWarden
      * @param string $text The input string to be parsed.
      * @param string $mode The format of the input string ('RichMD', 'RichHTML'). Defaults to 'RichMD'.
      * @return self Returns the instance of the parser for method chaining.
-     */
+    */
     public function legacyParse(string $text, string $mode = 'RichMD'): self
     {
 
@@ -261,7 +261,7 @@ class RichHTMLParser implements SyntaxWarden
      *
      * @param DOMNode $node The DOMNode to process.
      * @return RichEntity[]
-     */
+    */
     protected function walkNode(DOMNode $node): array
     {
         // Base Case 1: Handle text nodes.
@@ -381,7 +381,7 @@ class RichHTMLParser implements SyntaxWarden
     /**
      * Finds the footnote definition block, parses its content, stores it,
      * and then removes the block from the DOM to prevent re-processing.
-     */
+    */
     private function preprocessFootnotes(): void
     {
         // Find the main container for footnotes.
@@ -427,7 +427,7 @@ class RichHTMLParser implements SyntaxWarden
      * @param DOMElement $node The <a> node.
      * @param RichEntity[] $children The child elements (link text).
      * @return RichEntity[]
-     */
+    */
     private function createLinkEntity(DOMElement $node, array $children): array
     {
         $href = $node->getAttribute('href');
@@ -489,7 +489,7 @@ class RichHTMLParser implements SyntaxWarden
      * Creates a pre-formatted block, extracting language from the inner <code> class.
      * @param DOMElement $preNode The <pre> node.
      * @return RichEntity[]
-     */
+    */
     private function createPreformattedBlock(DOMElement $preNode, mixed $children = null): array
     {
         $codeNode = $this->xpath->query('.//code', $preNode)->item(0);
@@ -526,7 +526,7 @@ class RichHTMLParser implements SyntaxWarden
      * Creates a highly-featured table block, parsing attributes, caption, and cell properties.
      * @param DOMElement $tableNode The <table> node.
      * @return RichEntity[]
-     */
+    */
     private function createTableBlock(DOMElement $tableNode): array
     {
         $rows = [];
@@ -571,7 +571,7 @@ class RichHTMLParser implements SyntaxWarden
      * Creates a media block from a standalone media tag (img, video, audio).
      * @param DOMElement $mediaNode The media node.
      * @return RichBlockEntity
-     */
+    */
     private function createMediaBlock(DOMElement $mediaNode): RichBlockEntity
     {
         $src = $mediaNode->getAttribute('src');
@@ -613,7 +613,7 @@ class RichHTMLParser implements SyntaxWarden
      * Creates a complex figure block, associating media with its caption.
      * @param DOMElement $figureNode The <figure> node.
      * @return RichEntity[]
-     */
+    */
     private function createFigureBlock(DOMElement $figureNode): array
     {
         $mediaNode = $this->xpath->query('.//img | .//video | .//audio | .//tg-map', $figureNode)->item(0);
@@ -646,7 +646,7 @@ class RichHTMLParser implements SyntaxWarden
      * <li> creation to createListItem.
      * @param DOMElement $listNode The <ul> or <ol> node.
      * @return RichBlockList
-     */
+    */
     private function createListBlock(DOMElement $listNode): RichBlockList
     {
         $isOrdered = strtolower($listNode->nodeName) === 'ol';
@@ -681,7 +681,7 @@ class RichHTMLParser implements SyntaxWarden
      * @param DOMElement $liNode The <li> node.
      * @param string|null $listType The type inherited from the parent <ol> (e.g., 'a', '1').
      * @return RichBlockListItem
-     */
+    */
     private function createListItem(DOMElement $liNode, ?string $listType): RichBlockListItem
     {
         $has_checkbox = null;
@@ -724,7 +724,7 @@ class RichHTMLParser implements SyntaxWarden
      * Creates a Details block by separating the summary from the main content.
      * @param DOMElement $detailsNode The <details> DOM element.
      * @return RichBlockDetails
-     */
+    */
     private function createDetailsBlock(DOMElement $detailsNode): RichBlockDetails
     {
         $isOpen = $detailsNode->hasAttribute('open');
@@ -756,7 +756,7 @@ class RichHTMLParser implements SyntaxWarden
      * Helper to extract citation text from a <cite> tag within a node.
      * @param DOMElement $parentNode The blockquote, aside, or figcaption node.
      * @return RichEntity[]
-     */
+    */
     private function extractCite(DOMElement $parentNode): array
     {
         $citeNode = $this->xpath->query('./cite', $parentNode)->item(0);
@@ -767,7 +767,7 @@ class RichHTMLParser implements SyntaxWarden
      * Extracts plain text content from an array of RichEntity objects.
      * @param RichEntity[] $children
      * @return string
-     */
+    */
     private function extractTextFromChildren(array $children): string
     {
         return implode('', array_map(fn($c) => $c->text ?? '', $children));
@@ -777,7 +777,7 @@ class RichHTMLParser implements SyntaxWarden
      * Filters an array of children to only include media-type blocks for collages/slideshows.
      * @param RichEntity[] $children
      * @return RichBlockEntity[]
-     */
+    */
     private function filterMediaChildren(array $children): array
     {
         return array_filter($children, fn($c) => 
@@ -791,7 +791,7 @@ class RichHTMLParser implements SyntaxWarden
      * Merges consecutive RichTextPlain objects into a single one for optimization.
      * @param RichEntity[] $entities
      * @return RichEntity[]
-     */
+    */
     private function consolidatePlaintext(array $entities): array
     {
         if (count($entities) < 2) {
@@ -960,7 +960,7 @@ class RichHTMLParser implements SyntaxWarden
      * Processes a string containing an HTML block using DOMDocument and delegates node processing to walkNode.
      * @param string $html The raw HTML string for the block.
      * @return array An array of RichBlockEntity or RichEntity.
-     */
+    */
     protected function processHtmlBlockOld(string $html): array
     {
         // Suppress warnings for malformed HTML, as we want to be lenient.

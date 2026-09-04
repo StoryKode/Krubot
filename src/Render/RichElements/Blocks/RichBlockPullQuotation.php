@@ -25,12 +25,27 @@ class RichBlockPullQuotation extends RichBlockEntity
     {
         // Renders a pull quote using the <aside> tag.
         // An optional <cite> tag is added for the credit.
-        $html = '<aside>';
+        $html = '<aside class="richy-pullquote">';
         $html .= $this->renderHtml($this->text);
         if ($this->credit) {
-            $html .= '<cite>' . $this->renderHtml($this->credit) . '</cite>';
+            $html .= '<cite class="richy-pullquote__credit">' . $this->renderHtml($this->credit) . '</cite>';
         }
         $html .= '</aside>';
         return $html;
+    }
+
+    // renders as bold blockquote with credit
+    public function toMd(): string
+    {
+        $text   = $this->renderText($this->text);
+        $lines  = explode("\n", rtrim($text));
+        $quoted = implode("\n", array_map(fn($l) => '>' . $l, $lines));
+
+        $creditMd = '';
+        if ($this->credit !== null) {
+            $creditMd = "\n>— *" . $this->renderText($this->credit) . "*";
+        }
+
+        return $quoted . $creditMd . "\n\n";
     }
 }

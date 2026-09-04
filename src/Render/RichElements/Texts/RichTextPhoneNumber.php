@@ -21,10 +21,21 @@ class RichTextPhoneNumber extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'phone_number', 'text' => $this->normalize($this->text), 'phone_number' => $this->phone_number]; }
+
+    // Creates a tel: link.
     public function toHtml(): string
     {
-        // Creates a tel: link.
-        $escapedPhone = $this->esc($this->phone_number);
-        return '<a href="tel:' . $escapedPhone . '">' . $this->renderHtml($this->text) . '</a>';
+        // Strip everything except digits, +, -, spaces, parens for the href
+        $dialable  = preg_replace('/[^\d+\-\s()]/', '', $this->phoneNumber);
+        $safePhone = $this->esc($dialable);
+
+       return '<a href="tel:' . $safePhone . '" class="richy-phone">' . $this->renderHtml($this->text) . '</a>';
+    }
+
+    public function toMd(): string
+    {
+        $dialable = preg_replace('/[^\d+\-\s()]/', '', $this->phoneNumber);
+        $label    = $this->renderText($this->text);
+        return '[' . $label . '](tel:' . $dialable . ')';
     }
 }

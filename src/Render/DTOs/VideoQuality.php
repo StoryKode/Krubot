@@ -26,7 +26,8 @@ class VideoQuality extends BaseObject
         protected int $width,
         protected int $height,
         protected string $codec,
-        protected ?int $file_size = null
+        protected ?int $file_size = null,
+        protected ?string $file_url = null // custom url for rendering on web
     ) {}
 
     // [Hi-DX] Auto-Generated Methods
@@ -132,7 +133,7 @@ class VideoQuality extends BaseObject
      * @param int|null $value If provided, sets the 'file_size'. Otherwise, returns the current value.
      * @return static|int|null The instance for chaining (setter) or the value (getter).
      */
-    public function fileSize(?int $value = null): static|?int
+    public function fileSize(?int $value = null): static|int|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {

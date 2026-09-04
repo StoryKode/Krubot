@@ -21,6 +21,12 @@ class RichBlockFooter extends RichBlockEntity
     public function toHtml(): string
     {
         // Wraps the text content in a <footer> tag.
-        return '<footer>' . $this->renderHtml($this->text) . '</footer>';
+        return '<footer class="richy-footer">' . $this->renderHtml($this->text) . '</footer>';
+    }
+
+    // separator + italic text (cause no native footer in MD)
+    public function toMd(): string
+    {
+        return "\n\n---\n_" . $this->renderText($this->text) . "_\n";
     }
 }

@@ -25,7 +25,24 @@ class RichTextMention extends RichTextEntity
     public function toHtml(): string
     {
         // Although not explicitly defined in the HTML list, this is the standard way to link a @username.
-        $escapedUsername = $this->e(ltrim($this->username, '@'));
-        return '<a href="https://t.me/' . $escapedUsername . '">' . $this->renderHtml($this->text) . '</a>';
+        $escapedUsername = $this->esc(ltrim($this->username, '@'));
+
+        if($this->targetsTelegram())
+            return '<a href="https://t.me/' . $escapedUsername . '">' . $this->renderHtml($this->text) . '</a>';
+
+        $href = $this->getPrefixByPlatform() . $escapedUsername;
+
+        return '<a class="richy-mention" href="' . $href . '" target="_blank" rel="noopener noreferrer"'
+            . ' data-richy-username="' . $escapedUsername . '">'
+            . $this->renderHtml($this->text)
+            . '</a>';
+    }
+
+    public function toMd(): string
+    {
+        $label = $this->renderText($this->text);
+        // URL inside () — only ")" and "\" need escaping inside the parens
+        $escapedUsername = str_replace(['\\', ')'], ['\\\\', '\\)'], ltrim($this->username, '@'));
+        return '[' . $label . '](' . $this->getPrefixByPlatform() . $escapedUsername . ')';
     }
 }

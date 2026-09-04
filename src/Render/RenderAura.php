@@ -69,7 +69,7 @@ final readonly class RenderAura
         /**
          * The final, negotiated locale for this request.
         */
-        public string $locale
+        public string $lang
     ) {
     }
 
@@ -113,10 +113,10 @@ final readonly class RenderAura
         // 3. Determine Locale: This is the most intelligent part.
         // We temporarily resolve the user to find their preferred locale,
         // but we DO NOT store the user in this class.
-        $locale = self::extractLocaleFromRequest($app, $request, $platform, $driver);
+        $lang = self::extractLocaleFromRequest($app, $request, $platform, $driver);
 
         // It calls the private constructor internally.
-        return new self($platform, $locale);
+        return new self($platform, $lang);
     }
 
     // --- STATE #1: THE AWAKENING (From Earthly Request) ---
@@ -140,25 +140,25 @@ final readonly class RenderAura
      * This is the NEW, SAFE way to create instances for unit tests or special scenarios.
      *
      * @param Platform $platform The desired platform.
-     * @param ?string $locale The exact language code, or null to trigger auto-divination.
+     * @param ?string $lang The exact language code, or null to trigger auto-divination.
      * @return self
      */
-    public static function init(Platform $platform, ?string $locale = null): self
+    public static function init(Platform $platform, ?string $lang = null): self
     {
         // Here you could add validation if you wanted, e.g., check if locale is valid.
         // config('app.available_locales')
 
         // Short-circuit: If the developer explicitly provides a locale, Respect The Choice absolutely.
-        if ($locale !== null)
-            return new self($platform, $locale);
+        if ($lang !== null)
+            return new self($platform, $lang);
 
         // --- VICTORY! LOGIC IS NOT REPEATED! ---
         // She calls the shared, centralized helper for config-based divination.
         // Then falls back to the app's default tongue if nothing is found.
-        $locale = self::extractLocaleFromConfig($platform);
+        $lang = self::extractLocaleFromConfig($platform);
 
         // It calls the private constructor internally.
-        return new self($platform, $locale);
+        return new self($platform, $lang);
     }
 
     // --- STATE #2: THE CONSCIOUS DREAM (For Tests & Isolated Realities) ---
@@ -171,12 +171,12 @@ final readonly class RenderAura
      * Excellent for unit tests where you want to test rendering without web overhead.
      *
      * @param Platform $platform The platform she should dream of.
-     * @param ?string $locale The language she should speak in her dream (nullable).
+     * @param ?string $lang The language she should speak in her dream (nullable).
      * @return self
      */
-    public static function dream(Platform $platform, ?string $locale = null): self
+    public static function dream(Platform $platform, ?string $lang = null): self
     {
-        return self::init($platform, $locale);
+        return self::init($platform, $lang);
     }
 
     // --- GATEWAY #3: The Default Factory (For Convenience) ---
@@ -215,21 +215,21 @@ final readonly class RenderAura
      * ✨ [Wither Method] - Creates a new RenderAura instance with a different locale.
      * This follows immutability principles. The original context object is NOT changed.
      *
-     * @param string $newLocale The locale to use for the new context instance.
+     * @param string $newLang The locale to use for the new context instance.
      * @return self A new instance of RenderAura with the specified locale.
      */
-    public function withLocale(string $newLocale): self
+    public function withLang(string $newLang): self
     {
         // Return a new instance, cloning the other properties.
-        return new self($this->platform, $newLocale);
+        return new self($this->platform, $newLang);
     }
     /*
-     * @param string $newLocale The locale to use for the new context instance.
+     * @param string $newLang The locale to use for the new context instance.
      * @return self A new instance of RenderAura with the specified locale.
     */
-    public function dreamIn(string $newLocale): self
+    public function dreamIn(string $newLang): self
     {
-        return $this->withLocale($newLocale);
+        return $this->withLang($newLang);
     }
 
     /**
@@ -242,7 +242,7 @@ final readonly class RenderAura
     public function withPlatform(Platform $newPlatform): self
     {
         // Return a new instance, cloning the other properties.
-        return new self($newPlatform, $this->locale);
+        return new self($newPlatform, $this->lang);
     }
     /*
      * @param Platform $newPlatform The platform to use for the new context instance.
@@ -353,24 +353,24 @@ final readonly class RenderAura
      * a new Aura is dreamt to preserve context integrity and immutability.
      *
      * @param RenderAura|Platform $source The target Aura instance to infuse, OR the Platform to dream from.
-     * @param ?string $locale An optional locale for Platform-driven manifestatio.
+     * @param ?string $lang An optional locale for Platform-driven manifestatio.
      * @return self The active, infused Aura now residing in the container.
     */
-    public static function impose(RenderAura|Platform $source, ?string $locale = null): self
+    public static function impose(RenderAura|Platform $source, ?string $lang = null): self
     {
         // Resolve the concrete Aura instance from the provided source union type.
         if ($source instanceof Platform) {
             // Case A: A Platform SuperEnum is provided. We invoke the 'init|dream' factory
             // to manifest a transient instance on the fly before infusion.
-            $infusedInstance = self::init($source, $locale);
+            $infusedInstance = self::init($source, $lang);
         } else {
             // Case A: The developer has provided a fully-realized Aura.
             // We respect this existing vessel of truth and prepare to register it directly.
 
             // The source is already an Aura. If a new locale is requested and differs 
             // from the source's current locale, we dream a new instance to ensure immutability.
-            $infusedInstance = ($locale !== null && $source->locale !== $locale)
-                ? $source->dreamIn($locale)
+            $infusedInstance = ($lang !== null && $source->lang !== $lang)
+                ? $source->dreamIn($lang)
                 : $source; // it's a direct RenderAura instance
         }
 
@@ -384,11 +384,11 @@ final readonly class RenderAura
     }
     /**
      * @param RenderAura|Platform $source The target Aura instance to infuse, OR the Platform to dream from.
-     * @param ?string $locale An optional locale for Platform-driven manifestatio.
+     * @param ?string $lang An optional locale for Platform-driven manifestatio.
      * @return self The active, infused Aura now residing in the container.
     */
-    public static function infuse(RenderAura|Platform $source, ?string $locale = null): self
+    public static function infuse(RenderAura|Platform $source, ?string $lang = null): self
     {
-        return self::impose($source, $locale);
+        return self::impose($source, $lang);
     }
 }

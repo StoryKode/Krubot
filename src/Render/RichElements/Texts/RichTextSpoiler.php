@@ -21,11 +21,21 @@ class RichTextSpoiler extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'spoiler', 'text' => $this->normalize($this->text)]; }
+    
+    // Revealed by JS click → adds .richy-spoiler--revealed
     public function toHtml(): string
     {
+        $content = $this->renderHtml($this->text);
+
+        if($this->targetsWeb())
+            return '<span class="richy-spoiler" title="Click to reveal" role="button" tabindex="0" aria-label="Spoiler — click to reveal">'
+            . $content
+            . '</span>';
+
         // Renders content within a custom <tg-spoiler> tag.
-        return '<tg-spoiler>' . $this->renderHtml($this->text) . '</tg-spoiler>';
+        return '<tg-spoiler>' . $content . '</tg-spoiler>';
     }
+
     public function toMd()
     {
         return '||' . $this->renderText($this->text) . '||';

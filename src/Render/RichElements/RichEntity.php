@@ -42,6 +42,7 @@ use Stringable;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\Support\Renderable;
+use KrubiK\Render\RichMan;
 use KrubiK\Enums\Platform;
 use KrubiK\Render\RenderAura;
 
@@ -98,7 +99,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      *
      * @return bool
     */
-    protected final function targetsWeb(): bool
+    public final function targetsWeb(): bool
     {
         // Direct enum comparison is the fastest possible()) check in PHP 8.1+.
         return $this->aura()->platform->matches(Platform::Web());
@@ -110,7 +111,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      *
      * @return bool
     */
-    protected final function targetsTelegram(): bool
+    public final function targetsTelegram(): bool
     {
         return $this->aura()->platform->matches(Platform::Telegram());
     }
@@ -121,9 +122,20 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      *
      * @return bool
     */
-    protected final function targetsRubika(): bool
+    public final function targetsRubika(): bool
     {
         return $this->aura()->platform->matches(Platform::Rubika());
+    }
+
+    /**
+     * Checks if the current rendering target is the Bale platform.
+     * This is a high-performance, direct-path method that bypasses __call.
+     *
+     * @return bool
+    */
+    public final function targetsBale(): bool
+    {
+        return $this->aura()->platform->matches(Platform::Bale());
     }
 
     /**
@@ -132,9 +144,29 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      *
      * @return bool
     */
-    protected final function targetsCli(): bool
+    public final function targetsCli(): bool
     {
         return $this->aura()->platform->matches(Platform::CLI());
+    }
+
+    public function getPrefixByPlatform(): string
+    {
+        /*$prefix = match(true) {
+            $this->targetsTelegram() => 't.me',
+            $this->targetsRubika()   => 'rubika.ir',
+            $this->targetsBale()     => 'ble.ir',
+            default                  => 'devgx.ir/casters'
+        };*/
+
+        return 'https://' . ($this->targetsTelegram() ? 't.me' : (
+            $this->targetsRubika() ? 'rubika.ir' :
+            (
+                $this->targetsBale() ?
+                    'ble.ir'
+                :
+                    request()->getHttpHost() /// 'devgx.ir/casters'
+            )
+        )) . '/'; /// use `request()->root()` to detect schema, eg. http://mywebsite.com:444
     }
 
     /**
@@ -416,13 +448,16 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * @param mixed $content The content to resolve (string, array, RichEntity, callable).
      * @return RichEntity|array|string|null The resolved, ready-to-use content.
     */
-    protected static function resolveContent(mixed $content): RichEntity|array|string|null
+    protected static function resolveContent(mixed $content, bool $isArray = false): RichEntity|array|string|null
     {
         // Guard Clause: If it's not a callable, return it as is.
         // This handles strings, arrays, existing RichEntity objects, etc.
         if (!is_callable($content)) {
             return $content;
         }
+
+        if($isArray) // Use Laravel's container to call the user's function and return calculated array|RichEntity.
+            return app()->call($content);
 
         // Create a new RichMan instance to serve as the composer for the closure.
         $composer = RichMan::summon();
@@ -731,9 +766,15 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
      * @param array<RichComponentEntity&Htmlable> $blocks The array of blocks to render.
      * @return string The concatenated HTML of all blocks.
     */
-    protected function renderBlocks(array $blocks): string
+    protected function renderBlocks(array|Arrayable $blocks): string
     {
         return $this->renderHtml($blocks);
+    }
+
+    // RichEntity[] $blocks
+    protected function mergeTexts(array|Arrayable $blocks, string $glue = ''): string
+    {
+        return implode($glue, collect($blocks)->map(fn($block) => $this->renderText($block))->toArray());
     }
 
     public function render(): string

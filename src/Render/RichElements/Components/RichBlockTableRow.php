@@ -11,7 +11,7 @@ class RichBlockTableRow extends RichComponentEntity
 {
     /**
      * @param RichBlockTableCell[] $cells An array of table cell components.
-     */
+    */
     public function __construct(public array|Arrayable $cells) {}
 
     /**
@@ -32,7 +32,7 @@ class RichBlockTableRow extends RichComponentEntity
     */
     public function toHtml(): string
     {
-        $renderedCells = $this->renderHtml($this->cells);
+        $renderedCells = $this->renderHtml($this->cells); // Delegates Cell rendering to RichBlockTableCell::toHtml()
         return "<tr>{$renderedCells}</tr>";
     }
 

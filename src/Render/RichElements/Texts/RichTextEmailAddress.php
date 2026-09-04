@@ -21,10 +21,19 @@ class RichTextEmailAddress extends RichTextEntity
         return new self(self::resolveContent($text), $emailAddress);
     }
     public function toArray(): array { return ['type' => 'email_address', 'text' => $this->normalize($this->text), 'email_address' => $this->email_address]; }
+
+    // Creates a mailto: link.
     public function toHtml(): string
     {
-        // Creates a mailto: link.
         $escapedEmail = $this->esc($this->email_address);
-        return '<a href="mailto:' . $escapedEmail . '">' . $this->renderHtml($this->text) . '</a>';
+        return '<a href="mailto:' . $escapedEmail . '" class="richy-email">' . $this->renderHtml($this->text) . '</a>';
+    }
+
+    public function toMd(): string
+    {
+        $label  = $this->renderText($this->text);
+        // URL inside () — only ")" and "\" need escaping inside the parens
+        $safeUrl = 'mailto:' . str_replace(['\\', ')'], ['\\\\', '\\)'], $this->email_address);
+        return '[' . $label . '](' . $safeUrl . ')';
     }
 }

@@ -6,6 +6,7 @@ use KrubiK\WebApps\Middlewares\AuthenticateWebApp;
 use KrubiK\WebApps\Middlewares\AdaptiveCsrfVerify;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use KrubiK\Helpers\OpcacheRuler;
 
 // -----------------------------------------------------------------------------
@@ -89,6 +90,27 @@ Route::any('/webapps/{path?}', [QuantumGatewayController::class, 'handleWebApp']
     ])
     ->where('path', '.*')
     ->name('nexus.quantum.portal'); // The First Portal to Infinite Dev_Experience ✔️♾️
+
+Route::get('/krubot.js', [QuantumGatewayController::class, 'embedWebRendererz'])
+    ->name('nexus.quantum.manifest');
+
+/*
+// Note!
+// Static widget assets are intentionally served by the web server for native caching and optimal performance.
+// Keep this route out of the request path [commented] to avoid unnecessarily routing public JS/CSS through Laravel.
+
+// مسیر سرو فایل‌های استاتیک ویجت (بدون بررسی امنیتی)
+Route::get('/engine/krubot/{filename}', function ($filename) {
+    $path = public_path('engine/krubot/' . $filename);
+
+    if (!File::exists($path)) {
+        abort(404);
+    }
+
+    // استفاده از response()->file برای ارسال مستقیم فایل با هدر مناسب
+    return response()->file($path);
+})->where('filename', '.*'); // Or Restrict via:: ->whereIn('filename', [QuantumGatewayController::$webRenderFileName.'.js', QuantumGatewayController::$webRenderFileName.'.css'])
+*/
 
 // OpCache Headquarters for CLI->Web
 // @see \KrubiK\Helpers\OpcacheRuler

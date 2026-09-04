@@ -24,7 +24,7 @@ class RichTextItalic extends RichTextEntity
     public function toHtml(): string
     {
         // Renders content within <i> tags.
-        return '<i>' . $this->renderHtml($this->text) . '</i>';
+        return '<i class="richy-italic">' . $this->renderHtml($this->text) . '</i>';
     }
     public function toMd()
     {

@@ -20,6 +20,7 @@ use KrubiK\Render\RichElements\RichEntity;
 use KrubiK\DTOs\SelectionItem;
 use KrubiK\Arcane\InteractsWithLockedProperties;
 use Illuminate\Contracts\Support\Arrayable;
+use KrubiK\Render\Arcane\jQueryStyling;
 // use ValueError;
 
 use function KrubiK\Render\Helpers\{
@@ -45,6 +46,8 @@ use function KrubiK\Render\Helpers\{
 class PowerButton extends RichEntity
 {
     use InteractsWithLockedProperties; // Uses PhantomShell Capabilities to Inject into VanGuard's
+    
+    use jQueryStyling; // Empowers Entity to css(......), addClass(), hasClass(), removeClass()
 
     protected string|RichEntity $text;
 
@@ -92,7 +95,7 @@ class PowerButton extends RichEntity
     |--------------------------------------------------------------------------
     */
 
-    protected ?string $buttonStyle = null;
+    protected ?string $buttonStyle = null; // can be either :: “danger”, “success”, “primary”, or “link”
 
     protected ?string $buttonUrl = null;
 
@@ -212,7 +215,7 @@ class PowerButton extends RichEntity
     ): self
     {
         // Resolve the text if it's a callable closure.
-        return new self(self::resolveContent($text), $actionId, $type ?? $this->defaultBTNType, $payload, $width);
+        return new self(self::resolveContent($text), $actionId, $type, $payload, $width);
     }
 
     // ------------------------------------------------------------------
@@ -1043,6 +1046,16 @@ class PowerButton extends RichEntity
         return $this->width($calculatedWidth);
     }
 
+    // ── Helper: convert float width → CSS flex style ──────────────
+    private function colToFlexStyle(float $w): string
+    {
+        if ($w >= 1.0) {
+            return 'flex:1 1 auto;min-width:0';
+        }
+        $pct = round($w * 100, 4);
+        return 'flex:0 0 calc(' . $pct . '% - 0.3rem);min-width:0';
+    }
+
     public function toHtml(): string
     {
         /*
@@ -1058,8 +1071,8 @@ class PowerButton extends RichEntity
         |
         | Also, several fluent methods (webApp/loginUrl/copyText/...) intentionally
         | store their state without changing the $buttonTypeEnum. Therefore,
-        | when the current type is Simple/default, infer the semantic type from
-        | the accumulated state.
+        | when the current type is Simple/default, infer the semantic type from the
+        | accumulated state.
         */
 
         $rawType = $this->buttonTypeEnum?->value
@@ -1201,6 +1214,13 @@ class PowerButton extends RichEntity
         $payload = $this->extraPayload;
 
         $style = $payload['style'] ?? $this->buttonStyle;
+
+        $btnStyleClass = '';
+        if($this->targetsWeb()) {
+            $btnStyle = $this->buttonStyle;
+            if($btnStyle !== null)
+                $btnStyleClass = ' richy-btn-' . $btnStyle;
+        }
 
         $url =
             $payload['url']
@@ -1478,7 +1498,7 @@ class PowerButton extends RichEntity
 
         /*
         |--------------------------------------------------------------------------
-        | 6) Final body
+        | Telegram Rich HTML renderer
         |--------------------------------------------------------------------------
         |
         | IMPORTANT:
@@ -1491,28 +1511,277 @@ class PowerButton extends RichEntity
         |
         */
 
-        $buttonText = $this->renderHtml($this->text);
+        if ($this->targetsTelegram()) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | 6) Final body
+            |--------------------------------------------------------------------------
+            */
+
+            $buttonText = $this->renderHtml($this->text);
+
+            /*
+            |--------------------------------------------------------------------------
+            | 7) Canonical attribute serialization via RichEntity
+            |--------------------------------------------------------------------------
+            */
+
+            $attributeString = $this->attributesToString(
+                $attributes
+                /// filterNulls($attributes)
+            );
+
+            return '<tg-button'
+                . ($attributeString !== ''
+                    ? ' ' . $attributeString
+                    : '')
+                . '>'
+                . $buttonText
+                . '</tg-button>';
+        }
+
+        // ── Resolve width → flex style ────────────────────────────
+        $flexStyle = $this->colToFlexStyle($this->width);
 
         /*
         |--------------------------------------------------------------------------
-        | 7) Canonical attribute serialization via RichEntity
+        | Preserve both the canonical PowerButton style and the Web UI flex style.
         |--------------------------------------------------------------------------
         */
 
-        $attributeString = $this->attributesToString(
-            $attributes
-            /// filterNulls($attributes)
+        $webStyle = trim(
+            ($style !== null && $style !== ''
+                ? rtrim((string) $style, ';') . ';'
+                : '')
+            . $flexStyle,
+            ';'
         );
 
-        return '<tg-button'
-            . ($attributeString !== ''
-                ? ' ' . $attributeString
-                : '')
-            . '>'
-            . $buttonText
-            . '</tg-button>';
-    }
+        if (!empty($this->richStyles)) {
+            $traitStyles = [];
+            foreach ($this->richStyles as $prop => $val) {
+                $traitStyles[] = $prop . ': ' . $val;
+            }
+            $traitStyles = implode('; ', $traitStyles);
+            $webStyle = trim((rtrim($webStyle, ';') . ';' . $traitStyles), ';');
+        }
 
+        // ── Render label ──────────────────────────────────────────
+        $buttonText = $this->text instanceof RichEntity
+            ? $this->text->toHtml()
+            : $this->esc((string) ($this->text ?? ''));
+
+        // ── Build per-type HTML ───────────────────────────────────
+        $baseClass = 'richy-btn-button' . $btnStyleClass; // . ' tg-inline-button'
+        if (!empty($this->richClasses)) {
+            $baseClass = trim($baseClass . ' ' . implode(' ', array_keys($this->richClasses)));
+        }
+
+        switch ($type) {
+
+            case 'url':
+
+                return sprintf(
+                    '<a class="%s" href="%s" target="_blank" rel="noopener noreferrer" style="%s">%s</a>',
+                    $baseClass,
+                    $this->esc((string) ($url ?? '#')),
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            case 'web_app':
+
+                $webApp = $this->normalize(
+                    $this->webAppData
+                    ?? ($payload['web_app'] ?? null)
+                );
+
+                $webUrl = is_array($webApp)
+                    ? ($webApp['url'] ?? '#')
+                    : (
+                        is_string($webApp)
+                            ? $webApp
+                            : '#'
+                    );
+
+                return sprintf(
+                    '<a class="%s richy-btn-inline-button--webapp" href="%s" target="_blank" rel="noopener noreferrer" style="%s">%s</a>',
+                    $baseClass,
+                    $this->esc((string) $webUrl),
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            case 'login_url':
+
+                $login = $this->normalize(
+                    $this->loginUrlData
+                    ?? ($payload['login_url'] ?? null)
+                );
+
+                if (is_string($login)) {
+                    $login = [
+                        'url' => $login,
+                    ];
+                }
+
+                if (!is_array($login)) {
+                    $login = [];
+                }
+
+                $loginUrl =
+                    $login['url']
+                    ?? $login['login_url']
+                    ?? '#';
+
+                return sprintf(
+                    '<a class="%s richy-btn-inline-button--login" href="%s" target="_blank" rel="noopener noreferrer" style="%s">🔐 %s</a>',
+                    $baseClass,
+                    $this->esc((string) $loginUrl),
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            case 'callback_data':
+
+                return sprintf(
+                    '<button class="%s" type="button" data-richy-btn-action="%s" data-richy-btn-type="callback_data" data-richy-btn-payload=\'%s\' style="%s">%s</button>',
+                    $baseClass,
+                    $this->esc(
+                        (string) (
+                            $this->forceGetProperty('action_id')
+                            ?? ''
+                        )
+                    ),
+                    $this->esc(
+                        $actionData ?? '{}'
+                    ),
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            case 'switch_inline_query':
+
+                return sprintf(
+                    '<button class="%s" type="button" data-richy-btn-type="switch_inline_query" data-richy-btn-query="%s" style="%s">%s</button>',
+                    $baseClass,
+                    $this->esc(
+                        (string) (
+                            $this->switchInlineQueryValue
+                            ?? $payload['switch_inline_query']
+                            ?? ''
+                        )
+                    ),
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            case 'switch_inline_query_current_chat':
+
+                return sprintf(
+                    '<button class="%s" type="button" data-richy-btn-type="switch_inline_query_current_chat" data-richy-btn-query="%s" style="%s">%s</button>',
+                    $baseClass,
+                    $this->esc(
+                        (string) (
+                            $this->switchInlineQueryCurrentChatValue
+                            ?? $payload['switch_inline_query_current_chat']
+                            ?? ''
+                        )
+                    ),
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            case 'switch_inline_query_chosen_chat':
+
+                $chosen = $this->normalize(
+                    $this->switchInlineQueryChosenChat
+                    ?? ($payload['switch_inline_query_chosen_chat'] ?? null)
+                );
+
+                if (!is_array($chosen)) {
+                    $chosen = [];
+                }
+
+                return sprintf(
+                    '<button class="%s" type="button" data-richy-btn-type="switch_inline_query_chosen_chat" data-richy-btn-query="%s" data-richy-btn-payload=\'%s\' style="%s">%s</button>',
+                    $baseClass,
+                    $this->esc(
+                        $chosen['query'] ?? ''
+                    ),
+                    $this->esc(
+                        json_encode(
+                            $chosen,
+                            JSON_UNESCAPED_UNICODE
+                        ) ?: '{}'
+                    ),
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            case 'copy_text':
+
+                $copy = $this->normalize(
+                    $this->copyTextData
+                    ?? ($payload['copy_text'] ?? null)
+                );
+
+                $copyText = is_array($copy)
+                    ? ($copy['text'] ?? '')
+                    : (string) ($copy ?? '');
+
+                $copyText = renderAsText(
+                    $copyText,
+                    $this
+                );
+
+                return sprintf(
+                    '<button class="%s richy-btn-inline-button--copy" type="button" data-richy-btn-type="copy_text" data-richy-btn-copy="%s" style="%s" onclick="navigator.clipboard.writeText(this.dataset.richyBtnCopy)">%s</button>',
+                    $baseClass,
+                    $this->esc(
+                        (string) ($copyText ?? '')
+                    ),
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            case 'disabled':
+
+                return sprintf(
+                    '<button class="%s richy-btn-inline-button--disabled" type="button" disabled style="%s;opacity:.45;cursor:not-allowed">%s</button>',
+                    $baseClass,
+                    $webStyle,
+                    $buttonText
+                );
+
+
+            // ── Rubika-specific / fallback ────────────────────────
+            default:
+
+                return sprintf(
+                    '<button class="%s" type="button" data-richy-btn-type="%s" data-richy-btn-action="%s" style="%s">%s</button>',
+                    $baseClass,
+                    $this->esc($type),
+                    $this->esc(
+                        (string) (
+                            $this->forceGetProperty('action_id')
+                            ?? ''
+                        )
+                    ),
+                    $webStyle,
+                    $buttonText
+                );
+        }
+    }
 
     /**
      * آرایهٔ نهایی و کامل برای نمایش دکمه را برمی‌گرداند.

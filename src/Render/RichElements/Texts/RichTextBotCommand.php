@@ -137,6 +137,11 @@ class RichTextBotCommand extends RichTextSymbolLink
         return 'bot_command';
     }
 
+    protected function getDisplayType(): string
+    {
+        return 'Bot Command';
+    }
+
     /**
      * Builds the tg:// protocol URL for the bot command.
      * It now correctly includes the bot username in the command value.
@@ -147,7 +152,29 @@ class RichTextBotCommand extends RichTextSymbolLink
     protected function buildHref(string $value): string
     {
         // rawurlencode handles the '@' symbol correctly.
-        return 'tg://bot_command?command=' . rawurlencode($value);
+        $escapedValue = rawurlencode($value);
+        if($this->targetsTelegram())
+            return 'tg://bot_command?command=' . $escapedValue;
+
+        return $this->getPrefixByPlatform() . 'bot_command?command=' . $escapedValue;
+    }
+
+    /**
+     * اضافه کردن data-username و data-command برای هوک‌های JavaScript
+    */
+    protected function getAdditionalAttributes(): array
+    {
+        $attributes = [
+            'data-command' => $this->bot_command,
+            'data-js-event' => 'krubot:command',  // 🔥 این سیگنال به JS می‌گه چه رویدادی رو صدا بزنه
+            'role' => 'button',
+            'tabindex' => '0'
+        ];
+
+        if (!empty($this->username)) {
+            $attributes['data-username'] = ltrim($this->username, '@');
+        }
+
+        return $attributes;
     }
 }
-?>

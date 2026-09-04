@@ -75,9 +75,14 @@ class RichTextHashtag extends RichTextSymbolLink
     // --- Implementation of abstract methods ---
     protected function getSymbol(): string { return '#'; }
     protected function getDataType(): string { return 'hashtag'; }
+    protected function getDisplayType(): string { return 'Hashtag'; }
     protected function buildHref(string $value): string
     {
-        return 'tg://search_hashtag?hashtag=' . rawurlencode($value);
+        $escapedValue = rawurlencode($value);
+        if($this->targetsTelegram())
+            return 'tg://search_hashtag?hashtag=' . $escapedValue;
+
+        return $this->getPrefixByPlatform() . 'search?hashtag=' . $escapedValue;
     }
     
 }

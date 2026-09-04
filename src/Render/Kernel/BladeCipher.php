@@ -72,7 +72,8 @@ class BladeCipher
         'Math'                  => 'mathematicalExpression', // ALIAS
         'Divider'               => 'divider',
         'Separator'             => 'separator', // ADDED
-        'NewLine'               => 'newLine', // ADDED
+        'NewLine'               => 'newLine',   // ADDED
+        'Space'                 => 'space',     // ADDED
         'Heading'               => 'heading',
         'Photo'                 => 'photo',
         'Video'                 => 'video',
@@ -112,6 +113,7 @@ class BladeCipher
         'Url'           => 'href', // ALIAS
         'AnchorLink'    => 'anchorLink',
         'BankCardNumber'=> 'bankCardNumber',
+        'BankCard'      => 'bankCardNumber', // ALIAS
         'BotCommand'    => 'botCommand',
         'Cashtag'       => 'cashtag',
         'DateTime'      => 'dateTime',

@@ -22,7 +22,17 @@ class RichTextUnderline extends RichTextEntity
     public function toArray(): array { return ['type' => 'underline', 'text' => $this->normalize($this->text)]; }
     public function toHtml(): string
     {
+        $content = $this->renderHtml($this->text);
+
+        if($this->targetsWeb())
+            return '<span class="richy-underline">' . $content . '</span>';
+
         // Renders content within <u> tags.
-        return '<u>' . $this->renderHtml($this->text) . '</u>';
+        return '<u>' . $content . '</u>';
+    }
+
+    public function toMd(): string
+    {
+        return '__' . $this->renderText($this->text) . '__';
     }
 }

@@ -20,6 +20,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response as LaravelResponse;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Illuminate\Contracts\Support\Responsable;
 
 trait HasWebInterface
 {
@@ -36,7 +37,7 @@ trait HasWebInterface
 
     /**
      * Normalizes any return payload from controllers or web actions into a proper HTTP Response.
-     * Supported: Views, Htmlables, Stringables, Strings, Arrays, Arrayables, Jsonables, and raw Objects.
+     * Supported: Views, Htmlables, Stringables, Strings, Arrays, Arrayables, Jsonables, Responsables, and raw Objects.
      *
      * @param mixed $result
      * @return SymfonyResponse
@@ -48,12 +49,17 @@ trait HasWebInterface
             return $result;
         }
 
-        // 2. EMPTY RESPONSES: Treat null returning functions as "204 No Content".
+         // 2. SECOND PASS-THROUGH: If it is already a Laravel Responsable return it directly.
+        if ($result instanceof Responsable) {
+            return $result->toResponse(request());
+        }
+
+        // 3. EMPTY RESPONSES: Treat null returning functions as "204 No Content".
         if ($result === null) {
             return new LaravelResponse('', 204);
         }
 
-        // 3. HTML & RENDERABLES: Render to string and output as HTML with UTF-8 charset.
+        // 4. HTML & RENDERABLES: Render to string and output as HTML with UTF-8 charset.
         if (
             $result instanceof View ||
             $result instanceof Htmlable ||
@@ -71,7 +77,7 @@ trait HasWebInterface
             ]);
         }
 
-        // 4. JSON & SERIALIZABLES: Check structure and return as JsonResponse.
+        // 5. JSON & SERIALIZABLES: Check structure and return as JsonResponse.
         if (
             is_array($result) ||
             $result instanceof Arrayable ||
@@ -88,7 +94,7 @@ trait HasWebInterface
             return new JsonResponse($data, 200);
         }
 
-        // 5. OBJECT & SCALAR FALLBACKS: Handle fallback scenarios gracefully.
+        // 6. OBJECT & SCALAR FALLBACKS: Handle fallback scenarios gracefully.
         if (is_object($result)) {
             // Fallback for custom objects containing a __toString magic method.
             if (method_exists($result, '__toString')) {
@@ -107,7 +113,7 @@ trait HasWebInterface
             }
         }
 
-        // Scalar fallback (integers, floats, booleans)
+        // 7. Scalar fallback (integers, floats, booleans)
         return new LaravelResponse((string) $result, 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
         ]);

@@ -40,7 +40,8 @@ class Video extends BaseObject
         protected ?array $qualities = null,
         protected ?string $file_name = null,
         protected ?string $mime_type = null,
-        protected ?int $file_size = null
+        protected ?int $file_size = null,
+        protected ?string $file_url = null // custom url for rendering on web
     ) {}
 
     // [Hi-DX] Auto-Generated Methods
@@ -146,7 +147,7 @@ class Video extends BaseObject
      * @param PhotoSize|null $value If provided, sets the 'thumbnail'. Otherwise, returns the current value.
      * @return static|PhotoSize|null The instance for chaining (setter) or the value (getter).
      */
-    public function thumbnail(?PhotoSize $value = null): static|?PhotoSize
+    public function thumbnail(?PhotoSize $value = null): static|PhotoSize|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -165,7 +166,7 @@ class Video extends BaseObject
      * @param array|null $value If provided, sets the 'cover'. Otherwise, returns the current value.
      * @return static|array|null The instance for chaining (setter) or the value (getter).
      */
-    public function cover(?array $value = null): static|?array
+    public function cover(?array $value = null): static|array|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -184,7 +185,7 @@ class Video extends BaseObject
      * @param DateTimeInterface|null $value If provided, sets the 'start_timestamp'. Otherwise, returns the current value.
      * @return static|DateTimeInterface|null The instance for chaining (setter) or the value (getter).
      */
-    public function startTimestamp(?DateTimeInterface $value = null): static|?DateTimeInterface
+    public function startTimestamp(?DateTimeInterface $value = null): static|DateTimeInterface|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -203,7 +204,7 @@ class Video extends BaseObject
      * @param array|null $value If provided, sets the 'qualities'. Otherwise, returns the current value.
      * @return static|array|null The instance for chaining (setter) or the value (getter).
      */
-    public function qualities(?array $value = null): static|?array
+    public function qualities(?array $value = null): static|array|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -222,7 +223,7 @@ class Video extends BaseObject
      * @param string|null $value If provided, sets the 'file_name'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function fileName(?string $value = null): static|?string
+    public function fileName(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -241,7 +242,7 @@ class Video extends BaseObject
      * @param string|null $value If provided, sets the 'mime_type'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function mimeType(?string $value = null): static|?string
+    public function mimeType(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -260,7 +261,7 @@ class Video extends BaseObject
      * @param int|null $value If provided, sets the 'file_size'. Otherwise, returns the current value.
      * @return static|int|null The instance for chaining (setter) or the value (getter).
      */
-    public function fileSize(?int $value = null): static|?int
+    public function fileSize(?int $value = null): static|int|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {

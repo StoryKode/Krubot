@@ -75,7 +75,7 @@ class Location extends BaseObject
      * @param float|null $value If provided, sets the 'horizontal_accuracy'. Otherwise, returns the current value.
      * @return static|float|null The instance for chaining (setter) or the value (getter).
      */
-    public function horizontalAccuracy(?float $value = null): static|?float
+    public function horizontalAccuracy(?float $value = null): static|float|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -94,7 +94,7 @@ class Location extends BaseObject
      * @param int|null $value If provided, sets the 'live_period'. Otherwise, returns the current value.
      * @return static|int|null The instance for chaining (setter) or the value (getter).
      */
-    public function livePeriod(?int $value = null): static|?int
+    public function livePeriod(?int $value = null): static|int|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -113,7 +113,7 @@ class Location extends BaseObject
      * @param int|null $value If provided, sets the 'heading'. Otherwise, returns the current value.
      * @return static|int|null The instance for chaining (setter) or the value (getter).
      */
-    public function heading(?int $value = null): static|?int
+    public function heading(?int $value = null): static|int|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -132,7 +132,7 @@ class Location extends BaseObject
      * @param int|null $value If provided, sets the 'proximity_alert_radius'. Otherwise, returns the current value.
      * @return static|int|null The instance for chaining (setter) or the value (getter).
      */
-    public function proximityAlertRadius(?int $value = null): static|?int
+    public function proximityAlertRadius(?int $value = null): static|int|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {

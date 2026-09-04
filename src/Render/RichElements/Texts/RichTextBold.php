@@ -24,7 +24,7 @@ class RichTextBold extends RichTextEntity
     public function toHtml(): string
     {
         // Renders content within <b> tags.
-        return '<b>' . $this->renderHtml($this->text) . '</b>';
+        return '<b class="richy-bold">' . $this->renderHtml($this->text) . '</b>';
     }
     public function toMd()
     {

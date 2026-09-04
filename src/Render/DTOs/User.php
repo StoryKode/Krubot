@@ -118,7 +118,7 @@ class User extends BaseObject
      * @param string|null $value If provided, sets the 'last_name'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function lastName(?string $value = null): static|?string
+    public function lastName(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -130,7 +130,7 @@ class User extends BaseObject
         // This is a 'getter' call.
         return $this->last_name;
     }
-    public function fullName(string $firstName, ?string $lastName = null): static|?string
+    public function fullName(string $firstName, ?string $lastName = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -150,7 +150,7 @@ class User extends BaseObject
      * @param string|null $value If provided, sets the 'username'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function username(?string $value = null): static|?string
+    public function username(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -169,7 +169,7 @@ class User extends BaseObject
      * @param string|null $value If provided, sets the 'language_code'. Otherwise, returns the current value.
      * @return static|string|null The instance for chaining (setter) or the value (getter).
      */
-    public function languageCode(?string $value = null): static|?string
+    public function languageCode(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -181,7 +181,7 @@ class User extends BaseObject
         // This is a 'getter' call.
         return $this->language_code;
     }
-    public function language(?string $value = null): static|?string
+    public function language(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -193,7 +193,7 @@ class User extends BaseObject
         // This is a 'getter' call.
         return $this->language_code;
     }
-    public function lang(?string $value = null): static|?string
+    public function lang(?string $value = null): static|string|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -212,7 +212,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'is_premium'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function isPremium(?bool $value = null): static|?bool
+    public function isPremium(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -231,7 +231,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'added_to_attachment_menu'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function addedToAttachmentMenu(?bool $value = null): static|?bool
+    public function addedToAttachmentMenu(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -250,7 +250,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'can_join_groups'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function canJoinGroups(?bool $value = null): static|?bool
+    public function canJoinGroups(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -269,7 +269,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'can_read_all_group_messages'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function canReadAllGroupMessages(?bool $value = null): static|?bool
+    public function canReadAllGroupMessages(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -288,7 +288,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'supports_guest_queries'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function supportsGuestQueries(?bool $value = null): static|?bool
+    public function supportsGuestQueries(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -307,7 +307,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'supports_inline_queries'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function supportsInlineQueries(?bool $value = null): static|?bool
+    public function supportsInlineQueries(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -326,7 +326,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'can_connect_to_business'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function canConnectToBusiness(?bool $value = null): static|?bool
+    public function canConnectToBusiness(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -345,7 +345,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'has_main_web_app'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function hasMainWebApp(?bool $value = null): static|?bool
+    public function hasMainWebApp(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -364,7 +364,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'has_topics_enabled'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function hasTopicsEnabled(?bool $value = null): static|?bool
+    public function hasTopicsEnabled(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -383,7 +383,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'allows_users_to_create_topics'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function allowsUsersToCreateTopics(?bool $value = null): static|?bool
+    public function allowsUsersToCreateTopics(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -402,7 +402,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'can_manage_bots'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function canManageBots(?bool $value = null): static|?bool
+    public function canManageBots(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {
@@ -421,7 +421,7 @@ class User extends BaseObject
      * @param bool|null $value If provided, sets the 'supports_join_request_queries'. Otherwise, returns the current value.
      * @return static|bool|null The instance for chaining (setter) or the value (getter).
      */
-    public function supportsJoinRequestQueries(?bool $value = null): static|?bool
+    public function supportsJoinRequestQueries(?bool $value = null): static|bool|null
     {
         // Check if the method was called with an argument.
         if (func_num_args() > 0) {

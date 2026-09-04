@@ -46,6 +46,9 @@ use KrubiK\Render\RichElements\Texts\RichTextEntity;
 use KrubiK\Render\RichElements\Texts\RichText;
 use KrubiK\Render\Kernel\SoulHarvestor;
 
+use Illuminate\Http\Response;
+use Illuminate\Contracts\Support\Responsable;
+
 use KrubiK\Render\DTOs\User as UserDTO;
 use KrubiK\Render\DTOs\Animation as AnimationDTO;
 use KrubiK\Render\DTOs\Audio as AudioDTO;
@@ -74,6 +77,7 @@ use function KrubiK\Render\Helpers\{
     anchorLink,
     animation,
     audio,
+    bankCardNumber,
     blockQuotation,
     bold,
     botCommand,
@@ -87,6 +91,7 @@ use function KrubiK\Render\Helpers\{
     details,
     divider,
     separator, // not telegram original
+    newLine,   // not telegram original
     emailAddress,
     footnoteDefinition,
     footer,
@@ -125,6 +130,7 @@ use function KrubiK\Render\Helpers\{
     button,
     buttons,
     buttonRow,
+    document,
     expandableBlockQuotation
 };
 
@@ -152,8 +158,8 @@ use function KrubiK\Render\Helpers\{
  * @link https://StoryKo.de/Krubot Official website of engine.
  * @version Krubot: ×RC.8×
  * @license MIT
- */
-class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base entity.
+*/
+class RichMan extends RichEntity implements Responsable // <<<< CORE CHANGE: Inheriting from the base entity.
 {
     // ================== STATE PROPERTIES ==================
 
@@ -187,7 +193,6 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     {
         return new self($initialText, $isRtl);
     }
-
     
     public function rtl(bool $active = true): self
     {
@@ -202,10 +207,45 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     
     // ================== INTERNAL HELPERS ==================
 
+    public function toResponse($request): Response
+    {
+        $htmlResponse = $this->render();
+
+        return response(
+            $this->wrapInFullPage($htmlResponse)
+        )->header('Content-Type', 'text/html');
+    }
+
+    private function wrapInFullPage(string $richContent): string
+    {
+        $lang = $this->aura()->lang;
+        $dirAttr = ($this->isRtl !== null) ? (
+            ' dir="' . ($this->isRtl ? 'rtl' : 'ltr') . '"'
+        ) : '';
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="{$lang}"{$dirAttr}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+    <div class="richy-root">
+{$richContent}
+    </div>
+    <script type="text/javascript" src="/krubot.js"></script>
+
+</body>
+</html>
+HTML;
+    }
+
     /**
      * The core method to add any RichEntity to the builder.
      * It also handles the logic for building the parallel 'inline_text' string.
-     */
+    */
     private function addEntity(RichEntity $entity, ?string $appendText = null): self
     {
         $this->elements[] = $entity;
@@ -217,7 +257,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
 
     /**
      * A simple alias for adding block-level entities for better code readability.
-     */
+    */
     private function addBlock(RichBlockEntity $block): self
     {
         return $this->addEntity($block);
@@ -237,7 +277,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param string|RichEntity|array|callable|\Closure $content The content to add.
      * @return $this
-     */
+    */
     public function add(string|RichEntity|array|callable|\Closure|self $content): self
     {
         if ($content instanceof \Closure) {
@@ -316,7 +356,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Normalizes content that can be either a string or a pre-built RichMan instance.
      * This is key for creating nested formatted content (e.g., a bold link).
-     */
+    */
     private static function normalizeText(self|string $content): RichTextEntity
     {
         // REFACTOR: If content is another RichMan, we extract its final RichTextEntity object.
@@ -349,7 +389,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Builds and returns the final RichTextEntity object from the inline elements.
      * This is used by `normalizeText` to compose builders together.
-     */
+    */
     public function getResultAsRichText(): RichTextEntity
     {
         // Extracts only the inline elements for composition.
@@ -540,7 +580,6 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     // == End ::: RichEntity Contract Implementation :::
     // =========================================================
 
-
     // =========================================================
     /// == Start:: Advanced Brain Manipulation ==
     // =========================================================
@@ -563,7 +602,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
 
     /**
      * Prepend another parsed instance or raw entity list.
-     */
+    */
     public function prepend(self|array $segment): self
     {
         $entities = $segment instanceof self ? $segment->getElements() : $segment;
@@ -584,7 +623,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * - <= 0  => insert at start
      * - >= n  => append
      * - else  => insert in the middle
-     */
+    */
     public function insert(int $index, self|array $segment): self
     {
         $entities = $segment instanceof self ? $segment->getElements() : $segment;
@@ -613,7 +652,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
 
     /**
      * Replace a single entity at index with another parsed instance or entity list.
-     */
+    */
     public function replace(int $index, self|array $segment): self
     {
         $entities = $segment instanceof self ? $segment->getElements() : $segment;
@@ -630,7 +669,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
 
     /**
      * Remove one or more entities from the chain.
-     */
+    */
     public function remove(int $index, int $length = 1): self
     {
         if ($length <= 0) {
@@ -644,7 +683,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
 
     /**
      * Return a clone-like new instance with merged entities.
-     */
+    */
     public function merged(self|array $segment): self
     {
         $clone = new self($this->elements, $this->payload);
@@ -694,7 +733,9 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     {
         // This is a simple implementation for inline text.
         // A more complex scenario might involve creating a new paragraph block.
-        return $this->plain(str_repeat("\n", $count));
+        while($count--)
+            $this->add(newLine());
+        return $this;
     }
 
     public function line(string|RichEntity|array|callable|\Closure|self|null $content = null): self
@@ -709,7 +750,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
 
     public function space(int $count = 1): self
     {
-        return $this->plain(str_repeat(' ', $count));
+        $spaceStr = $this->targetsWeb() ? '&nbsp;' : ' ';
+        return $this->plain(str_repeat($spaceStr, $count));
     }
 
 
@@ -732,10 +774,10 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * Creates an inline mention of a user.
      *
      * @param RichEntity|callable|string|array $text The visible text of the mention.
-     * @param UserDTO|array $user The UserDTO or array representation of the user.
+     * @param UserDTO|callable|array $user The UserDTO or array representation of the user.
      * @return $this
-     */
-    public function mention(RichEntity|callable|string|array $text, UserDTO|array $user): self
+    */
+    public function mention(RichEntity|callable|string|array $text, UserDTO|callable|array $user): self
     {
         return $this->addEntity(textMention($text, $user));
     }
@@ -761,7 +803,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to be wrapped.
      * @return $this
-     */
+    */
     public function text(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(text($text));
@@ -773,7 +815,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible, clickable text.
      * @param string $anchorName The name of the anchor to link to.
      * @return $this
-     */
+    */
     public function anchorLink(RichEntity|callable|string|array $text, string $anchorName): self
     {
         return $this->addEntity(anchorLink($text, $anchorName));
@@ -785,8 +827,12 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible text.
      * @param string $bankCardNumber The full bank card number string.
      * @return $this
-     */
+    */
     public function bankCardNumber(RichEntity|callable|string|array $text, string $bankCardNumber): self
+    {
+        return $this->addEntity(bankCardNumber($text, $bankCardNumber));
+    }
+    public function bankCard(RichEntity|callable|string|array $text, string $bankCardNumber): self
     {
         return $this->addEntity(bankCardNumber($text, $bankCardNumber));
     }
@@ -796,7 +842,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to render as bold.
      * @return $this
-     */
+    */
     public function bold(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(bold($text));
@@ -808,8 +854,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible text of the command.
      * @param string $botCommand The actual command string (e.g., "/help").
      * @return $this
-     */
-    public function botCommand(RichEntity|callable|string|array $text, string $botCommand): self
+    */
+    public function botCommand(RichEntity|callable|string|array $text, ?string $botCommand = null): self
     {
         return $this->addEntity(botCommand($text, $botCommand));
     }
@@ -820,8 +866,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible text of the cashtag.
      * @param string $cashtag The cashtag identifier (e.g., "KRUB").
      * @return $this
-     */
-    public function cashtag(RichEntity|callable|string|array $text, string $cashtag): self
+    */
+    public function cashtag(RichEntity|callable|string|array $text, ?string $cashtag = null): self
     {
         return $this->addEntity(cashtag($text, $cashtag));
     }
@@ -831,7 +877,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The code snippet.
      * @return $this
-     */
+    */
     public function code(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(code($text));
@@ -843,7 +889,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param string $customEmojiId The unique identifier for the custom emoji.
      * @param string $alternativeText The fallback text description.
      * @return $this
-     */
+    */
     public function customEmoji(string $customEmojiId, string $alternativeText): self
     {
         return $this->addEntity(customEmoji($customEmojiId, $alternativeText));
@@ -856,7 +902,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param int $unixTime The timestamp in Unix epoch format.
      * @param string $dateTimeFormat A string describing the format.
      * @return $this
-     */
+    */
     public function dateTime(RichEntity|callable|string|array $text, int $unixTime, string $dateTimeFormat): self
     {
         return $this->addEntity(dateTime($text, $unixTime, $dateTimeFormat));
@@ -868,14 +914,14 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible text of the email link.
      * @param string $email_address The actual email address.
      * @return $this
-     */
+    */
     public function emailAddress(RichEntity|callable|string|array $text, string $email_address): self
     {
         return $this->addEntity(emailAddress($text, $email_address));
     }
     public function email(RichEntity|callable|string|array $text, string $email_address): self
     {
-        return $this->addEntity(emailAddress($text, $email_address));
+        return $this->emailAddress($text, $email_address);
     }
 
     /**
@@ -884,8 +930,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible text of the hashtag.
      * @param string $hashtag The hashtag string without the '#' prefix.
      * @return $this
-     */
-    public function hashtag(RichEntity|callable|string|array $text, string $hashtag): self
+    */
+    public function hashtag(RichEntity|callable|string|array $text, ?string $hashtag = null): self
     {
         return $this->addEntity(hashtag($text, $hashtag));
     }
@@ -895,7 +941,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to be marked.
      * @return $this
-     */
+    */
     public function marked(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(marked($text));
@@ -906,7 +952,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to render as italic.
      * @return $this
-     */
+    */
     public function italic(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(italic($text));
@@ -918,7 +964,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible text.
      * @param string $phoneNumber The phone number in a callable format.
      * @return $this
-     */
+    */
     public function phoneNumber(RichEntity|callable|string|array $text, string $phoneNumber): self
     {
         return $this->addEntity(phoneNumber($text, $phoneNumber));
@@ -929,7 +975,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param string $text The plain text content.
      * @return $this
-     */
+    */
     public function plain(string $text): self
     {
         return $this->addEntity(plain($text));
@@ -940,7 +986,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param string $expression The mathematical expression as a string.
      * @return $this
-     */
+    */
     public function mathematicalExpression(string $expression): self
     {
         return $this->addEntity(mathematicalExpression($expression));
@@ -956,7 +1002,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The content of the pre-formatted block.
      * @param string|null $language The programming language for syntax highlighting.
      * @return $this
-     */
+    */
     public function pre(RichEntity|callable|string|array $text, ?string $language = null): self
     {
         // Although `pre` often behaves like a block, in many rich text formats
@@ -971,7 +1017,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible text of the reference.
      * @param string $name The unique name of the item being referenced.
      * @return $this
-     */
+    */
     public function reference(RichEntity|callable|string|array $text, string $name): self
     {
         return $this->addEntity(reference($text, $name));
@@ -983,7 +1029,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible, clickable text.
      * @param string $referenceName The name of the reference to link to.
      * @return $this
-     */
+    */
     public function referenceLink(RichEntity|callable|string|array $text, string $referenceName): self
     {
         return $this->addEntity(referenceLink($text, $referenceName));
@@ -994,7 +1040,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to be concealed.
      * @return $this
-     */
+    */
     public function spoiler(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(spoiler($text));
@@ -1005,7 +1051,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to strike through.
      * @return $this
-     */
+    */
     public function strikethrough(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(strikethrough($text));
@@ -1016,7 +1062,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to be subscripted.
      * @return $this
-     */
+    */
     public function subscript(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(subscript($text));
@@ -1027,7 +1073,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to be superscripted.
      * @return $this
-     */
+    */
     public function superscript(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(superscript($text));
@@ -1038,7 +1084,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content to underline.
      * @return $this
-     */
+    */
     public function underline(RichEntity|callable|string|array $text): self
     {
         return $this->addEntity(underline($text));
@@ -1050,7 +1096,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The visible, clickable text.
      * @param string $url The destination URL.
      * @return $this
-     */
+    */
     public function href(RichEntity|callable|string|array $text, string $url): self
     {
         return $this->addEntity(href($text, $url));
@@ -1075,7 +1121,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param string $name The unique name for the anchor.
      * @return $this
-     */
+    */
     public function anchor(string $name): self
     {
         return $this->addBlock(anchor($name));
@@ -1087,7 +1133,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The main caption text.
      * @param RichEntity|callable|string|array|null $credit Optional credit text.
      * @return $this
-     */
+    */
     public function caption(RichEntity|callable|string|array $text, RichEntity|callable|string|array|null $credit = null): self
     {
         return $this->addBlock(caption($text, $credit));
@@ -1103,8 +1149,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param int|null $value
      * @param string|null $type
      * @return $this
-     */
-    public function listItem(string $label, array|Arrayable $blocks, ?bool $hasCheckbox = null, ?bool $isChecked = null, ?int $value = null, ?string $type = null): self
+    */
+    public function listItem(string $label, array|Arrayable|callable $blocks = [], ?bool $hasCheckbox = null, ?bool $isChecked = null, ?int $value = null, ?string $type = null): self
     {
         return $this->addBlock(listItem($label, $blocks, $hasCheckbox, $isChecked, $value, $type));
     }
@@ -1119,7 +1165,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param string $align
      * @param string $valign
      * @return $this
-     */
+    */
     public function tableCell(RichEntity|callable|string|array|null $text = null, ?bool $isHeader = null, ?int $colspan = null, ?int $rowspan = null, string $align = 'left', string $valign = 'top'): self
     {
         return $this->addBlock(tableCell($text, $isHeader, $colspan, $rowspan, $align, $valign));
@@ -1127,7 +1173,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
 
     /**
      * Alias for tableCell.
-     */
+    */
     public function cell(RichEntity|callable|string|array|null $text = null, ?bool $isHeader = null, ?int $colspan = null, ?int $rowspan = null, string $align = 'left', string $valign = 'top'): self
     {
         return $this->addBlock(cell($text, $isHeader, $colspan, $rowspan, $align, $valign));
@@ -1136,12 +1182,12 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Creates an embedded animation (e.g., GIF).
      *
-     * @param AnimationDTO|array $animation The Animation model.
+     * @param AnimationDTO|callable|array $animation The Animation model.
      * @param bool|null $hasSpoiler If true, adds a spoiler overlay.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function animation(AnimationDTO|array $animation, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function animation(AnimationDTO|callable|array $animation, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(animation($animation, $hasSpoiler, $caption));
     }
@@ -1149,11 +1195,11 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Creates an embedded audio file.
      *
-     * @param AudioDTO|array $audio The Audio model.
+     * @param AudioDTO|callable|array $audio The Audio model.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function audio(AudioDTO|array $audio, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function audio(AudioDTO|callable|array $audio, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(audio($audio, $caption));
     }
@@ -1164,8 +1210,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichBlockEntity[]|Arrayable $blocks Content of the quote.
      * @param RichEntity|callable|string|array|null $credit Optional attribution.
      * @return $this
-     */
-    public function blockQuotation(array|Arrayable $blocks, RichEntity|callable|string|array|null $credit = null): self
+    */
+    public function blockQuotation(array|Arrayable|callable $blocks, RichEntity|callable|string|array|null $credit = null): self
     {
         return $this->addBlock(blockQuotation($blocks, $credit));
     }
@@ -1176,8 +1222,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichBlockEntity[]|Arrayable $blocks An array of block entities.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function collage(array|Arrayable $blocks, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function collage(array|Arrayable|callable $blocks, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(collage($blocks, $caption));
     }
@@ -1189,8 +1235,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichBlockEntity[]|Arrayable $blocks The hidden content.
      * @param bool|null $isOpen If true, initially open.
      * @return $this
-     */
-    public function details(RichEntity|callable|string|array $summary, array|Arrayable $blocks, ?bool $isOpen = null): self
+    */
+    public function details(RichEntity|callable|string|array $summary, array|Arrayable|callable $blocks, ?bool $isOpen = null): self
     {
         return $this->addBlock(details($summary, $blocks, $isOpen));
     }
@@ -1199,7 +1245,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * Creates a horizontal rule or thematic break.
      *
      * @return $this
-     */
+    */
     public function divider(): self
     {
         return $this->addBlock(divider());
@@ -1211,7 +1257,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param string $char The character to repeat.
      * @param int $length The number of repetitions.
      * @return $this
-     */
+    */
     public function separator(string $char = '—', int $length = 20): self
     {
         return $this->addBlock(separator($char, $length));
@@ -1223,8 +1269,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param string $name The unique identifier for the footnote.
      * @param RichBlockEntity[]|Arrayable $blocks The content blocks of the footnote.
      * @return $this
-     */
-    public function footnoteDefinition(string $name, array|Arrayable $blocks): self
+    */
+    public function footnoteDefinition(string $name, array|Arrayable|callable $blocks): self
     {
         return $this->addBlock(footnoteDefinition($name, $blocks));
     }
@@ -1234,7 +1280,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content of the footer.
      * @return $this
-     */
+    */
     public function footer(RichEntity|callable|string|array $text): self
     {
         return $this->addBlock(footer($text));
@@ -1246,7 +1292,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The text of the heading.
      * @param int $size The heading level (1-6).
      * @return $this
-     */
+    */
     public function heading(RichEntity|callable|string|array $text, int $size): self
     {
         return $this->addBlock(heading($text, $size));
@@ -1262,8 +1308,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichBlockListItem[]|Arrayable $items An array of list items.
      * @param string $style 'bullet' or 'ordered'.
      * @return $this
-     */
-    public function listBlock(array|Arrayable $items, string $style = 'bullet'): self
+    */
+    public function listBlock(array|Arrayable|callable $items, string $style = 'bullet'): self
     {
         return $this->addBlock(listBlock($items, $style));
     }
@@ -1271,14 +1317,14 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Creates an embedded map.
      *
-     * @param LocationDTO|array $location The Location object.
+     * @param LocationDTO|callable|array $location The Location object.
      * @param int $zoom The map zoom level.
      * @param int $width The map width in pixels.
      * @param int $height The map height in pixels.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function map(LocationDTO|array $location, int $zoom, int $width, int $height, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function map(LocationDTO|callable|array $location, int $zoom, int $width, int $height, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(map($location, $zoom, $width, $height, $caption));
     }
@@ -1288,7 +1334,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text The content of the paragraph.
      * @return $this
-     */
+    */
     public function paragraph(RichEntity|callable|string|array $text): self
     {
         return $this->addBlock(paragraph($text));
@@ -1297,12 +1343,12 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Creates an embedded photo.
      *
-     * @param PhotoSizeDTO|array $photo The PhotoSize object.
+     * @param PhotoSizeDTO|callable|array $photo The PhotoSize object.
      * @param bool|null $hasSpoiler If true, adds a spoiler overlay.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function photo(PhotoSizeDTO|array $photo, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function photo(PhotoSizeDTO|callable|array $photo, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(photo($photo, $hasSpoiler, $caption));
     }
@@ -1313,7 +1359,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichEntity|callable|string|array $text The text of the pull quote.
      * @param RichEntity|callable|string|array|null $credit Optional attribution.
      * @return $this
-     */
+    */
     public function pullQuotation(RichEntity|callable|string|array $text, RichEntity|callable|string|array|null $credit = null): self
     {
         return $this->addBlock(pullQuotation($text, $credit));
@@ -1325,8 +1371,8 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param RichBlockEntity[]|Arrayable $blocks The slides.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function slideshow(array|Arrayable $blocks, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function slideshow(array|Arrayable|callable $blocks, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(slideshow($blocks, $caption));
     }
@@ -1339,10 +1385,10 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      * @param bool|null $isStriped
      * @param RichEntity|callable|string|array|null $caption An optional caption.
      * @return $this
-     */
-    public function table(array|Arrayable $cells, ?bool $isBordered = null, ?bool $isStriped = null, RichEntity|callable|string|array|null $caption = null): self
+    */
+    public function table(array|Arrayable|callable $cells, ?bool $isBordered = null, ?bool $isStriped = null, ?bool $isCompact = null, RichEntity|callable|string|array|null $caption = null): self
     {
-        return $this->addBlock(table($cells, $isBordered, $isStriped, $caption));
+        return $this->addBlock(table($cells, $isBordered, $isStriped, $isCompact, $caption));
     }
 
     /**
@@ -1350,7 +1396,7 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
      *
      * @param RichEntity|callable|string|array $text Placeholder text.
      * @return $this
-     */
+    */
     public function thinking(RichEntity|callable|string|array $text): self
     {
         return $this->addBlock(thinking($text));
@@ -1359,12 +1405,12 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Creates an embedded video.
      *
-     * @param VideoDTO|array $video The Video object.
+     * @param VideoDTO|callable|array $video The Video object.
      * @param bool|null $hasSpoiler If true, adds a spoiler overlay.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function video(VideoDTO|array $video, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function video(VideoDTO|callable|array $video, ?bool $hasSpoiler = null, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(video($video, $hasSpoiler, $caption));
     }
@@ -1372,11 +1418,11 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Creates an embedded voice note.
      *
-     * @param VoiceDTO|array $voiceNote The Voice object.
+     * @param VoiceDTO|callable|array $voiceNote The Voice object.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function voiceNote(VoiceDTO|array $voiceNote, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function voiceNote(VoiceDTO|callable|array $voiceNote, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(voiceNote($voiceNote, $caption));
     }
@@ -1386,11 +1432,11 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
     /**
      * Creates an embedded document in the article.
      *
-     * @param DocumentDTO|array $document The Document object.
+     * @param DocumentDTO|callable|array $document The Document object.
      * @param RichBlockCaption|RichEntity|callable|string|null $caption An optional caption.
      * @return $this
-     */
-    public function document(DocumentDTO|array $document, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
+    */
+    public function document(DocumentDTO|callable|array $document, RichBlockCaption|RichEntity|callable|string|null $caption = null): self
     {
         return $this->addBlock(document($document, $caption));
     }
@@ -1400,12 +1446,12 @@ class RichMan extends RichEntity // <<<< CORE CHANGE: Inheriting from the base e
         return $this->addEntity(button($text, $actionId, $type, $payload, $width));
     }
 
-    public function buttons(array $buttons, ?string $align = null): self
+    public function buttons(array|Arrayable|callable $buttons, ?string $align = null): self
     {
         return $this->addBlock(buttons($buttons, $align));
     }
 
-    public function buttonRow(array $buttons, ?string $align = null): self
+    public function buttonRow(array|Arrayable|callable $buttons, ?string $align = null): self
     {
         return $this->addBlock(buttonRow($buttons, $align)); // exactly-same as buttons
     }

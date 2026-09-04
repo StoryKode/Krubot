@@ -20,9 +20,15 @@ class RichTextMarked extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'marked', 'text' => $this->normalize($this->text)]; }
+
     public function toHtml(): string
     {
         // Renders content within <mark> tags.
-        return '<mark>' . $this->renderHtml($this->text) . '</mark>';
+        return '<mark class="richy-marked">' . $this->renderHtml($this->text) . '</mark>';
+    }
+
+    public function toMd(): string
+    {
+        return '==' . $this->renderText($this->text) . '==';
     }
 }

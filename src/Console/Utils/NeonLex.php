@@ -26,9 +26,9 @@ final class NeonLex
     private static array $loaded = [];
 
     /**
-     * Current locale override.
+     * Current lang override.
      */
-    private static ?string $locale = null;
+    private static ?string $lang = null;
 
     /**
      * Translation directory.
@@ -51,8 +51,8 @@ final class NeonLex
             return $fallback ?? '';
         }
 
-        $locale = self::locale();
-        $translations = self::load($locale);
+        $lang = self::lang();
+        $translations = self::load($lang);
 
         $value = self::resolve($translations, $key);
 
@@ -60,7 +60,7 @@ final class NeonLex
             return $value;
         }
 
-        if ($locale !== self::FALLBACK_LOCALE) {
+        if ($lang !== self::FALLBACK_LOCALE) {
             $value = self::resolve(
                 self::load(self::FALLBACK_LOCALE),
                 $key
@@ -97,29 +97,29 @@ final class NeonLex
     /**
      * Set a locale explicitly.
     */
-    public static function setLocale(string $locale): void
+    public static function setLang(string $lang): void
     {
-        self::$locale = self::normalizeLocale($locale);
+        self::$lang = self::normalizeLocale($lang);
     }
 
     /**
      * Forget explicit locale override.
     */
-    public static function resetLocale(): void
+    public static function resetLang(): void
     {
-        self::$locale = null;
+        self::$lang = null;
     }
     
     /**
      * Get current effective locale.
     */
-    public static function locale(
+    public static function lang(
         ?Platform $platform = null,
         ?Request $request = null,
         mixed $driver = null,
     ): string {
-        if (self::$locale !== null) {
-            return self::$locale;
+        if (self::$lang !== null) {
+            return self::$lang;
         }
 
         // try Environment fallback
@@ -178,12 +178,12 @@ final class NeonLex
             |
             | This is the important part.
             |
-            | The locale resolution is delegated directly to the Arcane.
+            | The lang resolution is delegated directly to the Arcane.
             |
             */
 
             if ($request !== null) {
-                $locale = self::extractLocaleFromRequest(
+                $lang = self::extractLocaleFromRequest(
                     $app,
                     $request,
                     $platform,
@@ -191,10 +191,10 @@ final class NeonLex
                 );
 
                 if (
-                    is_string($locale)
-                    && trim($locale) !== ''
+                    is_string($lang)
+                    && trim($lang) !== ''
                 ) {
-                    return self::normalizeLocale($locale);
+                    return self::normalizeLocale($lang);
                 }
             }
 
@@ -208,15 +208,15 @@ final class NeonLex
             |
             */
 
-            $locale = self::extractLocaleFromConfig(
+            $lang = self::extractLocaleFromConfig(
                 $platform
             );
 
             if (
-                is_string($locale)
-                && trim($locale) !== ''
+                is_string($lang)
+                && trim($lang) !== ''
             ) {
-                return self::normalizeLocale($locale);
+                return self::normalizeLocale($lang);
             }
 
             /*
@@ -225,13 +225,13 @@ final class NeonLex
             |--------------------------------------------------------------------------
             */
 
-            $locale = $app->getLocale();
+            $lang = $app->getLocale();
 
             if (
-                is_string($locale)
-                && trim($locale) !== ''
+                is_string($lang)
+                && trim($lang) !== ''
             ) {
-                return self::normalizeLocale($locale);
+                return self::normalizeLocale($lang);
             }
 
         } catch (\Throwable) {
@@ -250,18 +250,18 @@ final class NeonLex
             return false;
         }
 
-        $locale = self::locale();
+        $lang = self::lang();
 
         if (
             self::resolve(
-                self::load($locale),
+                self::load($lang),
                 $key
             ) !== null
         ) {
             return true;
         }
 
-        return $locale !== self::FALLBACK_LOCALE
+        return $lang !== self::FALLBACK_LOCALE
             && self::resolve(
                 self::load(self::FALLBACK_LOCALE),
                 $key
@@ -269,13 +269,13 @@ final class NeonLex
     }
 
     /**
-     * Get the entire locale file.
+     * Get the entire lang file.
     */
-    public static function all(?string $locale = null): array
+    public static function all(?string $lang = null): array
     {
         return self::load(
             self::normalizeLocale(
-                $locale ?? self::locale()
+                $lang ?? self::lang()
             )
         );
     }
@@ -304,25 +304,25 @@ final class NeonLex
     /**
      * Load a language file exactly once per process.
     */
-    private static function load(string $locale): array
+    private static function load(string $lang): array
     {
-        if (isset(self::$loaded[$locale])) {
-            return self::$loaded[$locale];
+        if (isset(self::$loaded[$lang])) {
+            return self::$loaded[$lang];
         }
 
-        $path = self::languageFile($locale);
+        $path = self::languageFile($lang);
 
         if (!is_file($path)) {
-            return self::$loaded[$locale] = [];
+            return self::$loaded[$lang] = [];
         }
 
         try {
             $data = require $path;
         } catch (\Throwable) {
-            return self::$loaded[$locale] = [];
+            return self::$loaded[$lang] = [];
         }
 
-        return self::$loaded[$locale] =
+        return self::$loaded[$lang] =
             is_array($data) ? $data : [];
     }
 
@@ -365,13 +365,13 @@ final class NeonLex
     /**
      * Resolve language file.
     */
-    private static function languageFile(string $locale): string
+    private static function languageFile(string $lang): string
     {
         $directory = self::$path ?? self::getLanguagePath();
 
         return $directory
             . DIRECTORY_SEPARATOR
-            . $locale
+            . $lang
             . '.php';
     }
 }

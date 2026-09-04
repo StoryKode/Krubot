@@ -23,13 +23,17 @@ class RichTextCode extends RichTextEntity
     public function toArray(): array {
         return ['type' => 'code', 'text' => $this->normalize($this->text)];
     }
+
     public function toHtml(): string
     {
-        // Renders content within <code> tags. Note that the content is also escaped.
-        return '<code>' . $this->renderHtml($this->text) . '</code>';
+        // Renders content within <code> tags. Note that the content is also special-escaped.
+        return '<code class="richy-code">' . htmlspecialchars($this->renderPlainText($this->text), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</code>'; /// $this->renderHtml($this->text)        
     }
-    public function toMd()
+
+    public function toMd(): string
     {
-        return '`' . $this->renderText($this->text) . '`';
+        // Inside inline code, only backtick and backslash need escaping
+        $inner = str_replace(['\\', '`'], ['\\\\', '\\`'], $this->renderPlainText($this->text));
+        return '`' . $inner . '`';
     }
 }

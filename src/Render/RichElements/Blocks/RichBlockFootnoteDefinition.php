@@ -11,19 +11,19 @@ class RichBlockFootnoteDefinition extends RichBlockEntity // Not Telegram Origin
     /**
      * @param string $name The unique identifier for the footnote (e.g., "fn:id1").
      * @param RichBlockEntity[] $blocks The content blocks of the footnote.
-     */
+    */
     public function __construct(public string $name, public array|Arrayable $blocks) {}
 
     /**
      * Static factory to create a new RichBlockFootnoteDefinition instance.
      *
      * @param string $name The unique name/identifier for the footnote, matching a reference.
-     * @param array|Arrayable<RichBlockEntity> $blocks The block content of the footnote.
+     * @param array|Arrayable<RichBlockEntity>|callable $blocks The block content of the footnote.
      * @return self Returns a new instance of the class.
     */
-    public static function make(string $name, array|Arrayable $blocks): self
+    public static function make(string $name, array|Arrayable|callable $blocks): self
     {
-        return new self($name, $blocks);
+        return new self($name, self::resolveContent($blocks, true));
     }
 
     public function toArray(): array
@@ -47,10 +47,14 @@ class RichBlockFootnoteDefinition extends RichBlockEntity // Not Telegram Origin
     */
     public function toHtml(): string
     {
+        $escName  = $this->esc($this->name);
+
+        // JS highlights this when its reference-link is clicked.
         $attributes = [
-            'id' => $this->name,
-            'class' => 'tg-footnote-definition',
-            'role' => 'doc-endnote', // Good for accessibility.
+            'id' => 'fn-' . $escName,
+            'class' => 'richy-footnote-def',
+            'role' => 'doc-endnote', // Good for accessibility
+            'data-richy-footnote' => $escName,
         ];
 
         $attrString = $this->attributesToString($attributes);
@@ -58,6 +62,12 @@ class RichBlockFootnoteDefinition extends RichBlockEntity // Not Telegram Origin
         // The content of a footnote can itself be complex, so we render the blocks recursively.
         $renderedBlocks = $this->renderHtml($this->blocks);
         
-        return "<div{$attrString}>{$renderedBlocks}</div>";
+        return "<div {$attrString}><span class=\"richy-footnote-def__name\">[{$escName}]</span>{$renderedBlocks}</div>";
+    }
+
+    // TG 10.x API:  [^id]: Definition text
+    public function toMd(): string
+    {
+        return '[^' . $this->escForMd($this->name) . ']: ' . $this->mergeTexts($this->blocks) . "\n";
     }
 }

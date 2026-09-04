@@ -21,14 +21,20 @@ class RichTextUrl extends RichTextEntity
     }
 
     public function toArray(): array { return ['type' => 'url', 'text' => $this->normalize($this->text), 'url' => $this->url]; }
+
     public function toHtml(): string
     {
         // Creates a standard hyperlink. The URL in href is properly escaped.
         $escapedUrl = $this->esc($this->url);
-        return '<a href="' . $escapedUrl . '">' . $this->renderHtml($this->text) . '</a>';
+        return '<a href="' . $escapedUrl . '" class="richy-url">' . $this->renderHtml($this->text) . '</a>';
+        
     }
-    public function toMd()
+
+    public function toMd(): string
     {
-        return '[' . $this->renderText($this->text) . '](' . $this->url . ')';
+        // URL inside () — only ")" and "\" need escaping inside the parens
+        $safeUrl = str_replace(['\\', ')'], ['\\\\', '\\)'], $this->url);
+        $label = $this->renderText($this->text);
+        return '[' . $label . '](' . $safeUrl . ')';
     }
 }

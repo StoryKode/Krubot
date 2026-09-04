@@ -97,7 +97,17 @@ class RichBlockTableCell extends RichComponentEntity
             'valign' => $this->valign,
             'colspan' => $this->colspan,
             'rowspan' => $this->rowspan,
+            'style'   => ''
         ];
+
+        if ($this->align !== 'left')
+            $attributes['style'] .= 'text-align: ' . $this->esc($this->align) . ';';
+
+        if ($this->valign !== 'top')
+            $attributes['style'] .= 'vertical-align: ' . $this->esc($this->valign) . ';';
+        
+        if($attributes['style'] === '')
+            unset($attributes['style']); // or make it null so attributesToString() will eliminate that
         
         // Step 3: Generate the attribute string using the central, secure helper.
         $attrString = $this->attributesToString($attributes);
@@ -106,6 +116,11 @@ class RichBlockTableCell extends RichComponentEntity
         $renderedText = $this->renderHtml($this->text);
         
         // Step 5: Assemble the final tag.
-        return "<{$tagName}{$attrString}>{$renderedText}</{$tagName}>";
+        return "<{$tagName} {$attrString}>{$renderedText}</{$tagName}>";
+    }
+
+    public function toMd(): string
+    {
+        return $this->renderText($this->text);
     }
 }

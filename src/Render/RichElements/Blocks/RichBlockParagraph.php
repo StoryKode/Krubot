@@ -22,11 +22,11 @@ class RichBlockParagraph extends RichBlockEntity
     public function toHtml(): string
     {
         // Wraps the text content in a <p> tag.
-        return '<p>' . $this->renderHtml($this->text) . '</p>';
+        return '<p class="richy-paragraph">' . $this->renderHtml($this->text) . '</p>';
     }
     public function toMd()
     {
-        return $this->renderText($this->text) . "\n\n";
+        return $this->renderText($this->text) . "\n\n"; // double newline = paragraph break
     }
 }
 

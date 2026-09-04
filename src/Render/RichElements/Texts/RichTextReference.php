@@ -23,8 +23,21 @@ class RichTextReference extends RichTextEntity
     public function toArray(): array { return ['type' => 'reference', 'text' => $this->normalize($this->text), 'name' => $this->name]; }
     public function toHtml(): string
     {
-        // Renders a custom <tg-reference> tag.
         $escapedName = $this->esc($this->name);
-        return '<tg-reference name="' . $escapedName . '">' . $this->renderHtml($this->text) . '</tg-reference>';
+
+        if($this->targetsTelegram()) // Renders a custom <tg-reference> tag.
+            return '<tg-reference name="' . $escapedName . '">' . $this->renderHtml($this->text) . '</tg-reference>';
+
+        // Superscript that points to a RichBlockFootnoteDefinition.
+        return '<sup class="richy-reference" data-richy-ref="' . $escapedName
+            . '" title="Reference: ' . $escapedName . '" tabindex="0" role="button">'
+            . $this->renderHtml($this->text)
+            . '</sup>';
+    }
+
+    public function toMd(): string
+    {
+        /// [^name]  TG 10.1 inline reference
+        return '[^' . $this->escForMd($this->name) . ']';
     }
 }

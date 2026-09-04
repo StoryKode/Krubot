@@ -19,10 +19,20 @@ class RichTextAnchorLink extends RichTextEntity
         return new self(self::resolveContent($text), $anchorName);
     }
     public function toArray(): array { return ['type' => 'anchor_link', 'text' => $this->normalize($this->text), 'anchor_name' => $this->anchor_name]; }
+    
+    // JS handler scrolls to [data-richy-anchor-name="{name}"]
     public function toHtml(): string
     {
         // Creates a link to an anchor within the same document.
         $escapedAnchorName = $this->esc($this->anchor_name);
-        return '<a href="#' . $escapedAnchorName . '">' . $this->renderHtml($this->text) . '</a>';
+        return '<a href="#' . $escapedAnchorName . '" class="richy-anchor-link" data-richy-anchor="' . $escapedAnchorName . '">' . $this->renderHtml($this->text) . '</a>';
     }
+
+    /*
+    // No anchor concept in TG messages; render label only
+    public function toMd(): string
+    {
+        return $this->renderText($this->text);
+    }
+    */
 }

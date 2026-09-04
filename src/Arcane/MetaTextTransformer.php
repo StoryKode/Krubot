@@ -39,18 +39,18 @@ namespace KrubiK\Arcane;
 // This ensures we have type information for our match statement.
 use KrubiK\Render\RichMan;
 use KrubiK\Facades\Parsentinel; // KrubiK Global Input Parser
-use KrubiK\Render\RichElements\Blocks\RichBlockParagraph;
-use KrubiK\Render\RichElements\Blocks\RichBlockBlockQuotation;
 use KrubiK\Render\RichElements\RichEntity;
-use KrubiK\Render\RichElements\RichTextBold;
-use KrubiK\Render\RichElements\RichTextCode;
-use KrubiK\Render\RichElements\RichTextItalic;
-use KrubiK\Render\RichElements\RichTextPlain;
-use KrubiK\Render\RichElements\RichTextPre;
-use KrubiK\Render\RichElements\RichTextSpoiler;
-use KrubiK\Render\RichElements\RichTextStrikethrough;
-use KrubiK\Render\RichElements\RichTextUnderline;
-use KrubiK\Render\RichElements\RichTextUrl;
+use KrubiK\Render\RichElements\Texts\RichTextBold;
+use KrubiK\Render\RichElements\Texts\RichTextCode;
+use KrubiK\Render\RichElements\Texts\RichTextItalic;
+use KrubiK\Render\RichElements\Texts\RichTextPlain;
+use KrubiK\Render\RichElements\Texts\RichTextPre;
+use KrubiK\Render\RichElements\Texts\RichTextSpoiler;
+use KrubiK\Render\RichElements\Texts\RichTextStrikethrough;
+use KrubiK\Render\RichElements\Texts\RichTextUnderline;
+use KrubiK\Render\RichElements\Texts\RichTextUrl;
+use KrubiK\Render\RichElements\Blocks\RichBlockParagraph;
+use KrubiK\Render\RichElements\Blocks\RichBlockExpandableBlockQuotation; // TG 10.3 API in Rubika, this is how KrubiK Works@!
 // ... add other entities if needed for rendering.
 
 /**
@@ -187,7 +187,7 @@ trait MetaTextTransformer
         match (get_class($entity)) {
             // --- BLOCK LEVEL ENTITIES ---
             // For most blocks, we just need to render their inner content.
-            RichBlockParagraph::class, RichBlockBlockQuotation::class =>
+            RichBlockParagraph::class, RichBlockExpandableBlockQuotation::class =>
                 $this->walkAndRenderMetadata($entity->text, $text, $parts, $offset),
 
             // --- INLINE (FORMATTING) ENTITIES ---

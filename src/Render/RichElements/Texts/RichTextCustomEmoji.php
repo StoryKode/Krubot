@@ -16,13 +16,21 @@ class RichTextCustomEmoji extends RichTextEntity
     public static function make(string $customEmojiId, string $alternativeText): self { return new self($customEmojiId, $alternativeText); }
 
     public function toArray(): array { return ['type' => 'custom_emoji', 'custom_emoji_id' => $this->custom_emoji_id, 'alternative_text' => $this->alternative_text]; }
+
+    // Host app can swap img[src] via JS using data-richy-emoji-id.
     public function toHtml(): string
     {
-        // Renders a custom <tg-emoji> tag.
-        $escapedId = $this->esc($this->custom_emoji_id);
-        $escapedAlt = $this->esc($this->alternative_text);
-        return '<tg-emoji emoji-id="' . $escapedId . '">' . $escapedAlt . '</tg-emoji>';
+        $safeId  = $this->esc($this->customEmojiId);
+        $safeAlt = $this->esc($this->alternativeText);
+
+        if($this->targetsTelegram()) // Renders a custom <tg-emoji> tag.
+            return '<tg-emoji emoji-id="' . $escapedId . '">' . $escapedAlt . '</tg-emoji>';
+
+        return '<span class="richy-custom-emoji" data-richy-emoji-id="' . $escapedId . '" aria-label="' . $escapedAlt . '">'
+            . '<img src="" alt="' . $escapedAlt . '" data-richy-emoji-pending="1" loading="lazy">'
+            . '</span>';
     }
+
     public function toMd()
     {
         return '![' . $this->renderText($this->alternative_text) . '](tg://emoji?id=' . $this->custom_emoji_id . ')';

@@ -8,7 +8,7 @@ use KrubiK\Render\RichElements\Blocks\RichBlockEntity;
  * Unlike a divider (<hr/>), this is a semantic block of repeating characters
  * that acts as a visual, textual separator within the content flow.
  * It is immutable by design.
- */
+*/
 class RichBlockSeparator extends RichBlockEntity
 {
     /**
@@ -44,7 +44,7 @@ class RichBlockSeparator extends RichBlockEntity
     /**
      * Serializes the entity into a structured array for API consumption.
      * This representation is clean and machine-readable.
-     */
+    */
     public function toArray(): array
     {
         return [
@@ -60,24 +60,27 @@ class RichBlockSeparator extends RichBlockEntity
      * Renders the separator as an HTML paragraph element.
      * Using <p> is more semantically correct for a line of text than a <div>.
      * The content is properly escaped to prevent any potential XSS issues.
-     */
+    */
     public function toHtml(): string
     {
-        // Generate the separator text.
-        $separatorText = str_repeat($this->char, $this->length);
+        // Generate the separator text and ensure its HTML safety.
+        $separatorText = htmlspecialchars(str_repeat($this->char, $this->length), ENT_QUOTES, 'UTF-8');
 
-        // Wrap it in a paragraph and ensure HTML safety.
-        return '<p>' . htmlspecialchars($separatorText, ENT_QUOTES, 'UTF-8') . '</p>';
+        if($this->targetsWeb())
+            return '<div class="richy-separator" aria-hidden="true">' . $separatorText . '</div>';
+
+        // Wrap it in a paragraph.
+        return '<p>' . $separatorText . '</p>';
     }
 
     /**
      * Renders the separator for Markdown formats.
      * It simply returns the text line followed by two newlines to ensure it's
      * treated as a distinct block (paragraph) by Markdown parsers.
-     */
+    */
     public function toMd(): string
     {
-        // The raw repeated text, followed by newlines to create a paragraph break.
-        return str_repeat($this->char, $this->length) . "\n\n";
+        // The raw repeated text as inline visual separator, Plus followed by newlines to create a paragraph break.
+        return "\n" . str_repeat($this->escForMd($this->char), $this->length) . "\n\n";
     }
 }

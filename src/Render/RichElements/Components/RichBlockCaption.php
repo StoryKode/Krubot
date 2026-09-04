@@ -90,6 +90,22 @@ class RichBlockCaption extends RichComponentEntity
     */
     public function toHtml(): string
     {
+        if($this->targetsWeb()) {
+
+            $creditHtml = '';
+            if ($this->credit !== null) {
+                $creditHtml = '<span class="richy-caption__credit">'
+                    . $this->renderHtml($this->credit)
+                    . '</span>';
+            }
+    
+            return '<div class="richy-caption">'
+                . $this->renderHtml($this->text)
+                . $creditHtml
+                . '</div>';
+
+        }
+
         // Use an array to assemble the inner parts of the caption, similar to the toPlainText method.
         // This pattern is cleaner than conditional string concatenation.
         $parts = [];
@@ -106,6 +122,16 @@ class RichBlockCaption extends RichComponentEntity
         $innerHtml = implode(' ', $parts);
 
         return "<figcaption class=\"rich-block-caption\">{$innerHtml}</figcaption>";
+    }
+
+    public function toMd(): string
+    {
+        $creditMd = ($this->credit !== null) ?
+            ("\n_" . $this->renderText($this->credit) . "_")
+        :
+            '';
+
+        return $this->renderText($this->text) . $creditMd;
     }
 
     /**

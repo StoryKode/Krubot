@@ -80,7 +80,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
             // For Bale API, we must send simple text, not rich blocks
             $finalMethod = 'sendMessage';
 
-            // Use toText() instead of toArray()
+            // Use toText() to render RichMan Elements as Markdown
             $finalParams['text'] = $richMan->toText();
 
             // Remove keys that are irrelevant or conflict with plain text message
@@ -99,7 +99,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
 
             $finalMethod = 'sendMessage';
 
-            unset($finalParams['isRich'], $finalParams['isRtl'], $finalParams['rich_blocks']);
+            unset($finalParams['parse_mode'], $finalParams['isRich'], $finalParams['isRtl'], $finalParams['rich_blocks']);
         }
 
         // 1. نرمال‌سازی: تبدیل کیبوردها و فایل‌ها به فرمت بله

@@ -49,7 +49,7 @@ class RichBlockListItem extends RichComponentEntity
      */
     public static function make(
         string $label,
-        array|Arrayable $blocks = [],
+        array|Arrayable|callable $blocks = [],
         ?bool $hasCheckbox = null,
         ?bool $isChecked = null,
         ?int $value = null,
@@ -58,7 +58,7 @@ class RichBlockListItem extends RichComponentEntity
         // Pass arguments to the constructor, translating camelCase to snake_case.
         return new self(
             label: $label,
-            blocks: $blocks,
+            blocks: self::resolveContent($blocks, true),
             has_checkbox: $hasCheckbox,
             is_checked: $isChecked,
             value: $value,
@@ -78,13 +78,6 @@ class RichBlockListItem extends RichComponentEntity
         ]);
     }
 
-    /**
-     * Converts the RichBlockListItem object to its HTML representation (an <li> element).
-     * This method handles attributes for ordered lists, optional checkboxes, the item's label,
-     * and any nested blocks, all through a centralized and secure rendering engine.
-     *
-     * @return string The rendered HTML string for the list item.
-     */
     public function toHtml(): string
     {
         // Step 1: Define attributes for the <li> tag in a declarative array.
@@ -111,6 +104,7 @@ class RichBlockListItem extends RichComponentEntity
                 // The 'checked' attribute's presence is based on the 'is_checked' flag.
                 'checked'  => $this->is_checked,
             ];
+
             // Generate the complete, secure <input> tag. A trailing space is added for better visual separation.
             $checkboxTag = '<input ' . $this->attributesToString($checkboxAttributes) . '> ';
         }
@@ -123,12 +117,103 @@ class RichBlockListItem extends RichComponentEntity
         // This allows for complex structures like paragraphs or even other lists inside an <li>.
         $renderedBlocks = $this->renderBlocks($this->blocks);
 
-        // Step 5: Assemble the final HTML output. This structure is now clean and easy to read.
-        return "<li{$liAttrString}>{$checkboxTag}{$renderedLabel}{$renderedBlocks}</li>";
+        /*
+        * Telegram and Web deliberately receive different representations.
+        *
+        * Telegram consumes the native Rich HTML structure, including its
+        * supported checkbox input semantics, while Web receives a semantic
+        * list enhanced by stable richy-* classes.
+        */
+        if ($this->targetsTelegram()) {
+            // Step 5: Assemble the final HTML output. This structure is now clean and easy to read.
+            return "<li {$liAttrString}>{$checkboxTag}{$renderedLabel}{$renderedBlocks}</li>";
+        }
+
+        /*
+        * Web / WebApp representation.
+        *
+        * The actual checkbox control is replaced by an accessible visual
+        * representation because the list item is a rendered/read-only
+        * component rather than an interactive form control.
+        */
+        $classes = ['richy-list__item'];
+
+        // An ordered marker is rendered by the parent <ol> / CSS counters,
+        // while bullet lists receive an explicit visible bullet span.
+        $isOrderedItem = $this->value !== null || $this->type !== null;
+
+        if ($this->has_checkbox) {
+            // Checkbox variant
+            $checkedClass = $this->is_checked
+                ? ' richy-list__checkbox--checked'
+                : '';
+
+            $checkbox = '<span class="richy-list__checkbox' . $checkedClass . '"'
+                . ' role="checkbox" aria-checked="' . ($this->is_checked ? 'true' : 'false') . '"'
+                . '></span>';
+
+            return '<li class="' . $this->esc(implode(' ', $classes)) . '">'
+                . $checkbox
+                . '<span class="richy-list__content">'
+                . $renderedLabel
+                . $renderedBlocks
+                . '</span>'
+                . '</li>';
+        }
+
+        // Bullet / ordered — the bullet/number is rendered via CSS counters,
+        // but we emit a visible bullet span for bullet lists.
+        $bullet = $isOrderedItem
+            ? ''
+            : '<span class="richy-list__bullet" aria-hidden="true">•</span>';
+
+        return '<li class="' . $this->esc(implode(' ', $classes)) . '">'
+            . $bullet
+            . '<span class="richy-list__content">'
+            . $renderedLabel
+            . $renderedBlocks
+            . '</span>'
+            . '</li>';
     }
 
-    public function toMd()
+    public function toMd(): string
     {
-        return '- ' . $this->renderText($this->label);
+        // MDV2:  - label  |  1. label  |  - [ ] label  |  - [x] label
+        //
+        // The list item remains independently renderable, while RichBlockList
+        // can replace its top-level marker when it owns the numbering context.
+        $label = trim($this->renderText($this->label));
+
+        // Compose nested block content instead of discarding it.
+        // This keeps the complete semantic content of the item intact.
+        $blocks = trim($this->mergeTexts($this->blocks, "\n"));
+
+        if ($blocks !== '') {
+            /*
+            * Nested blocks belong to the current list item.
+            *
+            * Indent them so nested lists/paragraphs remain structurally
+            * attached to the item instead of becoming sibling top-level blocks.
+            */
+            $blocks = preg_replace('/^/m', '  ', $blocks) ?? $blocks;
+        }
+
+        $content = $label;
+
+        if ($blocks !== '') {
+            $content .= ($content !== '' ? "\n" : '') . $blocks;
+        }
+
+        if ($this->has_checkbox) {
+            $box = $this->is_checked ? '[x]' : '[ ]';
+            return "- {$box} {$content}\n";
+        }
+
+        // Ordered numbering comes from the parent RichBlockList
+        // For standalone listItem, default to bullet
+        $num = $this->value ?? null;
+        $prefix = $num !== null ? $num . '. ' : '- ';
+
+        return $prefix . $content . "\n";
     }
 }
