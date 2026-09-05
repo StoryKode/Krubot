@@ -91,7 +91,9 @@ It was forged around a different belief:
 
 > **Developer Experience [Dev✸✸] is not a cosmetic luxury. It is critical foundation.**
 
-*KrubiK turns bot development into a clean, composable, joyful workflow:*
+*KrubiK turns WebApp & Bot development into a clean, composable, lovable workflow:*
+<a href="https://StoryKo.de/assets/img/KrubiK/WebRenderTestNexus.jpg"><img src="https://StoryKo.de/assets/img/KrubiK/WebRenderTestNexus.jpg" alt="Test RichElement Renderer in WebApps" width="100%" /></a>
+Copy <a href="https://github.com/StoryKode/Krubot/blob/main/src/Nexus/NoxiousSamples/WebRenderTestNexus.php">WebRenderTestNexus.php</a> into`app/Nexus/WebRenderTestNexus.php` to try(*manifest*) this yourself!
 
 > [!IMPORTANT]
 > Inject a Star ⭐ — fuel the flame into the War against Cognitive Overhead, if you Love It! Help more developers discover what is Ultra-DX... 🛸🌪
@@ -262,7 +264,7 @@ class GamePanelNexus
             how:  ['cartId' => $cart->id] // can be array|Closure to store cartId, this params will be passed when calling AbandonedCartProcessor@handle method, in 2 hours later...
         )->id();
 
-        /** @var Cart|null $cart */
+        /** @var \App\Models\Cart $cart */
         $cart->update(['abandoned_task_id' => $taskId]); // store taskId to Cancel it in Anytime!
 
         return [
@@ -427,7 +429,7 @@ class GamePanelNexus
 
         $rich4 = RichMan::summon("H!")->bold('I Have some Ultra-DX Elements')->takeOver($richHtml)->newLine(5)->italic('Kajaki ByeBye!!!');
 
-        /// echo (string) $rich4;       // USE IN:Web
+        /// return $rich4;       // USE IN:Web
         $bot->reply($rich4)->send();    // USE IN:Botz
     }
 
