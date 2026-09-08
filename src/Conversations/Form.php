@@ -15,6 +15,8 @@ namespace KrubiK\Conversations;
 
 use KrubiK\Krubot;
 use KrubiK\DTOs\FormField;
+use KrubiK\Conversations\Fields\HyperField;
+use KrubiK\Conversations\Fields\InteractiveField;
 use KrubiK\Conversations\Answer;
 use Illuminate\Contracts\Validation\Rule;
 use Laravel\SerializableClosure\SerializableClosure;
@@ -37,39 +39,44 @@ use RuntimeException;
 class Form extends Conversation
 {
     /**
-     * @var FormField[]
+     * @var array<int, FormField|HyperField>
      * List of fields/questions to process in the queue.
      * صف فیلدهایی که باید پرسیده شوند.
-     */
+    */
     protected array $fields = [];
 
     /**
      * @var int
      * Pointer to the current step index.
      * اشاره‌گر به مرحله فعلی.
-     */
+    */
     protected int $currentIndex = 0;
 
     /**
      * @var array
      * Storage for collected user answers ['key' => 'value'].
      * مخزن داده‌های جمع‌آوری شده.
-     */
+    */
     protected array $collectedData = [];
 
     /**
      * @var SerializableClosure|null
      * Logic to execute after form completion (Fluent API).
      * منطقی که پس از پایان فرم اجرا می‌شود.
-     */
+    */
     protected ?SerializableClosure $onComplete = null;
 
     /**
      * @var string
      * Name of the form context (useful for logging/debugging).
      * نام فرم (جهت دیباگ یا لاگ).
-     */
+    */
     protected string $formName = 'dynamic_form';
+
+    protected int $timeoutPerField = 120;
+
+    // Interactive fields should close callback spinners automatically.
+    protected ?bool $autoAnswerCallback = true;
 
     // =========================================================================
     //  FLUENT BUILDER API 🏗️ (100% UNCHANGED - AGTP-v1 COMPLIANT)
@@ -81,7 +88,7 @@ class Form extends Conversation
      *
      * @param string $name
      * @return static
-     */
+    */
     public function setName(string $name): static
     {
         $this->formName = $name;
@@ -89,18 +96,50 @@ class Form extends Conversation
     }
 
     /**
-     * Add a field to the form flow.
+     * Add either a classic FormField or a first-class InteractiveField, to the form flow.
      * Supports simple text questions or complex Question objects.
      * افزودن یک فیلد به فرم.
+     * 
+     * Supported DX:
+     *   ->field('name', 'Your name?', 'required|string|min:3')
+     *   ->field(StringPicker::make('role', 'Choose role', [...]))
+     *   ->field('role', StringPicker::make('ignored-key', 'Choose role', [...]))
      *
      * @param string $key The key to store data under / کلید ذخیره‌سازی داده
      * @param string|\KrubiK\Conversations\Question $question Question text or Object / متن سوال یا آبجکت
      * @return static
-     */
-    public function field(string $key, mixed $question, mixed $validate_rules = null): static
+    */
+    public function field(string|InteractiveField $keyOrField, mixed $question = null, mixed $validate_rules = null): static
     {
+
+        if ($keyOrField instanceof InteractiveField) {
+            $field = $keyOrField;
+
+            if ($question !== null) {
+                $field->rules($question);
+            }
+
+            if ($validate_rules !== null) {
+                $field->rules($validate_rules);
+            }
+
+            $this->fields[] = $field;
+            return $this;
+        }
+
+        if ($question instanceof InteractiveField) {
+            $question->setKey($keyOrField);
+
+            if ($validate_rules !== null) {
+                $question->rules($validate_rules);
+            }
+
+            $this->fields[] = $question;
+            return $this;
+        }
+
         // Create new FormField object (Clean OOP approach)
-        $this->fields[] = new FormField($key, $question);
+        $this->fields[] = new FormField($keyOrField, $question);
 
         if($validate_rules)
             $this->rules($validate_rules);
@@ -109,9 +148,9 @@ class Form extends Conversation
     }
 
     // Delegate to field() to maintain compatibility
-    public function addField(string $key, mixed $question, mixed $validate_rules = null): static
+    public function addField(string|InteractiveField $keyOrField, mixed $question = null, mixed $validate_rules = null): static
     {
-        return $this->field($key, $question, $validate_rules);
+        return $this->field($keyOrField, $question, $validate_rules);
     }
 
     /**
@@ -133,6 +172,11 @@ class Form extends Conversation
         $lastIndex = array_key_last($this->fields);
         $field = $this->fields[$lastIndex];
 
+        if ($field instanceof InteractiveField) {
+            $field->rules(...$rules);
+            return $this;
+        }
+
         // Normalize rules:
         // If passed as variadic arguments rules('required', 'email') -> $rules is ['required', 'email']
         // If passed as single string rules('required|email') -> $rules is ['required|email'] (keep as is inside array)
@@ -151,8 +195,7 @@ class Form extends Conversation
                 $rule = new SerializableClosure($rule);
             }
         }
-
-        $field->rules = $finalRules;
+        unset($rule);
 
         $field->rules = $finalRules;
 
@@ -160,6 +203,32 @@ class Form extends Conversation
         $this->fields[$lastIndex] = $field;
 
         return $this;
+    }
+
+    public function timeout(int $seconds): static
+    {
+        $this->timeoutPerField = max(1, $seconds);
+        return $this;
+    }
+
+    public function cleanup(bool $enabled = true): static
+    {
+        return $this->cleanupMessages($enabled);
+    }
+
+    public function currentField(): FormField|HyperField|null
+    {
+        return $this->fields[$this->currentIndex] ?? null;
+    }
+
+    public function index(): int
+    {
+        return $this->currentIndex;
+    }
+
+    public function answers(): array
+    {
+        return $this->collectedData;
     }
 
     /**
@@ -228,16 +297,23 @@ class Form extends Conversation
      */
     protected function askNextField(): void
     {
-        // 1. Check if we are done (Boundary Check)
+        // 1. Get current field config
+        // دریافت فیلد جاری
+        $field = $this->fields[$this->currentIndex] ?? null;
+
+        // 2. Check if we are done (Boundary Check)
         // بررسی پایان فرم
-        if (!isset($this->fields[$this->currentIndex])) {
+        if ($field === null) {
             $this->finalize();
             return;
         }
 
-        // 2. Get current field config
-        // دریافت فیلد جاری
-        $field = $this->fields[$this->currentIndex];
+        $this->expiresIn($this->timeoutPerField);
+
+        if ($field instanceof InteractiveField) {
+            $this->ask($field, 'processFieldAnswer');
+            return;
+        }
 
         // 3. Use the POWERFUL existing ask method from Conversation parent!
         // We pass 'processAnswer' as the specific handler name.
@@ -251,10 +327,51 @@ class Form extends Conversation
     }
 
     /**
+     * Central bridge between Conversation's action engine and InteractiveField.
+     * The button callback is resolved by Conversation; the field remains the
+     * owner of decoding, validation and intermediate state transitions.
+    */
+    public function processFieldAnswer(Answer $answer): void
+    {
+        $field = $this->fields[$this->currentIndex] ?? null;
+
+        if (!$field instanceof InteractiveField) {
+            return;
+        }
+
+        $payload = $answer->getValue();
+
+        // Reject stale/forged callbacks belonging to another field.
+        if (is_array($payload) && isset($payload['field']) && $payload['field'] !== $field->getKey()) {
+            return;
+        }
+
+        $value = $field->process($answer, $this->bot);
+
+        if ($field->isInvalid()) {
+            $this->repeat();
+            return;
+        }
+
+        if (!$field->isComplete()) {
+            // Rating/Nested style fields may mutate their local state without
+            // completing the form. Persist the parent Conversation immediately.
+            $this->save();
+            return;
+        }
+
+        $this->collectedData[$field->getKey()] = $value;
+        $this->currentIndex++;
+        $this->askNextField();
+    }
+
+    /**
      * Generic handler for ALL form steps.
      * Since this is called via `ask`, we know validation has ALREADY passed!
      * This method now includes the logic branch for 'confirmed' rule.
      * هندلر مرکزی تمام پاسخ‌ها. وقتی به اینجا می‌رسیم یعنی اعتبارسنجی پاس شده است.
+     * 
+     * Note! Its the Legacy/classic FormField answer path. InteractiveField has its own bridge.
      *
      * @param Answer $answer The validated answer object
      */
@@ -262,6 +379,11 @@ class Form extends Conversation
     {
         // 1. Identify current field
         $field = $this->fields[$this->currentIndex];
+
+        // @Todo: check this condition
+        if ($field instanceof InteractiveField) {
+            return;
+        }
 
         // 2. Store the valid answer
         // We use getValue() to support both text inputs and button payloads universally.
@@ -328,7 +450,7 @@ class Form extends Conversation
         // The validation rule for this temporary confirmation step.
         // The input MUST match the original value. The parent Conversation's
         // `ask` method will handle the validation failure and repeat the question.
-        $confirmationRules = ['required', 'in:'.$originalValue];
+        $confirmationRules = ['required', 'in:'.((string) $originalValue)];
 
         // Use the parent's `ask` method to ask the temporary question.
         // Crucially, the handler is set to `processConfirmationAnswer`, a new dedicated handler.
@@ -362,12 +484,23 @@ class Form extends Conversation
     private function isConfirmedRulePresent(FormField $field): bool
     {
         $rules = $field->rules;
-        if (is_string($rules) && str_contains($rules, 'confirmed')) {
-            return true;
+
+        if (is_string($rules)) {
+            return str_contains($rules, 'confirmed');
         }
-        if (is_array($rules) && in_array('confirmed', $rules, true)) {
-            return true;
+
+        if (is_array($rules)) {
+            foreach ($rules as $rule) {
+                if ($rule === 'confirmed' || (is_string($rule) && str_contains($rule, 'confirmed'))) {
+                    return true;
+                }
+            }
         }
+
+        /*if (is_array($rules) && in_array('confirmed', $rules, true)) {
+            return true;
+        }*/
+
         return false;
     }
 

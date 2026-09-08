@@ -17,7 +17,6 @@ use Illuminate\Support\Collection;
 use KrubiK\Krubot;
 use KrubiK\Keyboard\Keyboard;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate_Database_Eloquent_Collection;
 
 /**
  * Chain Class: The UI State Machine for Complex Menus.

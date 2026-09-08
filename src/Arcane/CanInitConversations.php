@@ -17,6 +17,7 @@ use Closure;
 use KrubiK\Conversations\Conversation;
 use KrubiK\Conversations\Form;
 use KrubiK\Conversations\ShadowConversation;
+use KrubiK\Conversations\Fields\InteractiveField;
 use Illuminate\Support\Facades\Cache;
 use KrubiK\Helpers\AmethystMatrix as Log;
 use Laravel\SerializableClosure\SerializableClosure;
@@ -77,9 +78,23 @@ trait CanInitConversations
         $instance->save();
     }
 
-    public function input(string|Conversation $conversation): void
+    public function input(string|Conversation|InteractiveField $input, ?callable $onComplete = null): void
     {
-        $this->beginConversation($conversation);
+        if ($input instanceof InteractiveField) {
+            $form = $this->form();
+
+            $form->field($input);
+
+            if ($onComplete !== null) {
+                $form->then($onComplete);
+            }
+
+            $form->run();
+
+            return;
+        }
+
+        $this->beginConversation($input);
     }
 
     /**

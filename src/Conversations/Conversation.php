@@ -51,7 +51,7 @@ use Stringable;
 use Throwable;
 
 /**
- * THE ULTIMATE CONVERSATION CLASS v9.1 (MASTER MERGED VERSION).
+ * THE ULTIMATE CONVERSATION CLASS v11 (MASTER MERGED ULTIMATE VERSION).
  *
  * This class is the definitive amalgamation of files A, B, C, and X.
  * It strictly follows PHP 8.2 standards while maintaining 100% backward compatibility and hyper perfromances.
@@ -98,23 +98,24 @@ abstract class Conversation
     /**
      * Name of the current step method or a serialized closure.
      * @var string|SerializableClosure
-     */
+    */
     protected string|SerializableClosure $step = 'start';
 
     /**
      * Unique cache key for this user in this chat.
-     */
+     * Persistent identity of this conversation.
+    */
     protected ?string $key = null;
 
     /**
      * Conversation expiration time in seconds (Default: 1 hour).
      * If null, persists forever.
-     */
+    */
     protected ?int $ttl = 3600;
 
     /**
      * Context Identifiers.
-     */
+    */
     protected ?string $userId = null;
     protected ?string $chatId = null;
     protected ?string $messageId = null;
@@ -125,12 +126,12 @@ abstract class Conversation
 
     /**
      * The Bot instance. Excluded from serialization via __sleep.
-     */
+    */
     protected ?Krubot $bot = null;
 
     /**
      * Raw callback query object/array. Excluded from serialization via __sleep.
-     */
+    */
     protected mixed $callbackQuery = null;
 
     // =========================================================================
@@ -140,7 +141,7 @@ abstract class Conversation
     /**
      * Persistent data store.
      * Initialized in setContext to ensure availability.
-     */
+    */
     protected Collection $data;
 
     /**
@@ -148,7 +149,7 @@ abstract class Conversation
      * - true: Always answer.
      * - false: Never answer.
      * - null: Use cascading config.
-     */
+    */
     protected ?bool $autoAnswerCallback = null;
 
     // =========================================================================
@@ -156,21 +157,29 @@ abstract class Conversation
     // =========================================================================
 
     /**
-     * The last question asked (for repeat functionality).
+     * The last question asked (for repeat() functionality).
      * Type is mixed to support String, Object, Stringable.
-     */
+    */
     protected mixed $lastQuestion = null;
 
     /**
-     * The handler method for the last question (for repeat functionality).
-     */
+     * The handler method for the last question (for repeat() functionality).
+    */
     protected mixed $lastQuestionMethod = null;
 
     /**
      * Holds validation logic for the NEXT answer.
      * Supports: Rule String, Rule Array, Closure, SerializableClosure.
-     */
+    */
     protected mixed $nextValidator = null;
+
+    /**
+     * Message lifecycle state used by interactive fields/forms.
+     * These remain serialized with the conversation.
+    */
+    protected ?string $lastPromptMessageId = null;
+    protected array $trackedMessageIds = [];
+    protected bool $cleanupOnEnd = false;
 
     // =========================================================================
     //  ABSTRACT METHODS
@@ -232,7 +241,7 @@ abstract class Conversation
                     }
                 });
             }
-            $msg->send();
+            $this->rememberSentMessage($msg->send(), $question);
         }
         // CASE B: Standard String or Modern Object (File B/C + File A fallback)
         else {
@@ -268,7 +277,7 @@ abstract class Conversation
                     });
                 }
             }
-            $msg->send();
+            $this->rememberSentMessage($msg->send(), $question);
         }
 
         // 4. Set Next Step
@@ -287,7 +296,7 @@ abstract class Conversation
     }
 
     /**
-     * Advances the conversation state.
+     * Advances the conversation state machine to a method/closure.
      *
      * @param mixed $stepMethod string|callable|array
     */
@@ -322,7 +331,10 @@ abstract class Conversation
     // =========================================================================
 
     /**
-     * Executes the conversation flow.
+     * Executes the conversation flow against the current bot update.
+     * 
+     * Action input has priority over text validation so interactive buttons can
+     * safely route structured payloads through the same conversation instance.
      *
      * PIPELINE:
      * 1. Action Detection (Priority 1) -> Bypass Validation -> Auto Answer -> Execute.
@@ -337,6 +349,9 @@ abstract class Conversation
     public function run(): void
     {
         if (!$this->bot) return;
+
+        // Keep the inbound message as part of the optional form/field cleanup set.
+        $this->trackMessageId($this->messageId);
 
         $inputText = $this->bot->text();
 
@@ -467,37 +482,41 @@ abstract class Conversation
     {
         $rules = [];
         // Only applicable if step is a string method name
-        if (is_string($this->step) && method_exists($this, $this->step)) {
-            try {
-                $refMethod = new ReflectionMethod($this, $this->step);
-
-                // 1. Method Attributes (Files A/B/C)
-                $methodAttributes = $refMethod->getAttributes(AttributeRule::class);
-                foreach ($methodAttributes as $attr) {
-                    $inst = $attr->newInstance();
-                    // Support both 'rules' property (File C) and toArray (File A/B)
-                    $extracted = isset($inst->rules) ? $this->normalizeRules($inst->rules) : ($inst->toArray() ?? []);
-                    $rules = array_merge($rules, $extracted);
-                }
-
-                // 2. Class Attributes (File B Specific - Powerful inheritance)
-                $refClass = $refMethod->getDeclaringClass();
-                $classAttributes = $refClass->getAttributes(AttributeRule::class);
-                foreach ($classAttributes as $attr) {
-                    $inst = $attr->newInstance();
-                    $extracted = isset($inst->rules) ? $this->normalizeRules($inst->rules) : ($inst->toArray() ?? []);
-                    $rules = array_merge($rules, $extracted);
-                }
-
-            } catch (ReflectionException $e) {
-                // Silent fail is intended
-            }
+        if (!is_string($this->step) || !method_exists($this, $this->step)) {
+            return $rules;
         }
+
+        try {
+            $refMethod = new ReflectionMethod($this, $this->step);
+
+            // 1. Method Attributes (Files A/B/C)
+            $methodAttributes = $refMethod->getAttributes(AttributeRule::class);
+            foreach ($methodAttributes as $attr) {
+                $inst = $attr->newInstance();
+                // Support both 'rules' property (File C) and toArray (File A/B)
+                $extracted = isset($inst->rules) ? $this->normalizeRules($inst->rules) : ($inst->toArray() ?? []);
+                $rules = array_merge($rules, $extracted);
+            }
+
+            // 2. Class Attributes (File B Specific - Powerful inheritance)
+            $refClass = $refMethod->getDeclaringClass();
+            $classAttributes = $refClass->getAttributes(AttributeRule::class);
+            foreach ($classAttributes as $attr) {
+                $inst = $attr->newInstance();
+                $extracted = isset($inst->rules) ? $this->normalizeRules($inst->rules) : ($inst->toArray() ?? []);
+                $rules = array_merge($rules, $extracted);
+            }
+
+        } catch (ReflectionException $e) {
+            // Silent fail is intended
+            // Attribute validation is intentionally non-fatal.
+        }
+
         return $rules;
     }
 
     /**
-     * Merges Manual and Attribute rules into a flat array.
+     * Merges Manual and Attribute rules into one executable list flat array.
     */
     protected function mergeRules(mixed $manual, array $attributeRules): array
     {
@@ -506,45 +525,57 @@ abstract class Conversation
         
         // Merge Manual
         foreach ($manual as $m) $out[] = $m;
-        
+
         // Merge Attributes
-        foreach ($attributeRules as $a) {
-            if (is_array($a)) {
-                foreach ($a as $i) $out[] = $i;
+        foreach ($attributeRules as $rule) {
+            if (is_array($rule)) {
+                foreach ($rule as $nested) {
+                    $out[] = $nested;
+                }
             } else {
-                $out[] = $a;
+                $out[] = $rule;
             }
         }
         
-        return array_values(array_filter($out, fn($v) => $v !== null && $v !== ''));
+        return array_values(
+            array_filter($out, static fn($value) => $value !== null && $value !== '')
+        );
     }
 
     /**
-     * Normalizes string rules (pipe-separated) to array.
+     * Normalizes Laravel-style string rule definitions (pipe-separated) to array.
      */
     protected function normalizeRules(mixed $rules): array
     {
         if (is_string($rules)) {
             return explode('|', $rules);
         }
+
         if (is_array($rules)) {
             return $rules;
         }
+
         if ($rules === null) {
             return [];
         }
+
         return [$rules];
     }
 
     /**
      * Advanced Action Detection.
      * Combines logic from Files A, C (JSON/Regex) and X (Restructure).
+     * 
+     * Parses structured actions emitted by PowerButton or external integrations.
+     * @Todo: Merge with Krubot's;
      *
      * @return array|null Returns ['action' => string, 'data' => array, 'raw' => mixed] or null.
     */
     protected function detectActionFromInput(mixed $input): ?array
     {
-        if (!is_string($input) || empty($input)) return null;
+        if (!is_string($input) || empty($input) || $input === '') {
+            return null;
+        }
 
         $trim = trim($input);
 
@@ -569,17 +600,27 @@ abstract class Conversation
             }
         }
 
-        // 2. Custom Regex Format "action:name|key=val" (Files A/C)
+        // 2. Custom Regex Format "action:name|key=val|other=value" (Files A/C)
         if (preg_match('/^action:([^|]+)(|.*)$/', $trim, $matches)) {
-            $result = ['action' => $matches[1], 'data' => [], 'raw' => $trim];
+
+            $result = [
+                'action' => $matches[1],
+                'data' => [],
+                'raw' => $trim,
+            ];
+
             if (!empty($matches[2])) {
-                parse_str(str_replace('|', '&', ltrim($matches[2], '|')), $params);
+                parse_str(
+                    str_replace('|', '&', ltrim($matches[2], '|')),
+                    $params
+                );
                 $result['data'] = $params;
             }
+
             return $result;
         }
 
-        // 3. Query String Strategy (Files A/B/C)
+        // 3. Query String Strategy "action=foo&bar=baz" (Files A/B/C)
         // Must contain '=' and ('&' or 'action=')
         if (str_contains($trim, '=') && (str_contains($trim, '&') || str_contains($trim, 'action='))) {
             parse_str($trim, $qs);
@@ -596,8 +637,17 @@ abstract class Conversation
     }
 
     /**
-     * Smart Dependency Injection via Reflection.
-     * Supports: Answer, Krubot, Conversation instance, Static Class.
+     * Smart Dependency Injection via Reflection, for conversation handlers.
+     *
+     * Supported typed arguments include:
+     * - Answer
+     * - Krubot
+     * - current Conversation subclass
+     * - compatible Conversation subclasses (eg: Form, Chain, InlineMenu, ...)
+     *
+     * Plus+ Untyped handlers preserve the historical [$answer, $bot] fallback.
+     * 
+     * @Todo: Merge with Krubot's;
     */
     protected function invokeCallableWithReflection(callable $handler, Answer $answer): void
     {
@@ -623,7 +673,7 @@ abstract class Conversation
         $args = [];
 
         if (empty($parameters)) {
-            // Legacy default arguments
+            // Historical/Legacy behavior: zero-parameter handlers receive the bot.
             $args = [$this->bot];
         } else {
             foreach($parameters as $param) {
@@ -660,7 +710,8 @@ abstract class Conversation
             $shouldAnswer = config('krubik.conversations.auto_answer_default', false);
         }
 
-        if (!$shouldAnswer) return;
+        if (!$shouldAnswer || !$this->bot)
+            return;
 
         // 2. Perform Answer (File C Logic - Best Effort)
         try {
@@ -709,7 +760,9 @@ abstract class Conversation
             if (method_exists($this->bot, 'answerCallbackQuery')) {
                 $this->bot->answerCallbackQuery($text, $showAlert);
             }
-        } catch (Throwable $e) {}
+        } catch (Throwable $ignoring) {
+            // Best-effort API helper.
+        }
         return $this;
     }
 
@@ -718,19 +771,29 @@ abstract class Conversation
     // =========================================================================
 
     /**
-     * Sets the bot context and hydrates the object.
+     * Binds a live Krubot context to the persistent conversation and hydrates the object.
     */
     public function setContext(Krubot $bot): void
     {
         $this->bot = $bot;
-        $this->userId = $bot->user()['id'] ?? 'guest';
-        $this->chatId = $bot->chatId() ?? 'global';
-        $this->messageId = $bot->findMessageId();
+        $this->userId = (string) ($bot->user()['id'] ?? 'guest');
+        $this->chatId = (string) ($bot->chatId() ?? 'global');
         $this->key = "kgx_conv_{$this->chatId}_{$this->userId}";
+
+        $this->messageId =
+            ($bot->findMessageId() !== null) ?
+                (string) $bot->findMessageId()
+            :
+                null;
 
         // Hydrate callback query context if available on bot
         if (method_exists($bot, 'callbackQuery')) {
-            try { $this->callbackQuery = $bot->callbackQuery(); } catch(Throwable $e) {}
+            try {
+                $this->callbackQuery = $bot->callbackQuery();
+            }
+            catch(Throwable $ignoring) {
+                // Not every platform exposes callback-query context.
+            }
         }
 
         // Ensure data collection is initialized
@@ -740,32 +803,40 @@ abstract class Conversation
     }
 
     /**
-     * Persists the conversation state to cache.
+     * Persists current conversation state to cache.
     */
     public function save(): void
     {
-        if ($this->key) {
-            $dataToCache = serialize($this);
-            if ($this->ttl === null) {
-                Cache::forever($this->key, $dataToCache);
-            } else {
-                Cache::put($this->key, $dataToCache, $this->ttl);
-            }
+        if (!$this->key) {
+            return;
         }
+
+        $dataToCache = serialize($this);
+        if ($this->ttl === null) {
+            Cache::forever($this->key, $dataToCache);
+        } else {
+            Cache::put($this->key, $dataToCache, max(1, $this->ttl));
+        }
+
     }
 
     /**
-     * Terminates the conversation.
+     * Terminates the conversation and optionally cleanup all tracked UI messages.
     */
     public function end(): void
     {
+
+        if ($this->cleanupOnEnd) {
+            $this->deleteTrackedMessages();
+        }
+
         if ($this->key) {
             Cache::forget($this->key);
         }
     }
 
     /**
-     * Persist forever (remove TTL).
+     * Persist forever (disable TTL expiration).
     */
     public function persistForever(): void
     {
@@ -774,8 +845,148 @@ abstract class Conversation
     }
 
     /**
+     * Set the inactivity lifetime in seconds; null means forever.
+    */
+    public function expiresIn(?int $seconds): static
+    {
+        $this->ttl = $seconds === null ? null : max(1, $seconds);
+        return $this;
+    }
+
+    /**
+     * Read the currently configured conversation lifetime.
+    */
+    public function getTtl(): ?int
+    {
+        return $this->ttl;
+    }
+
+    /**
+     * Enable/disable cleanup of tracked messages when end() is called.
+    */
+    public function cleanupMessages(bool $enabled = true): static
+    {
+        $this->cleanupOnEnd = $enabled;
+        return $this;
+    }
+
+    /**
+     * Register a message ID for optional lifecycle cleanup.
+    */
+    public function trackMessageId(string|int|null $messageId): static
+    {
+        if ($messageId === null || $messageId === '') {
+            return $this;
+        }
+
+        $id = (string) $messageId;
+        $this->trackedMessageIds[$id] = $id;
+
+        return $this;
+    }
+
+    /**
+     * Return all currently tracked message IDs.
+    */
+    public function trackedMessageIds(): array
+    {
+        return array_values($this->trackedMessageIds);
+    }
+
+    /**
+     * Return the most recently detected outgoing prompt message ID.
+    */
+    public function lastPromptMessageId(): ?string
+    {
+        return $this->lastPromptMessageId;
+    }
+
+    /**
+     * Record a send() result and, when supported, inform the question/field object.
+    */
+    protected function rememberSentMessage(mixed $response, mixed $question = null): void
+    {
+        $id = $this->extractMessageId($response);
+
+        if ($id === null) {
+            return;
+        }
+
+        $this->lastPromptMessageId = $id;
+        $this->trackMessageId($id);
+
+        if (is_object($question) && method_exists($question, 'setPromptMessageId')) {
+            try {
+                $question->setPromptMessageId($id);
+            } catch (Throwable) {
+                // Optional capability; never break a conversation because of it.
+            }
+        }
+    }
+
+    /**
+     * Extract a message ID from common Krubot/API response shapes.
+    */
+    protected function extractMessageId(mixed $response): ?string
+    {
+        if (is_object($response) && method_exists($response, 'toArray')) {
+            try {
+                $response = $response->toArray();
+            } catch (Throwable) {
+                return null;
+            }
+        }
+
+        if (!is_array($response)) {
+            return null;
+        }
+
+        foreach ([
+            'data.message_update.message_id',
+            'data.message.message_id',
+            'message_id',
+            'data.message_id',
+            'result.message_id',
+            'id',
+        ] as $path) {
+            $id = data_get($response, $path);
+
+            if ($id !== null && $id !== '') {
+                return (string) $id;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Best-effort deletion of all tracked messages from the active chat.
+     * Uses the same message-builder deletion path exposed by Krubot's current API.
+    */
+    protected function deleteTrackedMessages(): void
+    {
+        if (!$this->bot || !$this->chatId || $this->trackedMessageIds === []) {
+            return;
+        }
+
+        foreach ($this->trackedMessageIds as $messageId) {
+            try {
+                $this->bot
+                    ->chat($this->chatId)
+                    ->messageId($messageId)
+                    ->delete();
+            } catch (Throwable) {
+                // Cleanup is deliberately best-effort.
+            }
+        }
+
+        $this->trackedMessageIds = [];
+        $this->lastPromptMessageId = null;
+    }
+
+    /**
      * Magic method to exclude heavy/runtime objects from serialization.
-     */
+    */
     public function __sleep(): array
     {
         $props = array_keys(get_object_vars($this));
@@ -784,6 +995,9 @@ abstract class Conversation
 
     // --- Magic Data Access (Fluent API) ---
 
+    /**
+     * Persistent data access through the conversation object itself.
+    */
     public function __get(string $key)
     {
         return $this->data->get($key);

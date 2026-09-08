@@ -27,12 +27,19 @@ class Answer implements Stringable
      * 
      * @param string|Message $data Text or Message object
      * @param string|null $value Explicit value (useful for buttons)
-     */
+    */
     public function __construct($data, ?string $value = null)
     {
         if ($data instanceof Message) {
             $this->message = $data;
             $this->text = $data->getText() ?? '';
+        } elseif ($data instanceof Stringable) {
+            $this->text = (string) $data;
+        } elseif (is_array($data)) {
+            $this->text = (string) json_encode(
+                $data,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            );
         } else {
             $this->text = (string) $data;
         }
@@ -43,7 +50,7 @@ class Answer implements Stringable
 
     /**
      * Get the text response.
-     */
+    */
     public function getText(): string
     {
         return $this->text;
@@ -51,27 +58,51 @@ class Answer implements Stringable
 
     /**
      * Get the value (useful for payload buttons).
-     */
+    */
     public function getValue(): string
     {
         return $this->value;
     }
 
     /**
-     * Check if the answer came from an interactive element (like a button)
-     * where text might differ from value.
-     */
-    public function isInteractiveMessageReply(): bool
-    {
-        return $this->text !== $this->value;
-    }
-
-    /**
      * Get the original Message object (if available).
-     */
+    */
     public function getMessage(): ?Message
     {
         return $this->message;
+    }
+
+    public function get(string $key, mixed $default = null): mixed
+    {
+        if (!is_array($this->value)) {
+            return $default;
+        }
+
+        return data_get($this->value, $key, $default);
+    }
+
+    public function has(string $key): bool
+    {
+        return is_array($this->value) && data_get($this->value, $key, null) !== null;
+    }
+
+    public function data(): array
+    {
+        return is_array($this->value) ? $this->value : [];
+    }
+
+    /**
+     * Check if the answer came from an interactive element (like a button)
+     * where text might differ from value.
+    */
+    public function isInteractiveMessageReply(): bool
+    {
+
+        if (!is_scalar($this->value) && $this->value !== null) {
+            return true;
+        }
+
+        return $this->text !== ((string) ($this->value ?? ''));
     }
     
     public function __toString()
