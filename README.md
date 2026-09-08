@@ -396,7 +396,7 @@ class GamePanelNexus
 
         $richy = RichMan::parse('*Bold* _Italic_ [Krubot](https://StoryKo.de/Krubot)', 'MarkdownV2');
 
-        $article = Article::from($richy)->seperator('═', 14)->strikethrough('YES-YOU-RIGHT-WRITED-TOTALLY-SOLO');
+        $article = Article::from($richy)->separator('═', 14)->strikethrough('YES-YOU-RIGHT-WRITED-TOTALLY-SOLO');
 
         $article_repeat = Article::scan("*Bold* _Italic_ [Krubot](https://StoryKo.de/Krubot)\n
 ══════════════\n
@@ -424,7 +424,7 @@ class GamePanelNexus
             ->prepend('Intro with <u>underlined text</u>, ==marked text==, and $x^3 + y^4$.')
 
             ->takeOver($article) // will be added to elements after mathematicalExpression('x^2 + y^2')
-            ->seperator('═', 5)
+            ->separator('═', 5)
             ->takeOver($article_repeat);
 
         $rich4 = RichMan::summon("H!")->bold('I Have some Ultra-DX Elements')->takeOver($richHtml)->newLine(5)->italic('Kajaki ByeBye!!!');
