@@ -20,8 +20,8 @@ class RichTextCustomEmoji extends RichTextEntity
     // Host app can swap img[src] via JS using data-richy-emoji-id.
     public function toHtml(): string
     {
-        $safeId  = $this->esc($this->customEmojiId);
-        $safeAlt = $this->esc($this->alternativeText);
+        $escapedId  = $this->esc($this->custom_emoji_id);
+        $escapedAlt = $this->esc($this->alternative_text);
 
         if($this->targetsTelegram()) // Renders a custom <tg-emoji> tag.
             return '<tg-emoji emoji-id="' . $escapedId . '">' . $escapedAlt . '</tg-emoji>';

@@ -233,7 +233,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
 
         // If the method name doesn't match our pattern, it's a legitimate "method not found" error.
         // We throw the standard exception to maintain predictable PHP behavior.
-        throw new BadMethodCallException(sprintf(
+        throw new \BadMethodCallException(sprintf(
             'Method %s::%s does not exist.', static::class, $name
         ));
     }
@@ -452,7 +452,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
     {
         // Guard Clause: If it's not a callable, return it as is.
         // This handles strings, arrays, existing RichEntity objects, etc.
-        if (!is_callable($content)) {
+        if ((is_string($content) && (!str_contains($content, '@'))) || (!is_callable($content))) {
             return $content;
         }
 

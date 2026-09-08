@@ -17,12 +17,13 @@ namespace KrubiK\Render\Kernel;
 
 use Illuminate\Support\Facades\Blade;
 use KrubiK\Render\Kernel\BladeCipher;  // Imported for clarity
+use KrubiK\Render\Kernel\ReactorFlux;  // also Imported for clarity
 use KrubiK\Render\Parsers\SyntaxWarden;
 use RuntimeException;
 use Throwable; // Import Throwable for robust error handling
 
 /**
- * The "In-Memory Oracle" Parser - v2.0
+ * The "In-Memory Oracle" Parser - v2.5
  *
  * This parser does not parse anything itself. It's a meta-parser that leverages
  * Laravel's entire Blade compilation engine. It takes a string fragment containing
@@ -46,7 +47,7 @@ class RichBladeFragmentParser implements SyntaxWarden
      *
      * @param string $input The string fragment, e.g., "And then @Bold()This@EndBold() happened...".
      * @return array<int, \KrubiK\Render\RichElements\RichEntity> An array of entities.
-     */
+    */
     public function decipher(string $input): array
     {
         // Step 1: Compile the Blade fragment. This is fast and happens in memory.
@@ -56,13 +57,14 @@ class RichBladeFragmentParser implements SyntaxWarden
         // This closure will return the final array of entities.
         $result = (function() use ($compiledPhpFragment) {
             
-            // Get the singleton instance of our celestial conductor.
-            $builder = BladeCipher::getInstance();
-
-            // Begin the capture process. This also starts output buffering (ob_start).
-            $builder->begin();
+            // Get the ReactorFlux instance.
+            $flux = ReactorFlux::spawn();
 
             try {
+
+                // Begin the capture process and introduce it to the BladeCipher. This also starts output buffering (ob_start).
+                $flux->boot();
+
                 /**
                  * === THE HYPER-PERFORMANCE KEY ===
                  * We use eval() to execute the compiled code. The '?>' prefix is the crucial trick.
@@ -74,21 +76,24 @@ class RichBladeFragmentParser implements SyntaxWarden
                  */
                 eval('?>' . $compiledPhpFragment);
 
+                // End the capture. This stops output buffering, captures any final text,
+                // processes the stack, and returns the final, fully-formed RichMan masterpiece.
+                $finalComposer = $flux->shutdown();
+
+                return $finalComposer ? $finalComposer->main->getElements() : [];
+
             } catch (Throwable $e) {
                 // CRITICAL: If any error occurs during eval (syntax error, runtime exception),
                 // we MUST clean up the BladeCipher's state to prevent catastrophic failure
                 // on subsequent calls in the same request.
-                $builder->end(); // This discards the failed run and cleans the output buffer.
+                try {
+                    // پاک‌سازی اجباری
+                    $flux->shutdown(); // This discards the failed run and cleans the output buffer.
+                } catch (Throwable $ignore) {}
 
                 // Re-throw the exception with more context for easier debugging.
                 throw new RuntimeException('Failed to execute RichBlade fragment: ' . $e->getMessage(), 0, $e);
             }
-
-            // End the capture. This stops output buffering, captures any final text,
-            // processes the stack, and returns the final, fully-formed RichMan masterpiece.
-            $finalComposer = $builder->end();
-
-            return $finalComposer ? $finalComposer->main->getElements() : [];
         })();
 
         return is_array($result) ? $result : [];

@@ -44,6 +44,8 @@ use KrubiK\Render\RichMan;
 use KrubiK\Facades\Parsentinel;
 use LogicException;
 
+use function KrubiK\Render\Helpers\plain;
+
 /**
  * The Celestial Conductor of Story Composition.
  *
@@ -183,6 +185,8 @@ class BladeCipher
     // --- Singleton Pattern for easy access ---
     protected static ?self $instance = null;
 
+    private static ?ReactorFlux $activeReactor = null;
+
     /**
      * Taps into the global render stream.
      * This is the sole entry point to acquire the active BladeCipher instance.
@@ -239,14 +243,19 @@ class BladeCipher
         self::$active = $on;
     }
 
-    public function setRichContext(bool $isRich): void
+    public static function setRichContext(bool $isRich): void
     {
         self::$active = $isRich;
     }
 
-    public function isInRichContext(): bool
+    public static function isInRichContext(): bool
     {
         return self::$active;
+    }
+
+    public static function setActiveReactor(?ReactorFlux $flux): void
+    {
+        self::$activeReactor = $flux;
     }
 
     /**
@@ -302,7 +311,7 @@ class BladeCipher
                 ob_end_clean();
             }
 
-            return new SoulHarvestor($finalMasterpiece, $this->harvested);
+            return SoulHarvestor::feed($finalMasterpiece, $this->harvested);
 
         } finally {
 
@@ -333,6 +342,12 @@ class BladeCipher
     */
     public function startComponent(string $helperFunctionName, array $arguments): void
     {
+
+        if (self::$activeReactor !== null) {
+            self::$activeReactor->startComponent($helperFunctionName, $arguments);
+            return;
+        }
+
         $this->captureBufferedContent();
 
         // Push the component's arguments for later construction
@@ -351,6 +366,12 @@ class BladeCipher
     */
     public function endComponent(): void
     {
+
+        if (self::$activeReactor !== null) {
+            self::$activeReactor->endComponent();
+            return;
+        }
+
         $this->captureBufferedContent();
 
         // Ensure we're actually inside a component
@@ -369,7 +390,6 @@ class BladeCipher
         
         // Add the harvested children as the final argument. This is the convention our helpers follow.
         $arguments[] = $children;
-
         
         // Dynamically call the global helper function (e.g., details('summary', $children))
         // This is where the final, immutable entity is created in one go.
@@ -434,7 +454,7 @@ class BladeCipher
     */
     public function harvest(string $name): void
     {
-        if (!$this->isInRichContext()) return;
+        if (!self::isInRichContext()) return;
 
         $this->flushNestedComponents(); /// ???
         
@@ -453,6 +473,12 @@ class BladeCipher
     */
     public function addComponent(RichEntity $element): void
     {
+
+        if (self::$activeReactor !== null) {
+            self::$activeReactor->addComponent($element);
+            return;
+        }
+
         $this->captureBufferedContent();
         
         // Add the element to the currently active composer (the one on top of the stack).
@@ -527,13 +553,12 @@ class BladeCipher
         // thousand whispers. This is true O(1) thinking for a string-end problem.
         $richExtRegex = '/(' . implode('|', array_map(fn($ext) => preg_quote($ext, '/'), $allRichExtensions)) . ')$/';
 
-
         // Set up the "Context Guardian" to check every view being rendered.
         // This View Composer is a powerful spell. It runs for EVERY view being rendered.
         // It checks the file's name. If it ends with '.rich.blade.php' or '.r.blade.php',
         // it activates the BladeCipher's capturing mode. This is the switch that
         // turns our magic on and off automatically for the correct files.
-        View::composer('*', function ($view) use ($richExtSet) {
+        \View::composer('*', function ($view) use ($richExtRegex) {
 
             /** @var \Illuminate\View\View $view */
             $path = $view->getPath();
@@ -558,17 +583,17 @@ class BladeCipher
         
         // @Cipher: The ritual of beginning. Opens the stream.
         // This tells the engine: "Start listening. The story is about to unfold."
-        Blade::directive('Cipher', fn() => "<?php if(" . self::BUILDER_CLASS . '::$active) ' . self::BUILDER_CLASS . "::stream()->begin(); ?>");
+        Blade::directive('Cipher', fn() => "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . self::BUILDER_CLASS . "::stream()->begin(); ?>");
 
         // @EndCipher: The grand finale. Closes the stream and reaps the harvest.
         // It captures everything that has been woven and hands back the complete SoulHarvestor.
-        Blade::directive('EndCipher', fn($var) => "<?php if(" . self::BUILDER_CLASS . '::$active) ' . $var . '} = ' . self::BUILDER_CLASS . "::stream()->end(); ?>");
+        Blade::directive('EndCipher', fn($var) => "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . $var . ') = ' . self::BUILDER_CLASS . "::stream()->end(); ?>");
 
         // @Harvest: A targeted reaping. Used to mark a specific point in the stream for later retrieval.
         // Not an end, but a significant milestone within the flow. "Remember this moment."
         Blade::directive('Harvest', function (string $expression): string {
             // The expression is the channel name, e.g., "'sidebar'"
-            return "<?php if (" . self::BUILDER_CLASS . '::$active) ' . self::BUILDER_CLASS . "::stream()->harvest({$expression}); ?>";
+            return "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . self::BUILDER_CLASS . "::stream()->harvest({$expression}); ?>";
         });
 
         // --- [NEW] Raw Content Parsing Directives ---
@@ -594,7 +619,7 @@ class BladeCipher
         foreach ($map as $directive => $helper) {
             Blade::directive($directive, function (string $expression) use ($helper): string {
                 $helperFullName = self::HELPERS_NAMESPACE . $helper;
-                return "<?php if (" . self::BUILDER_CLASS . '::$active) ' . self::BUILDER_CLASS . "::stream()->addComponent({$helperFullName}({$expression})); ?>";
+                return "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . self::BUILDER_CLASS . "::stream()->addComponent({$helperFullName}({$expression})); ?>";
             });
         }
     }
@@ -608,19 +633,19 @@ class BladeCipher
             Blade::directive($directive, function (string $expression) use ($helperFullName): string {
                 // Inline version: @Bold('text')
                 if (!empty(trim($expression))) {
-                    return "<?php if (" . self::BUILDER_CLASS . '::$active) ' . self::BUILDER_CLASS . "::stream()->addComponent({$helperFullName}({$expression})); ?>";
+                    return "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . self::BUILDER_CLASS . "::stream()->addComponent({$helperFullName}({$expression})); ?>";
                 }
 
                 // [!!! CORRECTION !!!] Block version: @Bold ... @EndBold
                 // We must pass the HELPER NAME (a string) and its ARGS (an array) to startComponent.
                 // For wrappers like @Bold, there are no initial arguments.
                 $helperNameAsString = var_export($helperFullName, true);
-                return "<?php if (" . self::BUILDER_CLASS . '::$active) ' . self::BUILDER_CLASS . "::stream()->startComponent({$helperNameAsString}, []); ?>";
+                return "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . self::BUILDER_CLASS . "::stream()->startComponent({$helperNameAsString}, []); ?>";
             });
 
             Blade::directive('End' . $directive, function (): string {
                 // This was already correct.
-                return "<?php if (" . self::BUILDER_CLASS . '::$active) ' . self::BUILDER_CLASS . "::stream()->endComponent(); ?>";
+                return "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . self::BUILDER_CLASS . "::stream()->endComponent(); ?>";
             });
         }
     }
@@ -636,12 +661,12 @@ class BladeCipher
                 // We must pass the HELPER NAME (a string) and its ARGS (an array) to startComponent.
                 // The $expression from Blade already contains the arguments, so we wrap it in array brackets.
                 $helperNameAsString = var_export($helperFullName, true);
-                return "<?php if (" . self::BUILDER_CLASS . '::$active) ' . self::BUILDER_CLASS . "::stream()->startComponent({$helperNameAsString}, [{$expression}]); ?>";
+                return "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . self::BUILDER_CLASS . "::stream()->startComponent({$helperNameAsString}, [{$expression}]); ?>";
             });
 
             Blade::directive('End' . $directive, function (): string {
                 // This was already correct.
-                return "<?php if (" . self::BUILDER_CLASS . '::$active) ' . self::BUILDER_CLASS . "::stream()->endComponent(); ?>";
+                return "<?php if(\\" . self::BUILDER_CLASS . '::isInRichContext()) ' . self::BUILDER_CLASS . "::stream()->endComponent(); ?>";
             });
         }
     }
@@ -656,7 +681,7 @@ class BladeCipher
         // @RichMD ... @EndRichMD
         // This directive starts output buffering.
         Blade::directive('RichMD', function () {
-            return "<?php if (" . self::BUILDER_CLASS . "::\$active) { ob_start(); } ?>";
+            return "<?php if(\\" . self::BUILDER_CLASS . "::isInRichContext()) { ob_start(); } ?>";
         });
 
         // This directive ends buffering, gets the content, passes it to the Markdown parser,
@@ -669,7 +694,7 @@ class BladeCipher
         // @RichHTML ... @EndRichHTML
         // This directive starts output buffering.
         Blade::directive('RichHTML', function () {
-            return "<?php if (" . self::BUILDER_CLASS . "::\$active) { ob_start(); } ?>";
+            return "<?php if(\\" . self::BUILDER_CLASS . "::isInRichContext()) { ob_start(); } ?>";
         });
 
         // This directive ends buffering, gets the content, passes it to the HTML parser,

@@ -584,12 +584,25 @@ HTML;
     /// == Start:: Advanced Brain Manipulation ==
     // =========================================================
 
+    private function segmentToEntities(RichEntity|string|array $segment): array
+    {
+        if(is_string($segment))
+            $segment = plain($segment);
+
+        $entities = $segment instanceof self ? $segment->getElements() : $segment;
+
+        if(!is_array($entities))
+            $entities = [$entities];
+
+        return $entities;
+    }
+
     /**
      * Append another parsed instance or raw entity list.
     */
-    public function append(self|array $segment): self
+    public function append(RichEntity|string|array $segment): self
     {
-        $entities = $segment instanceof self ? $segment->getElements() : $segment;
+        $entities = $this->segmentToEntities($segment);
 
         if ($entities === []) {
             return $this;
@@ -603,9 +616,9 @@ HTML;
     /**
      * Prepend another parsed instance or raw entity list.
     */
-    public function prepend(self|array $segment): self
+    public function prepend(RichEntity|string|array $segment): self
     {
-        $entities = $segment instanceof self ? $segment->getElements() : $segment;
+        $entities = $this->segmentToEntities($segment);
 
         if ($entities === []) {
             return $this;
@@ -624,9 +637,10 @@ HTML;
      * - >= n  => append
      * - else  => insert in the middle
     */
-    public function insert(int $index, self|array $segment): self
+    public function insert(int $index, RichEntity|string|array $segment): self
     {
-        $entities = $segment instanceof self ? $segment->getElements() : $segment;
+        $entities = $this->segmentToEntities($segment);
+
         $entities = array_values($entities);
 
         if ($entities === []) {
@@ -653,9 +667,10 @@ HTML;
     /**
      * Replace a single entity at index with another parsed instance or entity list.
     */
-    public function replace(int $index, self|array $segment): self
+    public function replace(int $index, RichEntity|string|array $segment): self
     {
-        $entities = $segment instanceof self ? $segment->getElements() : $segment;
+        $entities = $this->segmentToEntities($segment);
+
         $entities = array_values($entities);
 
         if ($index < 0 || $index >= count($this->elements)) {
@@ -684,7 +699,7 @@ HTML;
     /**
      * Return a clone-like new instance with merged entities.
     */
-    public function merged(self|array $segment): self
+    public function merged(RichEntity|string|array $segment): self
     {
         $clone = new self($this->elements, $this->payload);
         return $clone->append($segment);
@@ -693,7 +708,7 @@ HTML;
     /**
      * Parse text and append it to the current chain.
     */
-    public function parsenAppend(self|string $input, string $mode = 'auto'): self
+    public function parsenAppend(RichEntity|string $input, string $mode = 'auto'): self
     {
         return $this->append(self::parse($input, $mode));
     }
@@ -701,7 +716,7 @@ HTML;
     /**
      * Parse text and prepend it to the current chain.
     */
-    public function parsenPrepend(self|string $input, string $mode = 'auto'): self
+    public function parsenPrepend(RichEntity|string $input, string $mode = 'auto'): self
     {
         return $this->prepend(self::parse($input, $mode));
     }
@@ -709,7 +724,7 @@ HTML;
     /**
      * Parse text and insert it anywhere in the chain.
     */
-    public function parsenInsert(int $index, self|string $input, string $mode = 'auto'): self
+    public function parsenInsert(int $index, RichEntity|string $input, string $mode = 'auto'): self
     {
         return $this->insert($index, self::parse($input, $mode));
     }
