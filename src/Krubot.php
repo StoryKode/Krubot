@@ -47,6 +47,8 @@ use Illuminate\Contracts\Support\Arrayable;
 use KrubiK\Attributes\Name;
 use KrubiK\Attributes\Action;
 use KrubiK\Attributes\Middleware;
+use KrubiK\Attributes\Validate;
+use KrubiK\Attributes\RuleSet;
 use KrubiK\Attributes\OnCommand;
 use KrubiK\Attributes\OnText;
 use KrubiK\Attributes\OnRegEx;
@@ -223,6 +225,16 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * @var Application
     */
     protected Application $app;
+
+    /**
+     * Named validation RuleSets available to this Krubot instance.
+     *
+     * RuleSets are intentionally detached from Routes.
+     * They are resolved lazily when a #[Validate(...)] rule is judged.
+     *
+     * @var array<string, array<int, mixed>>
+    */
+    protected array $ruleSets = [];
 
     // =========================================================================
     //  🧠 THE SINGULARITY CACHE SYSTEM (O(1) Reflection Manifest)
@@ -686,6 +698,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         $this->routes = []; // Purge all registered route patterns and handlers.
         $this->namedRoutes = []; // Purge all named route references.
         $this->integratedNexuses = []; // Reset the tracking list of integrated Nexuses.
+        $this->ruleSets = [];
 
         return $this;
     }
@@ -806,6 +819,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
                     WebApp::class     => $reflection->getAttributes(WebApp::class),         // ✨ NEW
                     RestrictTo::class => $reflection->getAttributes(RestrictTo::class),     // ✨ NEW
                     ForceJoin::class  => $reflection->getAttributes(ForceJoin::class),
+                    Validate::class   => $reflection->getAttributes(Validate::class),
+                    RuleSet::class    => $reflection->getAttributes(RuleSet::class),
                 ];
 
                 // Cache Method-Level Attributes
@@ -821,6 +836,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
                         ForceJoin::class  => $method->getAttributes(ForceJoin::class),
                         Fallback::class   => $method->getAttributes(Fallback::class),      // ✨ NEW: Scan for the global fallback
                         FallbackOn::class => $method->getAttributes(FallbackOn::class),    // ✨ NEW: Scan for type-specific fallbacks
+                        Validate::class   => $method->getAttributes(Validate::class),
+                        RuleSet::class    => $method->getAttributes(RuleSet::class),
                         Action::class     => $method->getAttributes(Action::class),
                         WebApp::class     => $method->getAttributes(WebApp::class),      // ✨ NEW
                         WebPage::class    => $method->getAttributes(WebPage::class),     // ✨ NEW
@@ -841,6 +858,20 @@ class Krubot implements Countable // ⚡️✅️⚡️
             foreach ($manifest['class_attributes'][Middleware::class] ?? [] as $cmWAttr) {
                 // Merge supports multiple attributes: #[Middleware('A')] #[Middleware('B')]
                 $nexusMiddlewares = array_merge($nexusMiddlewares, $cmWAttr->newInstance()->middlewares);
+            }
+
+            // ================================================================
+            // 📚 NEXUS-LEVEL RULE SETS
+            // RuleSets are declarations only; they never attach directly to a Route.
+            // ================================================================
+            foreach ($manifest['class_attributes'][RuleSet::class] ?? [] as $ruleSetAttr) {
+                /** @var RuleSet $instance */
+                $instance = $ruleSetAttr->newInstance();
+
+                $this->ruleSets[$instance->name] = array_merge(
+                    $this->ruleSets[$instance->name] ?? [],
+                    $instance->rules
+                );
             }
 
             // ✨ NEW: Extract WebApp base name
@@ -869,6 +900,19 @@ class Krubot implements Countable // ⚡️✅️⚡️
             // array_values is used to reset array keys for clean, predictable results.
             if (!empty($nexusPlatformRestrictions)) {
                 $nexusPlatformRestrictions = array_values(array_unique($nexusPlatformRestrictions));
+            }
+
+            $nexusValidationRules = [];
+            foreach ($manifest['class_attributes'][Validate::class] ?? [] as $attr) {
+                /** @var Validate $instance */
+                $instance = $attr->newInstance();
+
+                foreach ($instance->toArray() as $parameter => $rules) {
+                    $nexusValidationRules[$parameter] = array_merge(
+                        $nexusValidationRules[$parameter] ?? [],
+                        $rules
+                    );
+                }
             }
 
             // ✨ THE CONDUIT'S CALLING (CLASS-LEVEL) ✨
@@ -915,6 +959,38 @@ class Krubot implements Countable // ⚡️✅️⚡️
                         $webAppHandler, 
                         $webAppAttrInstance->methods
                     );
+
+                    // ✨ VALIDATION DECREE: inherit Nexus-level validation
+                    /*if (!empty($nexusValidationRules)) {
+                        $route->attributes['_validation'] = $nexusValidationRules;
+                    }*/
+
+                    // =============================================================
+                    // 🛡️ VALIDATION DECREES
+                    // =============================================================
+
+                    $webAppValidationRules = $nexusValidationRules;
+
+                    // Method-level Validate for index() / handle()
+                    $HandlerMethodName = $webAppHandler[1];
+
+                    foreach (
+                        ($manifest['methods'][$webAppHandlerMethodName][Validate::class] ?? [])
+                        as $validateAttr
+                    ) {
+                        $instance = $validateAttr->newInstance();
+
+                        foreach ($instance->toArray() as $parameter => $rules) {
+                            $webAppValidationRules[$parameter] = array_merge(
+                                $webAppValidationRules[$parameter] ?? [],
+                                $rules
+                            );
+                        }
+                    }
+
+                    if (!empty($webAppValidationRules)) {
+                        $route->attributes['_validation'] = $webAppValidationRules;
+                    }
 
                     // ✨ DECREE OF ENRICHMENT: Transfer the developer's choice to the Route object.
                     $route->autoEnrichPattern = $webAppAttrInstance->autoEnrich;
@@ -1000,6 +1076,42 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 foreach ($attributesMap[When::class] ?? [] as $whenAttrReflection) {
                     // newInstance() is fast because our When constructor is optimized.
                     $whenGuardInstances[] = $whenAttrReflection->newInstance();
+                }
+
+                // ================================================================
+                // 📚 METHOD-LEVEL RULE SETS
+                // Note! Location is irrelevant and not important. the named rule-set enters the KrubotNexus Registry.
+                // ================================================================
+                foreach ($attributesMap[RuleSet::class] ?? [] as $ruleSetAttr) {
+                    /** @var RuleSet $instance */
+                    $instance = $ruleSetAttr->newInstance();
+
+                    $this->ruleSets[$instance->name] = array_merge(
+                        $this->ruleSets[$instance->name] ?? [],
+                        $instance->rules
+                    );
+                }
+
+                $methodValidationRules = [];
+                foreach ($attributesMap[Validate::class] ?? [] as $attr) {
+                    /** @var Validate $instance */
+                    $instance = $attr->newInstance();
+
+                    foreach ($instance->toArray() as $parameter => $rules) {
+                        $methodValidationRules[$parameter] = array_merge(
+                            $methodValidationRules[$parameter] ?? [],
+                            $rules
+                        );
+                    }
+                }
+
+                $finalValidationRules = $nexusValidationRules;
+
+                foreach ($methodValidationRules as $parameter => $rules) {
+                    $finalValidationRules[$parameter] = array_merge(
+                        $finalValidationRules[$parameter] ?? [],
+                        $rules
+                    );
                 }
 
                 // ✨ THE CONDUIT'S FOCUS (METHOD-LEVEL & FINAL MERGE) ✨
@@ -1113,7 +1225,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 };
 
                 // Step D.2: The Configuration Helper Closure 🛠 //To-Do:: Support PlatformRestricion Here
-                $_configureRoute = function (?Route $route = null, ?string $accessPolicy = null) use ($routeName, $finalMiddlewareStack, $finalPlatformRestrictions, $whenGuardInstances, $finalForceJoinChannels, $finalForceJoinFailMessage, $enrichRoutePatternAndParams, $handlerCallback) {
+                $_configureRoute = function (?Route $route = null, ?string $accessPolicy = null) use ($routeName, $finalMiddlewareStack, $finalPlatformRestrictions, $whenGuardInstances, $finalValidationRules, $finalForceJoinChannels, $finalForceJoinFailMessage, $enrichRoutePatternAndParams, $handlerCallback) {
                     if (!$route) return;
 
                     // [THE BRAIN] enrichmentation central decision point. Clean, simple, and powerful.
@@ -1164,6 +1276,10 @@ class Krubot implements Countable // ⚡️✅️⚡️
                     // Attach the pre-compiled guards to the Route object.
                     if (!empty($whenGuardInstances)) {
                         $route->guards($whenGuardInstances);
+                    }
+
+                    if (!empty($finalValidationRules)) {
+                        $route->attributes['_validation'] = $finalValidationRules;
                     }
 
                     // ✨♥️ THE UNIFIED ENERGY IS CHANNELED ♥️✨
@@ -3002,6 +3118,133 @@ class Krubot implements Countable // ⚡️✅️⚡️
         return false;
     }
 
+    protected function validateRouteInput(Route|array $route): bool
+    {
+        $routeAttributes = $route instanceof Route
+            ? $route->attributes
+            : ($route['attributes'] ?? []);
+
+        $rules = $routeAttributes['_validation'] ?? [];
+
+        // ⚡ ZERO-COST PATH
+        if (empty($rules)) {
+            return true;
+        }
+
+        $data = $this->currentRouteParams;
+
+        // ---------------------------------------------------------------
+        // 🌟 WILDCARD VALIDATION
+        // #[Validate('*', 'required|min:3')]
+        //
+        // Validate every currently available top-level input parameter.
+        //
+        // The wildcard RuleSet is expanded once, then applied to every top-level input parameters of methods.
+        // ---------------------------------------------------------------
+        if (isset($rules['*'])) {
+            $wildcardRules = is_array($rules['*'])
+                ? $rules['*']
+                : [$rules['*']];
+
+            // Resolve RuleSets used by the wildcard.
+            $wildcardRules = RuleSet::expand(
+                $wildcardRules,
+                $this->ruleSets
+            );
+
+            unset($rules['*']);
+
+            foreach (array_keys($data) as $parameter) {
+                $rules[$parameter] = array_merge(
+                    $wildcardRules,
+                    $rules[$parameter] ?? []
+                );
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // 📚 RESOLVE RuleSets PER PARAMETER
+        //
+        // Example:
+        //
+        // 'username' => ['required', 'rs:userName']
+        //
+        // becomes:
+        //
+        // 'username' => [
+        //     'required',
+        //     'required',
+        //     'string',
+        //     'min:3',
+        // ]
+        // ---------------------------------------------------------------
+        foreach ($rules as $parameter => $parameterRules) {
+            $parameterRules = is_array($parameterRules)
+                ? $parameterRules
+                : [$parameterRules];
+
+            $rules[$parameter] = RuleSet::expand(
+                $parameterRules,
+                $this->ruleSets
+            );
+        }
+
+        // ---------------------------------------------------------------
+        // ⚖️ LARAVEL = THE JUDGE
+        // ---------------------------------------------------------------
+        $validator = Validator::make(
+            $data,
+            $rules
+        );
+
+        if ($validator->passes()) {
+            return true;
+        }
+
+        $errors = $validator->errors();
+
+        // ---------------------------------------------------------------
+        // DECIDE THE RESPONSE REALM
+        // ---------------------------------------------------------------
+        $routeType = $route instanceof Route
+            ? $route->type
+            : ($routeAttributes['_route_type'] ?? null);
+
+        $isWebResponse = in_array(
+            $routeType,
+            [
+                self::RT_WEB,
+                self::RT_WEB_APP,
+                self::RT_WEB_PAGE,
+                self::RT_WEB_ACTION,
+            ],
+            true
+        );
+
+        // ---------------------------------------------------------------
+        // WEB WORLD → HTTP JSON
+        // ---------------------------------------------------------------
+        if ($isWebResponse) {
+            $this->response(
+                response()->json([
+                    'message' => 'The given data was invalid.',
+                    'errors'  => $errors->toArray(),
+                ], 422)
+            );
+
+            return false;
+        }
+
+        // ---------------------------------------------------------------
+        // BOT WORLD → REPLY + SEND
+        // ---------------------------------------------------------------
+        $this->reply(
+            $errors->first()
+        )->send();
+
+        return false;
+    }
+
 
     // End Deprecation _ Area
     // Welcome to New PowerFUL...
@@ -3039,6 +3282,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         // Crucial for long-running processes to prevent data leakage between requests.
         $this->currentRouteParams = [];
         $this->currentResolvedHandler = null;
+        $this->finalResponse = null;
 
         $this->resetContextData(); // 🌋 THE ASYNC GUARDIAN: WIPE THE SLATE CLEAN! [bot->get() && bot->set() data]
         $this->tunnelAmethyst($message); // We Can Auto-Fill it by $this->currentMessage, but not now!
@@ -3455,7 +3699,15 @@ class Krubot implements Countable // ⚡️✅️⚡️
         // =====================================================================
         
         // The final destination closure that executes the current matching handler.
-        $destination = function ($bot) use ($finalHandler, $message, $finalRouteParams) {
+        $destination = function ($bot) use ($finalHandler, $message, $finalRouteParams, $matchedRoute) {
+
+            // ================================================================
+            // 🛡️ VALIDATION GATE
+            // ================================================================
+            if ($matchedRoute && (!$this->validateRouteInput($matchedRoute))) {
+                // Validation already rendered the proper response/reply.                
+                return null;   // DO NOT execute the Handler.
+            }
 
             // Execute the action with dependency injection or parameters, retrieving the raw output of destianation method.
             $actionResult = $this->callAction($finalHandler, $message, $finalRouteParams);

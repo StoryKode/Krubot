@@ -34,6 +34,9 @@
             "src/WarLording/Helpers.php",
             "src/Render/RenderHelpers.php",
             "src/Console/RitualServitor.php"
+        ],
+        "exclude-from-classmap": [
+            "src/Nexus/NoxiousSamples/"
         ]
     },
     "autoload-dev": {
