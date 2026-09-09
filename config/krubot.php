@@ -188,34 +188,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    |       Nexus Integration Points
-    | The VIP Lane: Static Nexus Registration
-    |--------------------------------------------------------------------------
-    |
-    | This array lists all the Nexus classes that should be automatically
-    | discovered and integrated by the Krubot service provider. When the
-    | Krubot singleton is booted, it will reflect upon each of these
-    | classes and register their command/text handlers.
-    | 
-    | Nexuses listed here are considered CRITICAL and are loaded first,
-    | ensuring they are always available. They are immune to the discovery
-    | process, preventing accidental duplicates.
-    |
-    | Adding a new Nexus class here is all you need to do to activate it.
-    |
-    */
-    // array of handler classes consumed by the package
-    'nexuses' => [
-        \KrubiK\Nexus\NoxiousSamples\AdminNexus::class,
-        \KrubiK\Nexus\NoxiousSamples\SimpleSampleNexus::class,
-        // \App\Nexus\CoreNexus::class,
-        // \App\Nexus\AdminNexus::class,
-        // \App\Nexus\SurveyNexus::class,
-        // Add your new Nexus classes here...
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | The Imperial Legions
     |--------------------------------------------------------------------------
     |
@@ -325,6 +297,34 @@ return [
                 //
             ],
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    |       Nexus Integration Points
+    | The VIP Lane: Static Nexus Registration
+    |--------------------------------------------------------------------------
+    |
+    | This array lists all the Nexus classes that should be automatically
+    | discovered and integrated by the Krubot service provider. When the
+    | Krubot singleton is booted, it will reflect upon each of these
+    | classes and register their command/text handlers.
+    | 
+    | Nexuses listed here are considered CRITICAL and are loaded first,
+    | ensuring they are always available. They are immune to the discovery
+    | process, preventing accidental duplicates.
+    |
+    | Adding a new Nexus class here is all you need to do to activate it.
+    |
+    */
+    // array of handler classes consumed by the package
+    'nexuses' => [
+        // \KrubiK\Nexus\NoxiousSamples\AdminNexus::class,
+        // \KrubiK\Nexus\NoxiousSamples\SimpleSampleNexus::class,
+        // \App\Nexus\CoreNexus::class,
+        // \App\Nexus\AdminNexus::class,
+        // \App\Nexus\SurveyNexus::class,
+        // Add your new Nexus classes here...
     ],
 
     /*

@@ -16,6 +16,7 @@ namespace App\Nexus;
 use KrubiK\Krubot;
 use KrubiK\WebApps\Attributes\WebPage;
 use KrubiK\Keyboard\PowerButton;
+use KrubiK\Render\RichMan;
 use Article;
 
 // in your products, you can import any helper func, that you really need
@@ -148,5 +149,47 @@ class WebRenderTestNexus
             ], isBordered: true, isStriped: true);
 
         return $myArticle; // you should return Article [RichMan instance] directly, its Responsable
+    }
+
+    #[WebPage('rich-parser', methods: ['GET'])]
+    public function complexDeepParser()
+    {
+
+        $richy = RichMan::parse('*Bold* _Italic_ [Krubot](https://StoryKo.de/Krubot)', 'MarkdownV2');
+
+        $article = Article::from($richy)->separator('═', 14)->strikethrough('YES-YOU-RIGHT-WRITED-TOTALLY-SOLO');
+
+        $article_repeat = Article::scan("*Bold* _Italic_ [Krubot](https://StoryKo.de/Krubot)\n
+══════════════\n
+~~YES-YOU-RIGHT-WRITED-TOTALLY-SOLO~~", 'RichMD');
+
+        $richHtml = RichMan::parse('<b>Bold</b> <i>Italic</i> <a href="https://krubik.dev">KrubiK</a>', 'HTML')
+
+            ->takeOver("@Math('1+2=3!!!')", '@') // Use @ Sigil to Parse RichBladeZ 💎🗡️
+            ->space(5)
+            ->takeOver("@CustomEmoji('13446548946', '🗡️🤯')", '@') // BladeSpell {@} is mandatory to delegate parse process to the BladeCipher
+            ->line()
+
+            ->takeOver("@Marked() @Bold() @Italic() @Code DoKtor K. Presents @EndCode @EndItalic() @EndBold() @EndMarked()", '@') // parse deep-nested blade elements and add them as global-usable RichEnities
+
+
+            ->takeOver("<s><i><b></b></i>I.X.K!</s>", 'HTML')
+            ->takeOver('$x^2 + y^2$')
+            
+            ->prepend(
+                Article::bold(italic('XYZ'))->line()
+            )
+
+            ->prepend( bold('TUV is Before::') ) // @see src/Render/RenderHelpers.php
+
+            ->prepend(RichMan::parse('Intro with <u>underlined text</u>,', 'HTML')->append(RichMan::parse('==marked text==, and $x^3 + y^4$.')))
+
+            ->takeOver($article) // will be added to elements after mathematicalExpression('x^2 + y^2')
+            ->separator('═', 5)
+            ->takeOver($article_repeat);
+
+        $rich4 = RichMan::summon("H!")->bold('I Have some Ultra-DX Elements')->takeOver($richHtml)->newLine(5)->italic('Kajaki ByeBye!!!');
+
+        return $rich4;
     }
 }

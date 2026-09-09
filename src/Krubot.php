@@ -972,7 +972,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
                     $webAppValidationRules = $nexusValidationRules;
 
                     // Method-level Validate for index() / handle()
-                    $HandlerMethodName = $webAppHandler[1];
+                    $webAppHandlerMethodName = $webAppHandler[1];
 
                     foreach (
                         ($manifest['methods'][$webAppHandlerMethodName][Validate::class] ?? [])

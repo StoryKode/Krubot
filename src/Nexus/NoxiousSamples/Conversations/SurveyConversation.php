@@ -1,6 +1,6 @@
 <?php
 
-namespace KrubiK\Nexus\NoxiousSamples\Conversations; // /Scripts
+namespace App\Nexus\Conversations; // /Scripts
 /*
 | Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
