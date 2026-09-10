@@ -8,6 +8,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use KrubiK\Krubot;
+use KrubiK\Drivers\Nemesis as KrubotManager;
 use KrubiK\DTOs\UniversalInboundUpdate; // <--- Engage The Omega Toxic DTO
 use KrubiK\DTOs\Message;
 use KrubiK\Helpers\AmethystMatrix as Log;
@@ -43,96 +44,115 @@ class HandleDriverUpdate implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * The raw update payload received from the Rubika webhook.
-     * We use modern PHP 8.0+ constructor property promotion for clean, concise code.
-     * The payload is stored as a simple array, making it highly serializable for queues.
-     
-     * @param public array $payload
-     * /
-    public function __old_construct(
-        public array $payload
-    ) {} */
-
-    /**
-     * The Identity of the Driver (e.g., 'rubika', 'bale', 'tel2').
-     * Crucial for routing the response back to the correct platform.     
-       public string $driverName;
-    */
-
-    /**
      * The Immutable Payload DTO.
      * PHP 8.2 will serialize this object perfectly for the queue.
+     * 
+     * @param UniversalInboundUpdate $dto          The immutable, pre-validated update DTO to process.
+     * @param string                 $operativeName      The bot universe ('main', 'support', ...).
+     * @param string                 $driverName   The RESOLVED driver instance ('telegram_main', ...).
+     * @param string                 $platformName The canonical platform ('telegram', ...).
      */
     public function __construct(
         public UniversalInboundUpdate $payload,
-        public string $driverName = 'rubika' // ✅ Clean, Defaulted, Promoted / Default to rubika for backward compatibility
+
+        // These are Crucial for routing the response back to the correct platform.
+        public readonly string $operativeName,
+        public readonly string $driverName,
+        public readonly string $platformName,
     ) {}
 
     /**
+     * Prevents two workers from racing on the same logical update.
+     *
+     * The lock key is scoped by bot + platform + DTO signature, so
+     * Telegram-Main's update_id=500 and Telegram-Support's update_id=500
+     * are treated as DISTINCT (as they should be).
+     *
+     * The lock is automatically released when the job finishes or fails
+     * past its retry budget.
+    */
+    public function uniqueId(): string
+    {
+        return "{$this->operativeName}:{$this->platformName}:{$this->dto->signature()}";
+    }
+
+    /**
      * Execute the job.
+     * The worker-side execution.
      * This is where the magic happens, orchestrated by the Laravel Queue Worker.
      *
-     * @param Krubot $bot The singleton Krubot instance, automatically resolved and injected
-     *                    by Laravel's Service Container. This instance is already
-     *                    "live" and fully configured by KrubotServiceProvider,
-     *                    with all Nexuses discovered and handlers registered.
-     *                    WE DO NOT `new Krubot()` HERE. EVER.
-     * @return void
+     * We deliberately avoid constructor/method injection for Krubot so we
+     * can control the exact ORDER of operations:
+     *
+     *     1. Bind Nemesis to the correct bot context.
+     *     2. Forget any stale Krubot from a previous job.
+     *     3. Resolve Krubot fresh — its closure resolves the driver
+     *        in the correct bot context.
+     *     4. Forge the Message DTO and hand off to processUpdate().
+     *     5. Always clear the bot context in `finally`.
      */
-    public function handle(Krubot $bot): void
+    public function handle(): void
     {
+        /** @var KrubotManager $nemesis */
+        $nemesis = app('krubot.manager');
+
         try {
-            
-            /*
-            // =================================================================
-            // STEP 1: PAYLOAD ADAPTATION & MESSAGE OBJECT FORGING
-            // =================================================================
-            // Find the actual message data within the potentially nested payload.
-            // This provides resilience against slight variations in webhook formats.
-            $updateRoot = $this->payload['update'] ?? $this->payload['new_message'] ?? $this->payload;
 
-            // Defensive Check: A payload might be empty or malformed.
-            // If there's no recognizable data, we log it and terminate gracefully.
-            if (empty($updateRoot)) {
-                Log::warning('HandleRubikaUpdate: Job terminated. Received a payload without a recognizable update structure.', [
-                    'job_id' => $this->job?->getJobId(),
-                    'payload' => $this->payload
-                ]);
-                return;
-            }
+            // ── STEP 0: Clear nemesis Cached Regiments & Enforcers
+            $nemesis->clearOperative();
 
-            // Forge the raw array into a structured `Message` object that Krubot's Engine understands.
-                $updateRoot = $this->payload->effectiveData;
-                $messageObject = new Message($updateRoot);
-            */
+            // ── STEP 1: Bind bot context BEFORE any driver resolution. ──
+            $nemesis->operative($this->operativeName);
 
-            // Payload is DTO (UniversalInboundUpdate), dispatched from Gatekeeper.
-            // Builds normalized Message compatible with Krubot core pipeline.
-            $messageObject = Message::fromInboundPayload($this->payload);
-
-            // Optional: Log the creation for high-level monitoring.
-            $messageId = $messageObject->message_id ?? 'N/A';
-            // Log::info("Message Object [{$messageId}] forged for Krubot processing.", [
-            Log::info("[{$this->driverName}] Message [{$messageId}] forged for Krubot processing.", [
-                'job_id' => $this->job?->getJobId(),
-                'chat_id' => $messageObject->chat_id ?? 'N/A'
-            ]);
-
-            // =================================================================
-            // STEP 2: DELEGATION TO THE CORE PROCESSING ENGINE
-            // =================================================================
-            // This is the most critical step. We hand off the standardized Message
-            // object to the bot's central nervous system: `processUpdate`.
-            // The `$bot` instance already knows about all routes, middlewares, and conversations.
-            // This single method call triggers the entire routing pipeline.
+            // ── STEP 2: Resolve Krubot fresh. ──
+            // The singleton Krubot instance, automatically resolved and injected
+            // by Laravel's Service Container. This instance is already
+            // "live" and fully configured by KrubotServiceProvider,
+            // with all Nexuses discovered and handlers registered.
+            // WE DO NOT `new Krubot()` HERE. EVER.
+            /** @var Krubot $engine */
+            $engine = krubot();
 
             // 🛑 IDENTITY CHECK
             // Resolve the specific driver instance for this job.
-            // If $this->driverName is 'bale', we get the Bale driver.
-            // $bot = $manager->driver($this->driverName);
-            // @ToDo: Force-Set Driver Identity
+            // Because Nemesis caches by "operative::driver", this is O(1)
+            // after the first resolution.
+            $driver = $nemesis->driver($this->driverName, $this->botName);
 
-            $bot->processUpdate($messageObject);
+            $engine->setCurrentDriver($driver);
+            // Inform the Engine of the active driver (platform-agnostic side effect).
+
+            // The service provider closure now runs in the correct bot
+            // context, so `$nemesis->driver()` inside it resolves the
+            // proper driver instance (e.g. telegram_support).
+            $nemesis->enforcer()->serve($engine);
+
+            // ── STEP 3: Forge the normalized Message DTO. ──
+            // Payload is DTO (UniversalInboundUpdate), dispatched from Gatekeeper.
+            // Builds normalized Message compatible with Krubot core pipeline.
+            $messageObject = Message::fromInboundPayload($this->dto);
+
+            // Optional: Log the creation for high-level monitoring.
+            /*            
+            $messageId = $messageObject->message_id ?? 'N/A';
+            Log::info(
+                "[{$this->operativeName}/{$this->platformName}/{$this->driverName}] "
+                . "Message [{$messageId}] forged for Krubot processing.",
+                [
+                    'job_id'  => $this->job?->getJobId(),
+                    'chat_id' => $messageObject->chat_id ?? 'N/A',
+                ]
+            );
+            */
+
+            // =================================================================
+            // ── STEP 4: DELEGATION TO THE CORE PROCESSING ENGINE ──
+            // =================================================================
+            // This is the most critical step. We hand off the standardized Message
+            // object to the bot's central nervous system: `processUpdate`.
+            // The `$engine` instance already knows about all routes, Nexus handlers, middlewares, and conversations.
+            // This single method call triggers the entire routing pipeline.
+            $engine->processUpdate($messageObject);
 
         } catch (Throwable $e) {
             // =================================================================
@@ -141,16 +161,29 @@ class HandleDriverUpdate implements ShouldQueue
             // If anything goes wrong during the process, from Message creation to the
             // depths of `processUpdate`, we catch it here to prevent the entire
             // queue worker from crashing. A failed job should never take down the system.
-            // Log::critical('CRITICAL: Failed to process Rubika update due to an unhandled exception.', [
-            Log::critical("CRITICAL: Failed to process [{$this->driverName}] update due to an unhandled exception.", [
-                'job_id'          => $this->job?->getJobId(),
-                'exception_class'   => get_class($e),
-                'exception_message' => $e->getMessage(),
-                'file'              => $e->getFile(),
-                'line'              => $e->getLine(),
-                'payload'           => $this->payload, // Log the exact payload that caused the failure for debugging.
-                'trace_as_string'   => $e->getTraceAsString(), // Full stack trace for deep analysis.
-            ]);
+            //
+            // Instead We log with full context (bot + platform + driver) so that
+            // cross-bot failures can be traced without ambiguity.
+            Log::critical(
+                "CRITICAL: Failed to process [{$this->operativeName}/{$this->platformName}/{$this->driverName}] update, due to an unhandled exception.",
+                [
+                    'job_id'            => $this->job?->getJobId(),
+                    'bot'               => $this->operativeName,
+                    'platform'          => $this->platformName,
+                    'driver'            => $this->driverName,
+                    'exception_class'   => $e::class,
+                    'exception_message' => $e->getMessage(),
+                    'file'              => $e->getFile(),
+                    'line'              => $e->getLine(),
+                    // Serialize the DTO (not the raw payload — we don't store it).
+                    'dto'               => $this->dto,
+                    'trace_as_string'   => $e->getTraceAsString(),
+                ]
+            );
+
+            // Re-throw so Laravel's retry/backoff machinery can decide
+            // whether to retry based on $tries and backoff().
+            throw $e;
 
             // Depending on your queue strategy, you might want to explicitly fail the job
             // so Laravel can attempt to retry it based on your configuration.
@@ -158,6 +191,12 @@ class HandleDriverUpdate implements ShouldQueue
 
             // Optional: Release back to queue if it's a timeout issue?
             // $this->release(10);
+
+        } finally {
+            // ⚠️ ALWAYS clear the bot context.
+            // Nemesis is a singleton; a stale context would corrupt the
+            // NEXT job processed by this same worker.
+            $nemesis->clearOperative();
         }
     }
 }

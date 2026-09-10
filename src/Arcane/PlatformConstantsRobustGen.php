@@ -111,14 +111,28 @@ trait PlatformConstantsRobustGen
         }
 
         // Load the live source-of-truth configuration.
-        // --- NEW: Fetching aliases as part of the source of truth ---
-        $driversConfig = $this->app['config']->get('krubot.drivers', []);
+
+        ///$driversConfig = $this->app['config']->get('krubot.drivers', []);
+        // ✅ FIX: Read from krubot.platforms (global platform identity).
+        // Fallback to krubot.drivers for backward-compatible single-bot configs.
+        $platformsConfig = $this->app['config']->get('krubot.platforms') ?? $this->app['config']->get('krubot.drivers', []);
         $legionsConfig = $this->app['config']->get('krubot.legions', []);
+
+        // Extract canonical platform names (all keys except 'aliases').
+        $platforms = is_array($platformsConfig)
+            ? array_keys(Arr::except($platformsConfig, ['aliases']))
+            : [];
+
+        // --- NEW: Fetching aliases as part of the source of truth ---
+        $aliases = is_array($platformsConfig)
+            ? ($platformsConfig['aliases'] ?? [])
+            : [];
         
         $currentConfig = [
-            'platforms' => is_array($driversConfig) ? array_keys(Arr::except($driversConfig, ['aliases'])) : [],
+            'platforms' => $platforms,
             'legions'   => is_array($legionsConfig) ? $legionsConfig : [],
-            'aliases'   => $driversConfig['aliases'] ?? [], // Aliases are now part of the check!
+            /// 'aliases'   => $driversConfig['aliases'] ?? [], // Aliases are now part of the check!
+            'aliases'   => $aliases,
         ];
 
         // Sort keys recursively to ensure comparison is not affected by order.
@@ -143,12 +157,14 @@ trait PlatformConstantsRobustGen
         $files = new Filesystem();
         $files->ensureDirectoryExists($this->generatedPlatformsDir);
 
-        $driversConfig = $this->app['config']->get('krubot.drivers', []);
+        ///$driversConfig = $this->app['config']->get('krubot.drivers', []);
+        // ✅ FIX: Same source-of-truth swap.
+        $platformsConfig = $this->app['config']->get('krubot.platforms') ?? $this->app['config']->get('krubot.drivers', []);
         $legionsConfig = $this->app['config']->get('krubot.legions', []);
 
-        $platforms = is_array($driversConfig) ? array_keys(Arr::except($driversConfig, ['aliases'])) : [];
+        $platforms = is_array($platformsConfig) ? array_keys(Arr::except($platformsConfig, ['aliases'])) : [];
         $legions = is_array($legionsConfig) ? $legionsConfig : [];
-        $aliases = $driversConfig['aliases'] ?? [];
+        $aliases = $platformsConfig['aliases'] ?? [];
 
         // --- NEW: Pass aliases to the content builder ---
         $content = $this->buildGPlatformsContent($platforms, $legions, $aliases);

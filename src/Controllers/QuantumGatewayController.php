@@ -77,6 +77,7 @@ class QuantumGatewayController extends Controller
      * The constructor now depends on the KrubotManager, our Single Source of Truth for the request's state.
     */
     public function __construct(
+        // Inject Nemesis (a.k.a. 'krubot.manager' / 'nemesis').
         protected KrubotManager $manager,
         protected Krubot $engine
     ) {}
@@ -105,20 +106,54 @@ class QuantumGatewayController extends Controller
      * @param string|mull   $driver The resolved driver.
      * @return JsonResponse A swift, immediate response to the calling platform.
     */
-    public function handleWebhook(Request $request, ?string $driver): JsonResponse
+    public function handleWebhook(Request $request, ?string $bot = null, ?string $driver = null): JsonResponse
     {
 
         // -----------------------------------------------------------------
         // PHASE 1: 🧠 IDENTITY RESOLUTION PHASE (The Brain)
         // We ask the master strategist, "Who is at the gate?"
-        // The Manager uses its 4-layered logic (SAPI -> Route -> Payload -> Config).
+        // The Manager uses its 4-layered logic (SAPI -> Route -> Header → Payload -> Config).
+        // Route params {bot} and {driver} are the strongest signals.
         // -----------------------------------------------------------------
 
-        // Now It just asks from Nemesis.
-        $driver = (string) ($this->manager->platform() ?? Platform::default());
-        // Log::info("SuperWebhook identified signal.", ['platform_name' => $driver]); // Optional Debug
+        // =================================================================
+        // We ask Nemesis TWO separate questions, because they map to two
+        // different concepts in the multi-bot architecture:
+        //
+        //   a) "What PLATFORM is this?"     → for idempotency + forensics
+        //   b) "What DRIVER INSTANCE?"      → for dispatch + re-resolution
+        //   c) "What BOT context?"          → for cache isolation
+        // =================================================================
 
-        // Get raw payload once
+        $platform = $this->manager->platform();              // ?Platform
+        $operativeName  = $this->manager->currentOperative(); // always string
+
+        // getDefaultDriver() returns the RESOLVED driver INSTANCE NAME
+        // (e.g. 'telegram_main') WITHOUT instantiating the driver.
+        // This is critical for queue safety — we serialize a string,
+        // not a live object with curl handles and WeakReference.
+        // Now It just asks from Nemesis.
+        $driverName = $this->manager->getDefaultDriver();  // e.g. 'telegram_main'
+        // Log::info("SuperWebhook identified signal.", ['platform_name' => $platform, 'driver_name' => $driverName]); // Optional Debug
+
+        // Guard: If no platform could be identified, this isn't a webhook.
+        // Reject early instead of forcing a wrong driver.
+        if ($platform === null || $platform->matches(Platform::Web(), Platform::Cli())) {
+            Log::warning('QuantumGateway: unidentified platform.', [
+                'operativeName' => $operativeName,
+                'route'   => $request->path(),
+                'headers' => $request->headers->all(),
+            ]);
+            return response()->json(['status' => 'unidentified_platform'], 200);
+        }
+
+        $platformName = (string) $platform;               // canonical: 'telegram'
+
+        // =================================================================
+        // PHASE 2: PAYLOAD GUARD
+        // =================================================================
+
+        // Get raw payload
         $payload = $request->all();
 
         // Guard Clause: Acknowledge and ignore empty requests immediately.
@@ -129,7 +164,7 @@ class QuantumGatewayController extends Controller
         }
 
         // -----------------------------------------------------------------
-        // PHASE 2: ⚡ FLASH IDEMPOTENCY CHECK (The Vanguard Optimization)
+        // PHASE 3: ⚡ FLASH IDEMPOTENCY CHECK (The Vanguard Optimization)
         //
         // "Stop right there, criminal scum!"
         // Why build the DTO again if we've seen this ID 1ms ago?
@@ -143,7 +178,7 @@ class QuantumGatewayController extends Controller
         }
 
         // -----------------------------------------------------------------
-        // PHASE 3: ⚗️ PAYLOAD STANDARDIZATION (The Alchemist)
+        // PHASE 4: ⚗️ PAYLOAD STANDARDIZATION (The Alchemist)
         // We take the raw input and pass it to our Alchemist (the DTO)
         // to be transmuted into a standard, safe, and immutable data structure.
         // -----------------------------------------------------------------
@@ -156,33 +191,61 @@ class QuantumGatewayController extends Controller
         }
 
         // -----------------------------------------------------------------
-        // PHASE 4: 🛡️ DEEP STRUCTURAL VALIDATION & FALLBACK IDEMPOTENCY
+        // PHASE 5: 🛡️ DEEP STRUCTURAL VALIDATION & FALLBACK IDEMPOTENCY
         // We use the DTO's own intelligence to validate itself.
         // -----------------------------------------------------------------
         if (!$dto->isValid()) {
-            Log::warning("QuantumGateway ignored invalid structure.", ['driver' => $driver, 'payload' => $payload]);
+            Log::warning("QuantumGateway ignored invalid structure.", [
+                'operativeName' => $operativeName,
+                'platform'      => $platformName,
+                'payload'       => $payload,
+            ]);
             return response()->json(['status' => 'ignored_invalid'], 200);
         }
 
-        // Fallback Idempotency: If Phase 2 missed the ID (e.g. obscured structure),
+        // Fallback Idempotency: If we missed the ID (e.g. obscured structure),
         // check again using the DTO's signature, BUT only if we didn't check already.
         if (!$rawMsgId && $this->isDuplicate($dto->signature(), $driver)) {
              return response()->json(['ok' => true, 'status' => 'duplicate_dto_check']);
         }
 
-        Log::debug("QuantumGatewayWebhook found structure:: " . $driverIdentity, [$payload, $dto]);
+        // Log::debug("QuantumGatewayWebhook found structure:: " . $driverIdentity, [$payload, $dto]);        
+        Log::debug('QuantumGateway resolved inbound update.', [
+            'operativeName' => $operativeName,
+            'platform'      => $platformName,
+            'driver'        => $driverName,
+            'msg_id'        => $rawMsgId,
+        ]);
 
-        // -----------------------------------------------------------------
-        // PHASE 5: 🚀 DISPATCH TO THE ABYSS (Queue) OR THE PRESENT (Sync)
+        // =================================================================
+        // PHASE 6: 🚀 DISPATCH TO THE ABYSS (Queue) OR THE PRESENT (Sync)
         // We now use our configuration-aware dispatcher.
-        // -----------------------------------------------------------------
+        //
+        // The job carries SCALAR identifiers only:
+        //   - bot name      → worker re-enters Nemesis::bot($botName)
+        //   - driver name   → worker re-resolves the instance via Nemesis
+        //   - platform name → for logging + forensic correlation in the job
+        //
+        // ⚠️ We deliberately do NOT pass the live driver instance, because:
+        //   1. It contains a WeakReference to Krubot → not serializable.
+        //   2. It holds tokens/curl handles → security risk in queue payload.
+        //   3. The worker may run in a different bot context → must re-resolve.
+        // =================================================================
         $this->dispatchConditionally(
-            new HandleDriverUpdate($dto, $driver),
+            new HandleDriverUpdate(
+                dto:      $dto,
+                driverName: $driverName,
+                platformName: $platformName,
+                operativeName:  $operativeName
+            ),
             $request
         );
 
         return response()->json([
             'status' => $this->shouldDispatchSync($request) ? 'processed_sync' : 'queued',
+            'operativeName' => $operativeName,
+            'platform'      => $platformName,
+            'driver'        => $driverName
         ], 200);
     }
 

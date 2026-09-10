@@ -203,7 +203,7 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
         // این برای تزریق وابستگی در کنترلرها و جاب‌ها حیاتی است.
         // وقتی در متدی تایپ-هینت MultiverseEnforcer بدهید، لاراول می‌داند چه چیزی بسازد.
         $this->app->bind(MultiverseEnforcer::class, function ($app) {
-            return $app['krubot.manager']->driver();
+            return $app['krubot.manager']->enforcer();
         });
 
         // Bind Krubot as a Singleton. This ensures the same bot instance is used
@@ -219,11 +219,14 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
 
             // جنگ‌سالار مستقیماً به Nemesis دستور می‌دهد تا کالبدشکافی را انجام داده
             // و سلاح جهش‌یافته (BOW) را شخصاً تحویل دهد.
-            $bow = app('nemesis')->driver();
+            $bow = app('nemesis')->enforcer(); // ← resolves in the CURRENT bot context
             
             // 3. ⚡ Genesis: Summon the Warlord with absolute precision.
             // We pass the Application, the deployed Soldier, and the Strategy (Config).
-            return new \KrubiK\Krubot($app, $bow, $config);
+            $warlord = new \KrubiK\Krubot($app, $bow, $config);
+            $bow->serve($warlord);
+
+            return $warlord;
         });
 
         // The Oracle is born once, and lives forever (Singleton).

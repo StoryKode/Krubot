@@ -30,10 +30,19 @@ class StorageCollection extends Collection
 {
     protected ?BotStorage $storageHandler = null;
     protected ?string $storageKey = null;
+    
+    /**
+     * Full storage context, mirroring BotStorage::getContext().
+     * Returns null when the collection is detached (constructed manually).
+    */
+    public function getContext(): ?array
+    {
+        return $this->storageHandler?->getContext();
+    }
 
     /**
      * Bind this collection to a specific storage location.
-     */
+    */
     public function setContext(BotStorage $handler, string $key): static
     {
         $this->storageHandler = $handler;
@@ -48,7 +57,7 @@ class StorageCollection extends Collection
      * $user = $bot->userStorage()->find();
      * $user->put('name', 'New Name');
      * $user->save(); 
-     */
+    */
     public function save(): static
     {
         if ($this->storageHandler && $this->storageKey) {
@@ -64,7 +73,7 @@ class StorageCollection extends Collection
      * Delete this specific entry from the storage.
      * 
      * Usage: $user->delete();
-     */
+    */
     public function delete(): void
     {
         if ($this->storageHandler && $this->storageKey) {
@@ -73,5 +82,22 @@ class StorageCollection extends Collection
             // Clear self to reflect state
             $this->items = [];
         }
+    }
+
+    /**
+     * The platform this collection was loaded from
+     * ('telegram', 'rubika', ...) — null if detached from a handler.
+    */
+    public function platform(): ?string
+    {
+        return $this->storageHandler?->platform();
+    }
+
+    /**
+     * The regiment/operative this collection was loaded from, or null in legacy mode.
+    */
+    public function operative(): ?string
+    {
+        return $this->storageHandler?->operative();
     }
 }

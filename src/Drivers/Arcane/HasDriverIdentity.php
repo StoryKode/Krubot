@@ -18,8 +18,8 @@ trait HasDriverIdentity
     /**
      * The identity of this driver instance (e.g., 'rubika', 'web', 'telegram').
      * @var string
-     */
-    protected string $driverAlias = 'common';
+    */
+    protected string $driverCodeName = 'common';
 
     /**
      * Set the driver's operational alias.
@@ -27,34 +27,34 @@ trait HasDriverIdentity
      *
      * @param string $alias
      * @return $this
-     */
-    public function setDriverAlias(string $alias): static
+    */
+    public function assignCodeName(string $alias): static
     {
-        $this->driverAlias = $alias;
+        $this->driverCodeName = $alias;
         return $this;
     }
 
     /**
-     * Legacy Alias for UniChatKit compatibility or alternate naming.
-     */
-    public function setName(string $name): static
+     * Get the driver's identity.
+    */
+    public function getCodeName(): string
     {
-        return $this->setDriverAlias($name);
+        return $this->driverCodeName;
     }
 
     /**
-     * Get the driver's identity.
-     */
-    public function getDriverAlias(): string
+     * Legacy Alias for UniChatKit compatibility or alternate naming.
+    */
+    public function setName(string $name): static
     {
-        return $this->driverAlias;
+        return $this->assignCodeName($name);
     }
 
     /**
      * UniChatKit compatible getter.
-     */
+    */
     public function getName(): string
     {
-        return $this->driverAlias;
+        return $this->driverCodeName;
     }
 }

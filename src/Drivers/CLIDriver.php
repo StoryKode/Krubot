@@ -134,8 +134,7 @@ class CLIDriver implements MultiverseEnforcer
     public function __construct(array $config)
     {
         $this->config = $config;
-
-        $this->driverAlias = $config['alias'] ?? 'cli';
+        $this->assignCodeName($config['driver_alias'] ?? 'cli');
 
         $this->botUser = [
             'id'         => 0,
@@ -155,7 +154,7 @@ class CLIDriver implements MultiverseEnforcer
 
         $this->commandName = $this->payload['command'] ?? $this->payload['text'] ?? '';
 
-        $this->igniteNeon();
+        $this->igniteNeon($this->config);
 
         // Print the Krubot CLI banner on boot
         $this->printBanner();
@@ -620,7 +619,7 @@ class CLIDriver implements MultiverseEnforcer
         $this->newline();
         $this->printDivider('═', 'bblue');
         $this->line($this->c('bmagenta', "  ⚡  K R U B O T  ") . $this->c('dim', "CLI Driver"));
-        $this->line($this->c('dim', "  Driver: ") . $this->c('bwhite', $this->driverAlias) .
+        $this->line($this->c('dim', "  Driver: ") . $this->c('bwhite', $this->getCodeName()) .
                     $this->c('dim', "  |  Bot: ") . $this->c('cyan', $this->botUser['username'] ?? 'krubot'));
         $this->line($this->c('dim', "  User:   ") . $this->c('bwhite', $this->senderUser['first_name'] ?? 'Developer') .
                     $this->c('dim', "  (id:") . $this->c('yellow', (string) ($this->senderUser['id'] ?? 0)) . $this->c('dim', ")"));
@@ -819,6 +818,7 @@ class CLIDriver implements MultiverseEnforcer
 
     public function sendMessage(array $params): array
     {
+        $this->warlord()->setCurrentDriver($this->getCodeName());
         return $this->makeRequest('sendMessage', $params);
     }
 

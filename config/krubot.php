@@ -35,6 +35,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Global Defaults (Overridable Per Bot)
+    |--------------------------------------------------------------------------
+    | These are the FALLBACKS. Each Bot can override them under
+    | krubot.regiments.{regiment}.*
+    |
+    */
+    'default_regiment'    => env('KRUBOT_DEFAULT_BOT', 'main'),
+    
+    /*
+    |--------------------------------------------------------------------------
     | Default Bot Driver
     |--------------------------------------------------------------------------
     |
@@ -44,12 +54,193 @@ return [
     | Supported: "rubika", "telegram", "bale" (when implemented)
     |
     */
-
     'default_driver' => env('KRUBOT_DRIVER', 'rubika'),
 
     /*
     |--------------------------------------------------------------------------
-    | Driver Definitions
+    | 🌍 PLATFORM IDENTITY REGISTRY (Global, Bot-Agnostic)
+    |--------------------------------------------------------------------------
+    |
+    | This section defines WHAT PLATFORMS EXIST in the multiverse.
+    | It does NOT define bot tokens, instances, or anything bot-scoped.
+    |
+    | Consumed by:
+    |   - KrubiK\Enums\Platform (via krubot.platforms.aliases)
+    |   - PlatformConstantsRobustGen (for const generation)
+    |
+    | ⚠️ DO NOT put driver-instance-specific aliases here.
+    |    Instance aliases belong under krubot.regiments.{regiment}.enforcers.aliases.
+    |
+    */
+    'platforms' => [
+
+        // ---- Canonical platform list (the fixed set) ----
+        // Keys are canonical platform names. Values are opaque markers;
+        // actual driver configuration lives under `regiments`.
+        'rubika'   => true,
+        'bale'     => true,
+        'telegram' => true,
+        'web'      => true,
+        'webapp'   => true,
+        'miniapp'  => true,
+        'cli'      => true,
+
+        // ---- Platform-level aliases (short forms) ----
+        // These map user-friendly shorthands to CANONICAL PLATFORM NAMES
+        // (NOT to driver instance names).
+        //
+        //   'tg' → 'telegram'   ✅ correct
+        //   'tg' → 'telegram_main'  ❌ WRONG — that's a driver-instance alias
+        //
+        'aliases' => [
+            'r'        => 'rubika',
+            'rubika'   => 'rubika',
+            'b'        => 'bale',
+            'bale'     => 'bale',
+            't'        => 'telegram',
+            'tg'       => 'telegram',
+            'telegram' => 'telegram',
+            'w'        => 'web',
+            'web'      => 'web',
+            'wa'       => 'webapp',
+            'webapp'   => 'webapp',
+            'ma'       => 'miniapp',
+            'miniapp'  => 'miniapp',
+            'cli'      => 'cli',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🤖 BOT-SCOPED DRIVER INSTANCES
+    |--------------------------------------------------------------------------
+    |
+    | Each bot owns its own driver instances. Instance keys are UNIQUE
+    | per bot, and instance-level aliases are BOT-SCOPED.
+    |
+    | Consumed by:
+    |   - Nemesis::getRegimentConfig(), getDriverConfig(), resolveDriverName()
+    |
+    */
+    'regiments' => [
+
+        // =====================================================================
+        // 🟦 BOT: main
+        // =====================================================================
+        'main' => [
+            'champion_enforcer' => 'rubika_main', /// default_driver
+
+            'enforcers' => [
+
+                // ---- Bot-scoped INSTANCE aliases ----
+                // These map to DRIVER INSTANCE NAMES, not to platform names.
+                'aliases' => [
+                    'rm' => 'rubika_main',      // Rubika-Main
+                    'tm' => 'telegram_main',    // Telegram-Main
+                ],
+
+                'telegram_main' => [
+                    'driver'   => 'telegram',
+                    'token'    => env('TELEGRAM_MAIN_TOKEN'),
+                    'base_url' => 'https://api.telegram.org',
+                    'admin_ids' => array_filter(explode(',', env('TELEGRAM_MAIN_ADMINS', ''))),
+                    'config'   => ['timeout' => 45],                    
+
+                    /**
+                     * The art of response strategy. Determines how API calls are handled.
+                     *
+                     * 'api':     (Default) Makes real-time HTTP API calls. Use this for servers
+                     *            outside Iran.
+                     * 'response': Returns a JSON response directly in the Webhook response. Use this for
+                     *              servers inside Iran without a proxy, for simple replies.
+                     * 'bridge': Makes Proxified HTTP API calls to Bypass Telegram restriction. Use this
+                     *             if your main server is in Iran, but you have servers outside Iran that able
+                     *             to Connect Telegram (including Cloudflare Workers, ...)
+                    */
+                    'strategy' => env('TELEGRAM_STRATEGY', 'response'),
+
+                    'bridge' => [
+
+                        /// 'enabled'  => env('TELEGRAM_BRIDGE_REQUESTS', false), // toggles bridging strategy on/off. disabled to prevent conflict with `handler`
+
+                        'base_uri' => 'https://your-worker.workers.dev/straight-forward-to-tg', // The new bridge URL
+                        'secret'   => 'YOUR-Bridge-_SUPER_SECRET_TOKEN', // a Secret to protect your Cloudflare,... bridge
+
+                    ],
+                ],
+
+                'rubika_main' => [
+                    'driver'    => 'rubika',
+                    'token'     => env('RUBIKA_MAIN_TOKEN'),
+                    'salt'      => env('RUBIKA_MAIN_SALT', 'MainSalT'),
+                    'admin_ids' => array_filter(explode(',', env('RUBIKA_MAIN_ADMINS', ''))),
+                    'config'    => ['ignore_self_messages' => true, 'timeout' => 30],
+                ],
+
+                'web_main' => [
+                    'driver'    => 'web',
+                    'base_url'  => '.',
+                    'admin_ids' => [],
+                    'config'    => ['timeout' => 120],
+                ],
+
+                'cli_main' => [
+                    'driver'    => 'cli',
+                    'admin_ids' => [],
+                    'config'    => ['default_user' => 'terminal_root', 'interactive' => true],
+                ],
+            ],
+        ],
+
+        // =====================================================================
+        // 🟩 BOT: support
+        // =====================================================================
+        'support' => [
+            'champion_enforcer' => 'rubika_support',
+
+            'enforcers' => [
+
+                'aliases' => [
+                    'rs' => 'rubika_support',
+                    'ts' => 'telegram_support',
+                ],
+
+                'rubika_support' => [
+                    'driver'    => 'rubika',
+                    'token'     => env('RUBIKA_SUPPORT_TOKEN'),
+                    'salt'      => env('RUBIKA_SUPPORT_SALT', 'SupportSalT'),
+                    'admin_ids' => array_filter(explode(',', env('RUBIKA_SUPPORT_ADMINS', ''))),
+                    'config'    => ['ignore_self_messages' => true, 'timeout' => 30],
+                ],
+
+                'telegram_support' => [
+                    'driver'   => 'telegram',
+                    'token'    => env('TELEGRAM_SUPPORT_TOKEN'),
+                    'base_url' => 'https://api.telegram.org',
+                    'strategy' => env('TELEGRAM_SUPPORT_STRATEGY', 'response'),
+                    'admin_ids' => array_filter(explode(',', env('TELEGRAM_SUPPORT_ADMINS', ''))),
+                    'config'   => ['timeout' => 45],
+                ],
+
+                'web_support' => [
+                    'driver'    => 'web',
+                    'base_url'  => '.',
+                    'admin_ids' => [],
+                    'config'    => ['timeout' => 120],
+                ],
+
+                'cli_support' => [
+                    'driver'    => 'cli',
+                    'admin_ids' => [],
+                    'config'    => ['default_user' => 'terminal_root', 'interactive' => true],
+                ],
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy [One-Bot-At-Platform] Driver Definitions
     |--------------------------------------------------------------------------
     */
     'drivers' => [
@@ -111,20 +302,10 @@ return [
 
             /**
              * The art of response strategy. Determines how API calls are handled.
-             *
-             * 'api':     (Default) Makes real-time HTTP API calls. Use this for servers
-             *            outside Iran.
-             * 'response': Returns a JSON response directly in the Webhook response. Use this for
-             *              servers inside Iran without a proxy, for simple replies.
-             * 'bridge': Makes Proxified HTTP API calls to Bypass Telegram restriction. Use this
-             *             if your main server is in Iran, but you have servers outside Iran that able
-             *             to Connect Telegram (including Cloudflare Workers, ...)
             */
             'strategy' => env('TELEGRAM_STRATEGY', 'response'),
 
             'bridge' => [
-
-                /// 'enabled'  => env('TELEGRAM_BRIDGE_REQUESTS', false), // toggles bridging strategy on/off. disabled to prevent conflict with `handler`
 
                 'base_uri' => 'https://your-worker.workers.dev/straight-forward-to-tg', // The new bridge URL
                 'secret'   => 'YOUR-Bridge-_SUPER_SECRET_TOKEN', // a Secret to protect your Cloudflare,... bridge
@@ -140,7 +321,11 @@ return [
 
         'web' => [
             'driver'    => 'web',
-            'config'    => []
+            'base_url' => '.',
+            'admin_ids' => [],
+            'config' => [
+                'timeout' => 120,
+            ]
         ],
 
         'cli' => [
@@ -250,7 +435,7 @@ return [
         'interval' => env('KRUBOT_LAZARUS_INTERVAL', 3000),
         'kill-kommand' => 'krubik:kill-lazarus',
 
-        'todo_table_name', 'lazarus_todos',
+        'todo_table_name' => 'lazarus_todos',
 
         // can be null to prevent forcing custom-secret
         'todo-secret'  => env('LAZARUS_SERIALIZABLE_SECRET', 'krubik-2026-x8x-artificial-secret'),

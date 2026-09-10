@@ -13,10 +13,12 @@ namespace KrubiK\Drivers\Arcane;
 | *Go build something revolutionary!* 💜⚡️
 */
 
+use KrubiK\Krubot;
 use KrubiK\Arcane\InteractsWithApi;
 use KrubiK\Arcane\InteractsWithLockedProperties;
 // use KrubiK\Arcane\SummonsCodeSpyz;
 use KrubiK\Arcane\InteractsWithContext; // ⚡ Import Context
+use WeakReference;
 
 /**
  * Trait NeonVitality
@@ -45,18 +47,22 @@ trait NeonVitality // PowerCell / NeonSoul / NeonCore / FusionCore / FusionSoul
 
     // use SummonsCodeSpyz;
 
+    /** @var WeakReference|null Save a Reference to the active Warlord instance, to prevent memory leaks. */
+    protected ?WeakReference $warlordRef = null;
+
     /**
      * Driver specific configuration.
-     */
+    */
     protected array $driverConfig = [];
 
     /**
      * The Neon Bootstrap.
      * Must be called in the constructor of the concrete driver.
-     */
+    */
     protected function igniteNeon(?array $config = null): void
     {
-        if($config)
+        // Defensive: only overwrite when a real array is provided.
+        if($config && is_array($config))
             $this->driverConfig = $config;
         
         // Initialize Context (reset builders)
@@ -69,9 +75,36 @@ trait NeonVitality // PowerCell / NeonSoul / NeonCore / FusionCore / FusionSoul
 
     /**
      * Get value from driver config.
-     */
+    */
     public function getConfig(string $key, mixed $default = null): mixed
     {
         return $this->driverConfig[$key] ?? $default;
+    }
+
+    public function serve(?Krubot $warlord): static
+    {
+        $this->warlordRef = null;
+
+        if($warlord)
+            $this->warlordRef = WeakReference::create($warlord);
+
+        return $this;
+    }
+
+    public function warlord(): ?Krubot
+    {
+        return $this->warlordRef?->get();
+    }
+
+    // If you want to override the __destruct in your class, try `use NeonVitality {__destruct as destructVitality}`.
+    public function __destruct() {
+
+        // Check if parent class (of user class) has __destruct method before calling it
+        $parentClass = get_parent_class($this);
+        if ($parentClass !== false && method_exists($parentClass, '__destruct')) {
+            parent::__destruct();
+        }
+
+        $this->warlordRef = null;
     }
 }

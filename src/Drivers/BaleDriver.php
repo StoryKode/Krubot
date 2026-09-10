@@ -56,7 +56,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         parent::__construct($token);
 
         // 2. روشن کردن موتور نئونی KrubiK
-        $this->igniteNeon();
+        $this->igniteNeon($this->config);
     }
 
     /**
@@ -72,6 +72,8 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
     {
         $finalMethod = $method;
         $finalParams = $params;
+
+        $this->warlord()?->setCurrentDriver(Platform::Bale());
 
         // Handle RichMan object for sending messages
         if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {

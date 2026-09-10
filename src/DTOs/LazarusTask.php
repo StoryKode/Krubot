@@ -13,6 +13,9 @@ namespace KrubiK\DTOs;
 | *Go build something revolutionary!* 💜⚡️
 */
 
+use DateTimeImmutable;
+use KrubiK\Console\LazarusProtocol;
+
 /**
  * A fluent, immutable handle for a scheduled task created via Lazarus::todo().
  * It provides a clean way to access the task's ID, due date, and to cancel it.
@@ -26,7 +29,7 @@ final class LazarusTask
 {
     public function __construct(
         private readonly string $id,
-        private readonly ?\DateTimeImmutable $due
+        private readonly ?DateTimeImmutable $due
     ) {}
 
     /**
@@ -54,7 +57,7 @@ final class LazarusTask
     /**
      * Get the scheduled execution time of the task.
      */
-    public function due(): ?\DateTimeImmutable
+    public function due(): ?DateTimeImmutable
     {
         return $this->due;
     }

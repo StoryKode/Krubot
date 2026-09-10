@@ -63,13 +63,25 @@ final readonly class RenderAura
     private function __construct(
         /**
          * The ACTIVE operational platform for this request.
-         */
+        */
         public Platform $platform,
 
         /**
          * The final, negotiated locale for this request.
         */
-        public string $lang
+        public string $lang,
+
+        /**
+         * ✅ NEW (Multi-Bot): The active bot context, if any.
+         *
+         * This is the INSTANCE-LEVEL discriminator that coexists with
+         * the platform. Two requests can share the same platform (e.g.,
+         * 'telegram') while belonging to different regiments (eg 'main' vs 'support').
+         *
+         * - null  → no specific bot (console, tests, global default).
+         * - 'main' / 'support' / ... → authoritative bot name from Nemesis.
+        */
+        public ?string $operative = null,
     ) {
     }
 
@@ -83,28 +95,31 @@ final readonly class RenderAura
      *
      * @param Application $app
      * @return self
-     */
+    */
     public static function fromCurrentRequest(Application $app): self
     {        
         /** @var \KrubiK\Drivers\Nemesis $nemesis */
         $nemesis = $app->make(Nemesis::class);
-        
-        // .#. Determine Platform: Direct Ask from Nemesis [Manager of KrubiK Citadel].
-        $platform = $nemesis->where(); // === // $nemesis->platform()
 
-        // For console commands, the context is simple and predictable.
+        // Console fast-path: deterministic and isolated from web resolution.
         if ($app->runningInConsole()) {
+            $platform = Platform::CLI();
+        
+            // For console commands, the context is simple and predictable.
             return new self(
-                Platform::tryFrom('cli') ?? Platform::Web(), // Fallback to Web if 'cli' enum does not exist
-                self::extractLocaleFromConfig($platform) ?? $app->getLocale()
+                $platform,
+                self::extractLocaleFromConfig($platform) ?? $app->getLocale(),
+                $nemesis->currentOperative(), // ✅ preserve bot context even in console
             );
         }
-
-        // 1. Determine Platform: The active driver dictates the platform.
-
-        /** @var \KrubiK\Drivers\Contracts\MultiverseEnforcer $driver */
-        $driver = $nemesis->driver();       
-        $platform = Platform::from($driver->getDriverAlias());
+        
+        // 1. Determine Platform: Direct Ask from Nemesis [Manager of KrubiK Citadel].
+        $driver    = $nemesis->enforcer(); // The active driver dictates the platform.
+        $platform  = $nemesis->where() ?? Platform::Web(); // Fallback to Web if active Platform can't be found
+        $operative = $nemesis->currentOperative();
+    
+        // Inform the Warlord of the active driver (platform-agnostic side effect).
+        warlord()?->setCurrentDriver($driver);
 
         // 2. get Current Request 
         /** @var \Illuminate\Http\Request $request */
@@ -116,7 +131,7 @@ final readonly class RenderAura
         $lang = self::extractLocaleFromRequest($app, $request, $platform, $driver);
 
         // It calls the private constructor internally.
-        return new self($platform, $lang);
+        return new self($platform, $lang, $operative);
     }
 
     // --- STATE #1: THE AWAKENING (From Earthly Request) ---
@@ -128,7 +143,7 @@ final readonly class RenderAura
      *
      * @param Application $app The Laravel application environment she awakens within.
      * @return self
-     */
+    */
     public static function awaken(Application $app): self
     {
         return self::fromCurrentRequest($app);
@@ -142,15 +157,15 @@ final readonly class RenderAura
      * @param Platform $platform The desired platform.
      * @param ?string $lang The exact language code, or null to trigger auto-divination.
      * @return self
-     */
-    public static function init(Platform $platform, ?string $lang = null): self
+    */
+    public static function init(Platform $platform, ?string $lang = null, ?string $regiment = null): self
     {
         // Here you could add validation if you wanted, e.g., check if locale is valid.
         // config('app.available_locales')
 
         // Short-circuit: If the developer explicitly provides a locale, Respect The Choice absolutely.
         if ($lang !== null)
-            return new self($platform, $lang);
+            return new self($platform, $lang, $regiment);
 
         // --- VICTORY! LOGIC IS NOT REPEATED! ---
         // She calls the shared, centralized helper for config-based divination.
@@ -158,7 +173,7 @@ final readonly class RenderAura
         $lang = self::extractLocaleFromConfig($platform);
 
         // It calls the private constructor internally.
-        return new self($platform, $lang);
+        return new self($platform, $lang, $regiment);
     }
 
     // --- STATE #2: THE CONSCIOUS DREAM (For Tests & Isolated Realities) ---
@@ -173,10 +188,10 @@ final readonly class RenderAura
      * @param Platform $platform The platform she should dream of.
      * @param ?string $lang The language she should speak in her dream (nullable).
      * @return self
-     */
-    public static function dream(Platform $platform, ?string $lang = null): self
+    */
+    public static function dream(Platform $platform, ?string $lang = null, ?string $regiment = null): self
     {
-        return self::init($platform, $lang);
+        return self::init($platform, $lang, $regiment);
     }
 
     // --- GATEWAY #3: The Default Factory (For Convenience) ---
@@ -185,10 +200,10 @@ final readonly class RenderAura
      * Encapsulates the logic of what "default" means (e.g., Web platform, default app locale).
      *
      * @return self
-     */
+    */
     public static function default(): self
     {
-        return new self(Platform::default(), config('app.locale', 'en'));
+        return new self(Platform::default(), config('app.locale', 'en'), null);
     }
 
     // --- GATEWAY #3: THE PRIMORDIAL ORIGIN (The Wise Caretaker) ---
@@ -203,7 +218,7 @@ final readonly class RenderAura
      * This is her baseline vibration—pure, protective, and eternally reliable.
      *
      * @return self The RenderAura aligned with the primordial defaults.
-     */
+    */
     public static function prima(): self
     {
         // She embraces the default platform and the app's native tongue,
@@ -217,11 +232,11 @@ final readonly class RenderAura
      *
      * @param string $newLang The locale to use for the new context instance.
      * @return self A new instance of RenderAura with the specified locale.
-     */
+    */
     public function withLang(string $newLang): self
     {
         // Return a new instance, cloning the other properties.
-        return new self($this->platform, $newLang);
+        return new self($this->platform, $newLang, $this->bot);
     }
     /*
      * @param string $newLang The locale to use for the new context instance.
@@ -238,11 +253,11 @@ final readonly class RenderAura
      *
      * @param Platform $newPlatform The platform to use for the new context instance.
      * @return self A new instance of RenderAura with the specified platform.
-     */
+    */
     public function withPlatform(Platform $newPlatform): self
     {
         // Return a new instance, cloning the other properties.
-        return new self($newPlatform, $this->lang);
+        return new self($newPlatform, $this->lang, $this->bot);
     }
     /*
      * @param Platform $newPlatform The platform to use for the new context instance.
@@ -251,6 +266,29 @@ final readonly class RenderAura
     public function dreamInto(Platform $newPlatform): self
     {
         return $this->withPlatform($newPlatform);
+    }
+
+    /**
+     * ✨ [Wither Method] - Creates a new RenderAura with a different bot.
+     *
+     * Mirrors withLang()/withPlatform() and preserves immutability.
+     * Useful when a handler needs to rebind the Aura to a different bot
+     * mid-request (e.g., a cross-bot broadcast that re-renders content).
+     *
+     * @param ?string $newOperative The operative|regiment name (e.g., 'main', 'support'), or null.
+     * @return self A new instance bound to the specified regiment.
+    */
+    public function withOperative(?string $newOperative): self
+    {
+        return new self($this->platform, $this->lang, $newOperative);
+    }
+    /*
+     * @param Platform $newOperative The operative|regiment name (e.g., 'main', 'support'), or null.
+     * @return self A new instance bound to the specified regiment.
+    */
+    public function dreamOn(?string $newOperative): self
+    {
+        return $this->withOperative($newOperative);
     }
 
     /**
@@ -266,7 +304,7 @@ final readonly class RenderAura
      * not linger beyond its time.
      *
      * @return void
-     */
+    */
     public static function invalidate(): void
     {
         // We access the application's heart - its IoC container - Then, we command the container
@@ -356,28 +394,35 @@ final readonly class RenderAura
      * @param ?string $lang An optional locale for Platform-driven manifestatio.
      * @return self The active, infused Aura now residing in the container.
     */
-    public static function impose(RenderAura|Platform $source, ?string $lang = null): self
+    public static function impose(RenderAura|Platform $source, ?string $lang = null, ?string $regiment = null): self
     {
+        $infusedInstance = null;
         // Resolve the concrete Aura instance from the provided source union type.
         if ($source instanceof Platform) {
             // Case A: A Platform SuperEnum is provided. We invoke the 'init|dream' factory
             // to manifest a transient instance on the fly before infusion.
-            $infusedInstance = self::init($source, $lang);
+            $effectiveOperative = $regiment ?? (app()->bound('nemesis') ? app('nemesis')->currentOperative() : null);
+            $infusedInstance = self::init($source, $lang, $effectiveOperative);
         } else {
             // Case A: The developer has provided a fully-realized Aura.
             // We respect this existing vessel of truth and prepare to register it directly.
+            $effectiveOperative = $regiment ?? $source->operative;
 
             // The source is already an Aura. If a new locale is requested and differs 
             // from the source's current locale, we dream a new instance to ensure immutability.
-            $infusedInstance = ($lang !== null && $source->lang !== $lang)
-                ? $source->dreamIn($lang)
-                : $source; // it's a direct RenderAura instance
+            if(($lang !== null && $source->lang !== $lang) || ($regiment !== null && $source->operative !== $regiment)) {
+                // Reconstruct only when something actually changes.
+                $infusedInstance = new self($source->platform, $lang ?? $source->lang, $effectiveOperative);
+            }
+            else
+                $infusedInstance = $source; // it's a direct RenderAura instance
         }
 
         // Command Laravel's IoC container to perform the $O(1)$ hot-swap. By using `instance()`,
         // we bind the concrete object directly, bypassing any factory closures for all
         // subsequent resolutions in this request lifecycle.
         App::instance(self::class, $infusedInstance); /// app()->instance(self::class, $infusedInstance);
+        warlord()?->setCurrentDriver((string) $infusedInstance->platform);
 
         // Return the active instance, enabling fluent method chaining.
         return $infusedInstance;

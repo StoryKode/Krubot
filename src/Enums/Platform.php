@@ -124,7 +124,7 @@ final class Platform implements Stringable
         $this->value = $canonical;
     }
 
-	/**
+    /**
      * 🚀 The Bootstrapper.
      * This is the magic that reads from your config file OR the hyper-fast generated class.
      * It runs only ONCE, the very first time a Platform is requested.
@@ -147,7 +147,7 @@ final class Platform implements Stringable
         if (class_exists($generatedClass) && property_exists($generatedClass, 'sourceConfig')) {
             // Access the static property which contains the snapshot of the config.
             $source = $generatedClass::$sourceConfig;
-            
+
             // Extract aliases and legions safely.
             $potentialAliases = $source['aliases'] ?? [];
             $potentialLegions = $source['legions'] ?? [];
@@ -156,16 +156,21 @@ final class Platform implements Stringable
             if (is_array($potentialAliases) && !empty($potentialAliases)) {
                 $aliases = $potentialAliases;
                 $legions = is_array($potentialLegions) ? $potentialLegions : [];
-                self::$loadedFromGenerated = true; // Set the success flag!
+                self::$loadedFromGenerated = true; // Plus+ Set the success flag!
             }
         }
 
         // --- Stage 2: The Fallback - Load from Laravel Config ---
         // This block only runs if the quantum leap failed.
         if (!self::$loadedFromGenerated) {
-            // Get and Read the list of all canonical platform names & aliases from the config.
-            // result expected: ['r'=>'rubika', 'tg'=>'telegram', ...]
-            $aliases = config('krubot.drivers.aliases', []);
+            // ✅ FIX: Read from krubot.platforms.aliases (global platform identity),
+            // NOT from krubot.drivers.aliases (which is now bot-scoped/obsolete).
+            //
+            // Backward compatibility: if the new key is missing, fall back to the
+            // legacy path so older single-bot configs keep working.
+            $aliases = config('krubot.platforms.aliases')
+                ?? config('krubot.drivers.aliases', []);
+
             $legions = config('krubot.legions', []);
         }
 
@@ -175,8 +180,6 @@ final class Platform implements Stringable
             if (!is_string($key) || !is_string($val)) continue;
             $map[strtolower($key)] = strtolower($val);
         }
-
-        // store map
         self::$aliasMap = $map;
 
         // Normalize legions: lower-case keys.
@@ -192,8 +195,6 @@ final class Platform implements Stringable
         foreach ($canonicals as $canonical) {
             self::$instances[$canonical] = new self($canonical);
         }
-
-        // Also ensure that canonical names map to themselves (allow Platform::Rubika())
         foreach (array_keys(self::$instances) as $canonical) {
             self::$aliasMap[$canonical] = $canonical;
         }

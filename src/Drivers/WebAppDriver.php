@@ -119,7 +119,7 @@ final class WebAppDriver implements MultiverseEnforcer
     public function __construct(array $config)
     {
         $this->config       = $config;
-        $this->driverAlias  = $config['alias'] ?? 'web';
+        $this->assignCodeName($config['driver_alias'] ?? 'web');
 
         $this->botUser = [
             'id'         => 0,
@@ -134,7 +134,7 @@ final class WebAppDriver implements MultiverseEnforcer
         $this->senderUser  = $this->resolveSenderUser();
         $this->chatContext = $this->resolveChatContext();
 
-        $this->igniteNeon();
+        $this->igniteNeon($this->config);
     }
 
     // =========================================================================
@@ -808,6 +808,7 @@ final class WebAppDriver implements MultiverseEnforcer
 
     public function sendMessage(array $params): array
     {
+        $this->warlord()->setCurrentDriver($this->getCodeName());
         return $this->makeRequest('sendMessage', $params);
     }
 

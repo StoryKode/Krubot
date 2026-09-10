@@ -150,7 +150,7 @@ final class AmethystMatrix
         if(self::$isAwake) {
 
             if($fetchNewMessageFromKrubot)
-                self::setWorkingMessage(self::bot()->thisMessage() ?? null); // reload message from bot to context
+                self::setWorkingMessage(self::warlord()->thisMessage() ?? null); // reload message from bot to context
 
             return true;
         }
@@ -552,7 +552,7 @@ final class AmethystMatrix
             return;
 
         // 1. Try Context (Request Scope) - Hyper Fast
-        if ($bot = self::bot()) {
+        if ($bot = self::warlord()) {
              // We use the 'InteractsWithContext' trait methods if available
              if (method_exists($bot, 'setData')) {
                  $bot->setData("amethyst_mem_$key", $thought);
@@ -593,7 +593,7 @@ final class AmethystMatrix
     public static function recall(string $key, mixed $default = null): mixed
     {
         // 1. Check Context
-        if ($bot = self::bot()) {
+        if ($bot = self::warlord()) {
             // We use the 'InteractsWithContext' trait methods if available
             if (method_exists($bot, 'getData')) {
                 $val = $bot->getData("amethyst_mem_$key", $default);
@@ -639,8 +639,8 @@ final class AmethystMatrix
 
     /**
      * Try to retrieve the living Krubot instance from the weak reference.
-     */
-    protected static function bot(): ?Krubot
+    */
+    protected static function warlord(): ?Krubot
     {
         return self::$warlordRef?->get();
     }
@@ -774,7 +774,7 @@ final class AmethystMatrix
             return;
 
         // 🧠 ADMIN TELEPATHY: If a bot instance is alive, notify the Admin immediately.
-        if ($bot = self::bot()) {
+        if ($bot = self::warlord()) {
             // Optional: Telepathic alert to admin via the bot instance if available
             try {
                 $bot->sendMessageToAdmins("🔥 **AMETHYST ALERT** 🔥\n\nError: {$terror}\nContext: {$context['request_id']}\n\nPayload:\n" . self::oracle($context));
@@ -805,7 +805,7 @@ final class AmethystMatrix
      */
     protected static function buildIntelligentContext(): array
     {
-        $bot = self::bot();
+        $bot = self::warlord();
 
         // if (!$bot || !self::$messageContext) {
         if (!$bot) {
@@ -819,7 +819,7 @@ final class AmethystMatrix
 
         $options = self::$config['report_context'] ?? [];
 
-        if ($options['driver'] ?? false) $meta['driver'] = $bot->getDriverAlias();
+        if ($options['driver'] ?? false) $meta['driver'] = $bot->getDriverCodeName();
         if ($options['user_id'] ?? false) $meta['user_id'] = $bot->senderId();
         if ($workingMessage = self::getWorkingMessage()) {
             if ($options['chat_id'] ?? false) $meta['chat_id'] = $workingMessage->chat_id ?? $bot->chatId();

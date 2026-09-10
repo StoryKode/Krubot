@@ -41,7 +41,7 @@ use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
 /**
- * 🏛 BotStorage Class v5.0.0 (The Ultimate Omniscient Obsidian Edition)
+ * 🏛 BotStorage Class v7.0.0 (The Ultimate Omniscient Obsidian Edition)
  *
  * A powerful, fluent, and context-aware wrapper around Laravel Cache.
  * Combines UniChatKit's API simplicity with Laravel's power and Multiverse capabilities.
@@ -63,17 +63,17 @@ class BotStorage
 {
     /**
      * Default Time-To-Live in minutes (default: 60 days).
-     */
+    */
     protected int $defaultMinutes = 60 * 24 * 60;
 
     /**
      * The root namespace for all keys (prevents collision with other apps).
-     */
+    */
     protected string $rootNamespace = 'krubot';
 
     /**
      * The default key to use if none is provided (Context Key).
-     */
+    */
     protected ?string $defaultKey = null;
 
     /**
@@ -82,11 +82,25 @@ class BotStorage
      * @param string $driver      The multiverse identity (e.g., 'rubika', 'telegram').
      * @param string $scope       The storage scope (e.g., 'user', 'chat', 'driver').
      * @param string|null $defaultKey Optional initial context key (e.g., UserID).
-     */
+    */
     public function __construct(
         protected string $driver,
         protected string $scope,
-        ?string $defaultKey = null
+        ?string $defaultKey = null,
+
+        /**
+         * ✅ NEW (Multi-Bot): The operative/regiment INSTANCE name (e.g., 'main', 'support').
+         *
+         * - null  → LEGACY single-bot mode. The cache key OMITS the bot
+         *           segment entirely, preserving 100% compatibility with
+         *           existing keys such as 'krubot:telegram:user:123'.
+         * - string → MULTI-BOT mode. The cache key inserts the bot segment,
+         *           producing 'krubot:main:telegram:user:123'.
+         *
+         * This is the ONLY point where the storage key format branches,
+         * keeping all downstream code bot-agnostic.
+        */
+        protected ?string $operative = null,
     ) {
         if ($defaultKey) {
             $this->defaultKey = $defaultKey;
@@ -98,7 +112,7 @@ class BotStorage
      * 
      * @param int $minutes
      * @return static
-     */
+    */
     public function setTTL(int $minutes): static
     {
         $this->defaultMinutes = $minutes;
@@ -111,7 +125,7 @@ class BotStorage
      * 
      * @param string $driver
      * @return static
-     */
+    */
     public function setDriver(string $driver): static
     {
         $this->driver = $driver;
@@ -123,7 +137,7 @@ class BotStorage
      * 
      * @param string $key
      * @return static
-     */
+    */
     public function setDefaultKey(string $key): static
     {
         $this->defaultKey = $key;
@@ -137,7 +151,7 @@ class BotStorage
      * @param array $data Key-value pairs to save.
      * @param string|null $key Optional explicit key. If null, uses default context.
      * @return static
-     */
+    */
     public function save(array $data, ?string $key = null): static
     {
         $targetKey = $this->resolveKey($key);
@@ -166,7 +180,7 @@ class BotStorage
      * 
      * @param string|array $key   Key (dot.notation) or Array of data.
      * @param mixed $value Value (if key is string).
-     */
+    */
     public function put(string|array $key, mixed $value = null): static
     {
         if (is_array($key)) {
@@ -188,7 +202,7 @@ class BotStorage
      *
      * @param string|null $key The ID to find. If null, uses default context.
      * @return StorageCollection
-     */
+    */
     public function find(?string $key = null): StorageCollection
     {
         $targetKey = $this->resolveKey($key);
@@ -210,7 +224,7 @@ class BotStorage
      *
      * @param string $key The data key to retrieve (NOT the storage ID).
      * @param mixed $default Default value if missing.
-     */
+    */
     public function get(string $key, mixed $default = null): mixed
     {
         // This method operates on the DEFAULT context (Current User/Chat)
@@ -225,7 +239,7 @@ class BotStorage
      *
      * @param string|null $key Optional explicit ID.
      * @return array
-     */
+    */
     public function all(?string $key = null): array
     {
         $targetKey = $this->resolveKey($key);
@@ -238,7 +252,7 @@ class BotStorage
      * 🔥 DELETE: Delete a specific storage entry completely.
      *
      * @param string|null $key The ID to delete. If null, deletes current context.
-     */
+    */
     public function delete(?string $key = null): static
     {
         $targetKey = $this->resolveKey($key);
@@ -251,7 +265,7 @@ class BotStorage
 
     /**
      * 🚮 FLUSH: Completely flush the cache for a specific key (Alias for delete).
-     */
+    */
     public function flush(?string $key = null): void
     {
         $this->delete($key);
@@ -262,7 +276,7 @@ class BotStorage
      * Supports dot notation.
      *
      * @param string $key The data key to check.
-     */
+    */
     public function has(string $key): bool
     {
         $data = $this->all();
@@ -276,7 +290,7 @@ class BotStorage
      * @param string $key
      * @param mixed $default
      * @return mixed
-     */
+    */
     public function pull(string $key, mixed $default = null): mixed
     {
         $value = $this->get($key, $default);
@@ -290,7 +304,7 @@ class BotStorage
      * 
      * @param string $key
      * @return static
-     */
+    */
     public function forget(string|array $key): static
     {
         $data = $this->all();
@@ -311,7 +325,7 @@ class BotStorage
      * @param string $key Dot notation key.
      * @param int $amount
      * @return int The new value.
-     */
+    */
     public function increment(string $key, int $amount = 1): int
     {
         $current = (int) $this->get($key, 0);
@@ -326,7 +340,7 @@ class BotStorage
      * @param string $key
      * @param int $amount
      * @return int
-     */
+    */
     public function decrement(string $key, int $amount = 1): int
     {
         return $this->increment($key, $amount * -1);
@@ -338,7 +352,7 @@ class BotStorage
      * @param string $key
      * @param \Closure $callback
      * @return mixed
-     */
+    */
     public function remember(string $key, \Closure $callback): mixed
     {
         if ($this->has($key)) {
@@ -359,7 +373,7 @@ class BotStorage
      * If explicit key is passed, use it. Otherwise use default context.
      * 
      * @throws InvalidArgumentException
-     */
+    */
     protected function resolveKey(?string $key): string
     {
         if ($key !== null) {
@@ -378,11 +392,60 @@ class BotStorage
      * Format: krubot:{driver}:{scope}:{id}
      * 
      * This is the Secret Sauce of the Multiverse System.
-     */
+    */
     protected function getCacheKey(string $key): string
     {
         // Example: krubot:rubika:user:123456
         // Example: krubot:telegram:chat:g998877
-        return "{$this->rootNamespace}:{$this->driver}:{$this->scope}:{$key}";
+        return $this->operative !== null
+        ?
+            "{$this->rootNamespace}:{$this->operative}:{$this->driver}:{$this->scope}:{$key}"
+        :
+            "{$this->rootNamespace}:{$this->driver}:{$this->scope}:{$key}";
+    }
+
+    // =========================================================================
+    //  🧭 CONTEXT ACCESSORS (Multi-Bot introspection)
+    // =========================================================================
+
+    /**
+     * The canonical platform this storage is bound to ('telegram', 'rubika', ...).
+    */
+    public function platform(): string
+    {
+        return $this->driver;
+    }
+
+    /**
+     * The regiment this storage is bound to, or null in legacy mode.
+    */
+    public function operative(): ?string
+    {
+        return $this->operative;
+    }
+
+    /**
+     * Whether this storage instance operates in multi-bot mode
+     * (i.e., its cache keys include a regiment/operative segment).
+    */
+    public function isMultiBotScoped(): bool
+    {
+        return $this->operative !== null;
+    }
+
+    /**
+     * Full context descriptor — useful for logging, debugging, and
+     * propagating context to downstream consumers (UserEntity,
+     * StorageCollection) that need to re-resolve the same storage.
+     *
+     * @return array{operative:?string, platform:string, scope:string}
+    */
+    public function getContext(): array
+    {
+        return [
+            'operative' => $this->operative,
+            'platform'  => $this->driver,
+            'scope'     => $this->scope,
+        ];
     }
 }

@@ -37,8 +37,10 @@ class UserEntity
     /**
      * @param array $platformInfo Data coming from Rubika API (sender_id, etc.)
      * @param array $storageData Data coming from your Cache/DB
+     * @param string|null $platform    Canonical platform ('telegram', 'rubika', ...). Null when constructed outside a driver context.
+     * @param string|null $operative   Bot instance name (eg 'main', 'support', ...). Null in legacy single-bot-as-platform deployments.
      */
-    public function __construct(array $platformInfo, array $storageData = [])
+    public function __construct(array $platformInfo, array $storageData = [], public readonly ?string $platform = null, public readonly ?string $operative = null)
     {
         $this->id = $platformInfo['id'] ?? '';
         $this->firstName = $platformInfo['first_name'] ?? null;
@@ -85,7 +87,7 @@ class UserEntity
      * Get a value from the user's custom storage.
      * 
      * Example: $user->get('age');
-     */
+    */
     public function get(string $key, mixed $default = null): mixed
     {
         return $this->storageInfo->get($key, $default);
@@ -93,7 +95,7 @@ class UserEntity
 
     /**
      * Get all custom storage data as an array.
-     */
+    */
     public function getInfo(): array
     {
         return $this->storageInfo->all();
@@ -101,9 +103,62 @@ class UserEntity
 
     /**
      * Check if specific data exists in storage.
-     */
+    */
     public function has(string $key): bool
     {
         return $this->storageInfo->has($key);
+    }
+
+    // ── NEW: Context introspectors ──
+
+    /**
+     * Whether this user entity was constructed inside a multi-bot context.
+     */
+    public function isMultiBot(): bool
+    {
+        return $this->operative !== null;
+    }
+
+    /**
+     * Returns the entity with a new bot binding, preserving all other data.
+     * Immutable-style: returns a NEW instance; the original is unchanged.
+     *
+     * Useful when passing a user across bot boundaries (e.g., a cross-bot
+     * broadcast where the same user appears in multiple Telegram bots).
+    */
+    public function withOperative(?string $newBot): self
+    {
+        return new self(
+            platformInfo:   $this->toPlatformArray(),
+            storageData:    $this->storageInfo->all(),
+            platform:       $this->platform,
+            operative:      $newBot,
+        );
+    }
+
+    /**
+     * Returns the entity with a new platform binding.
+    */
+    public function withPlatform(?string $newPlatform): self
+    {
+        return new self(
+            platformInfo:   $this->toPlatformArray(),
+            storageData:    $this->storageInfo->all(),
+            platform:       $newPlatform,
+            operative:      $this->operative,
+        );
+    }
+
+    /**
+     * Reconstructs the original platformInfo array for re-hydration.
+    */
+    protected function toPlatformArray(): array
+    {
+        return [
+            'id'         => $this->id,
+            'first_name' => $this->firstName,
+            'last_name'  => $this->lastName,
+            'username'   => $this->username,
+        ];
     }
 }

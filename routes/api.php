@@ -33,7 +33,34 @@ The '{driver?}' parameter makes it configurable & optional,
 allowing Nemesis[KrubotManager]'s payload-sniffing to work its magic for legacy webhooks.
 */
 
-Route::any('/run-krubik/{driver?}', [QuantumGatewayController::class, 'handleWebhook'])
+/*
+|--------------------------------------------------------------------------
+| Update: Multi-Bot Webhook Entry Point
+|--------------------------------------------------------------------------
+|
+| Three route shapes to disambiguate {operative} vs {driver}:
+|
+|   1. /run-krubik                     → full contextual resolution
+|   2. /run-krubik/{operative}               → bot forced, driver contextual
+|   3. /run-krubik/{operative}/{driver}      → both forced
+|
+| Laravel matches the most specific route first, so no ambiguity.
+| Nemesis reads these params automatically via Route::current()->parameter().
+|
+*/
+
+Route::controller(QuantumGatewayController::class)
+    ->prefix('run-krubik')
     // ->withoutMiddleware([VerifyCsrfToken::class); // 🛡️ Bypass CSRF for Webhooks, Not Needed For API Routes
     ->middleware('ssp.protocol') // 🛡️ Attach the Synaptic Surge Protocol as a silent guardian.
-    ->name('nexus.quantum.resonance'); // The Point of Resonance
+    ->group(function () {
+        foreach ([
+            '{operative}/{driver}'  => 'direct',
+            '{operative}'           => 'regiment',
+            'legacy/{driver?}'      => 'legacy',
+            ''                      => 'x',
+        ] as $uri => $name) {
+            Route::any($uri, 'handleWebhook')
+                ->name("nexus.quantum.resonance.$name"); // The Point of The Resonance
+        }
+    });

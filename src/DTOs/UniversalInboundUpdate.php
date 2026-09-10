@@ -39,7 +39,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Str;
 use KrubiK\Helpers\AmethystMatrix;
-use KrubiK\Helpers\Core\RenderContext; // The single source of truth for platform identity
+use KrubiK\Render\RenderAura; // The single source of truth for platform identity
 
 /**
  * UniversalInboundUpdate (The Omega Toxic DTO v2.0) ☣️♎️
@@ -47,7 +47,7 @@ use KrubiK\Helpers\Core\RenderContext; // The single source of truth for platfor
  * A strict, immutable, multi-platform data carrier optimized for PHP 8.2+.
  * It swallows chaos (raw JSON) and excretes order (Typed Objects).
  * 
- * It now relies on a container-resolved `RenderContext` to identify the source platform,
+ * It now relies on a container-resolved `RenderAura` to identify the source platform,
  * falling back to hints or safe defaults. It normalizes data into a common API while
  * preserving the original rich payload.
  *
@@ -126,7 +126,7 @@ readonly class UniversalInboundUpdate implements Arrayable
      *
      * It uses a precise, hierarchical strategy to determine the platform:
      * 1. **Forced Hint (`$platformHint`):** Highest priority. Ideal for testing and specific overrides.
-     * 2. **RenderContext from Container:** The primary, most reliable source in a live application.
+     * 2. **RenderAura from Container:** She is The primary, most reliable source in a live application.
      * 3. **Fallback:** If all else fails, it creates a safe, 'unknown' DTO.
      *
      * @param array $payload The raw request body from any platform's webhook.
@@ -140,12 +140,9 @@ readonly class UniversalInboundUpdate implements Arrayable
 
         if ($platformName === null) {
             // Priority 2: Ask the Laravel service container for the RenderContext.
-            if (App::has(RenderContext::class)) {
-                /** @var RenderContext $context */
-                $context = App::make(RenderContext::class);
-                // RenderContext holds a Platform Enum; we need its string value.
-                $platformName = $context->platform->value;
-            }
+            $platform = app(RenderAura::class)->platform;
+            // RenderAura always holds a Smart-Platform object; we need its string value.
+            $platformName = (string) $platform;
         }
         
         // Step 2: Dispatch the payload to the correct, specialized mapper.

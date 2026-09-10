@@ -22,6 +22,7 @@ use Telegram\Bot\Exceptions\TelegramSDKException;
 use Illuminate\Support\Collection;
 
 // Contracts & Traits
+use KrubiK\Enums\Platform;
 use KrubiK\Drivers\Contracts\BotDriverInterface; // For General Polymorphism
 use KrubiK\Drivers\Contracts\Layers\TelegramExclusiveInterface;
 use KrubiK\Drivers\Arcane\NeonVitality;
@@ -41,13 +42,23 @@ use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
 /**
  * Class TelegramDriver - Titan implementation
  *
- * The "Strongest" implementation of the Telegram Driver for KrubiK (v5 Obsidian).
+ * The "Strongest" implementation of the Telegram Driver for KrubiK (v7 Obsidian).
  *
  * This class is a High-Level Adapter that bridges the gap between the KrubiK
  * Meta-Framework and the native Telegram Bot SDK. It handles:
  * 1. Auto-conversion of Local File Paths to InputFile objects.
  * 2. Real-time translation of KrubiK Keyboards to Telegram ReplyMarkup JSON.
  * 3. Standardization of responses to Arrays for the Warlord Pipeline.
+ * 
+ * ⚠️ MULTI-BOT AWARENESS:
+ *   Each instance belongs to EXACTLY ONE bot. The constructor receives
+ *   a BOT-SCOPED config array resolved by Nemesis::getDriverConfig().
+ *   Therefore:
+ *     - telegram_main     and     telegram_support
+ *   are DIFFERENT instances with DIFFERENT tokens, strategies, bridges, and even admin lists.
+ * 
+ * The instance identity is stamped by Nemesis Tentacles, use getConfig('driver') to obtain the platform
+ * and use getCodeName() to obtain the instance name;
  * 
  * @author DoKtor K.
  * @link https://StoryKo.de/Krubot Official website of engine.
@@ -165,6 +176,7 @@ class TelegramDriver extends TGCore implements BotDriverInterface /// , Telegram
     */
     public function __call($method, $parameters)
     {
+        $this->warlord()?->setCurrentDriver(Platform::Telegram());
         // We route EVERYTHING through our central request maker.
         // The first argument of SDK calls is always the params array.
         return $this->makeRequest($method, $parameters[0] ?? []);

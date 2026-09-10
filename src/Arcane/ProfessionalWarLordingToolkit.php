@@ -15,11 +15,9 @@ namespace KrubiK\Arcane;
 
 use Closure;
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
+use KrubiK\Drivers\Nemesis as KrubotManager;
 use InvalidArgumentException;
 use KrubiK\Enums\Platform; // ✨ این خط باید اضافه شود
-use KrubiK\Drivers\RubikaDriver;
-use KrubiK\Drivers\BaleDriver;
-use KrubiK\Drivers\TelegramDriver;
 
 use KrubiK\WarLording\WarCouncil;
 use KrubiK\WarLording\PrimeAgent;
@@ -54,28 +52,13 @@ use KrubiK\WarLording\PrimeAgent;
 trait ProfessionalWarLordingToolkit
 {
     /**
-     * The armory of active, instantiated driver instances.
-     * @var array<string, MultiverseEnforcer>
-     */
-    protected array $drivers = [];
-
-    /**
-     * ⚡️ THE SINGLE SOURCE OF TRUTH for driver identification (Dynamic).
-     * Now hydrated from config('krubot.drivers.aliases').
-     * 
-     * Maps user-friendly aliases to canonical driver names.
-     * The map is "self-aware": 'rubika' also points to 'rubika'.
-     *
-     * @var array<string, string>
-     *
-     */
-    protected array $driverAliases = []; // 🧹 Clean Slate: No hardcoded values.
-
-    /**
      * The canonical name of the default driver for this instance.
      * This is ALWAYS the full name (e.g., 'rubika'), not an alias.
+     * 
+     * Fluent override of the default driver.
+     * null means: "ask Nemesis for the contextual default".
      */
-    protected string $defaultDriverName = 'rubika';
+    protected ?string $defaultDriverName = null;
 
     /**
      * Stores the alias(es) for the next single, fluent operation.
@@ -86,21 +69,24 @@ trait ProfessionalWarLordingToolkit
      */
     protected string|array|null $onetimeDriverAlias = null;
 
-    /**
-     * 🚀 CORE ACCESS: The Gateway to the Platform Soul.
-     * The primary entry point for accessing any driver.
-     *
-     * @param string|null $alias The alias ('r', 'b') or full name ('rubika'). If null, returns the default driver.
-     * @return MultiverseEnforcer The requested driver instance.
-     * /
-    public function coreOld(?string $alias = null): MultiverseEnforcer
-    {
-        // Removed for LLM DeAmbiguousiaty...
-    }
-    **/
+    // ---------------------------------------------------------------------
+    //  🔌 NEMESIS BRIDGE
+    // ---------------------------------------------------------------------
 
     /**
-     * 🚀 CORE ACCESS: The Gateway to the Platform Soul. (UPGRADED)
+     * The one and only entry point to the driver multiverse.
+    */
+    public function nemesis(): KrubotManager
+    {
+        return app('krubot.manager');
+    }
+
+    // ---------------------------------------------------------------------
+    //  🚀 CORE ACCESS
+    // ---------------------------------------------------------------------
+
+    /**
+     * 🚀 CORE ACCESS - The Gateway to the Platform Soul. (UPGRADED)
      * The primary entry point for accessing any driver.
      * NOW ACCEPTS string aliases OR Platform enum objects.
      *
@@ -109,21 +95,23 @@ trait ProfessionalWarLordingToolkit
     */
     public function core(string|Platform|null $alias = null): MultiverseEnforcer
     {
-        $driverName = $this->defaultDriverName; // Start with default
-
+        // Explicit target.
         if ($alias !== null) {
             // If a Platform object is passed, it's already canonical.
             // The __toString magic method ensures it becomes a string.
-            if ($alias instanceof Platform) {
-                $driverName = (string) $alias;
-            } 
-            // Otherwise, it's a string alias that needs resolution.
-            else {
-                $driverName = $this->resolveDriverName($alias);
-            }
+            $name = $alias instanceof Platform ? (string) $alias : $alias;
+            // Otherwise, it's a string alias that maybe needs resolution.
+
+            return $this->nemesis()->driver($name);
         }
 
-        return $this->driver($driverName);
+        // Local fluent override (set via setDefaultDriver).
+        if ($this->defaultDriverName !== null) {
+            return $this->nemesis()->driver($this->defaultDriverName);
+        }
+
+        // Contextual default (route/header/payload, per Bot).
+        return $this->nemesis()->driver();
     }
 
     /**
@@ -135,16 +123,11 @@ trait ProfessionalWarLordingToolkit
      */
     public function driver(string $name): MultiverseEnforcer
     {
-        // 1. Check instance cache first.
-        if (isset($this->drivers[$name])) {
-            return $this->drivers[$name];
-        }
 
-        // 2. Lazy Load: Create the driver on first access.
-        $driverInstance = $this->createDriver($name);
-        $this->drivers[$name] = $driverInstance;
-
-        return $driverInstance;
+        // Thin passthrough. Nemesis owns caching, identity stamping,
+        // bot resolution, and multi-bot isolation.
+        return $this->nemesis()->driver($name, $bot);
+        // Lazy Load: Create the driver on first access.
     } 
 
     /**
@@ -160,7 +143,8 @@ trait ProfessionalWarLordingToolkit
      */
     public function resolveDriverName(string $alias): string
     {
-        return $this->driverAliases[strtolower($alias)] ?? $alias;
+        // Delegate to Nemesis for bot-scoped alias resolution.
+        return $this->nemesis()->resolveDriverName($alias);
     }
 
     /**
@@ -171,23 +155,8 @@ trait ProfessionalWarLordingToolkit
      */
     public function setDefaultDriver(string $alias): self
     {
-        // Always resolve and store the canonical name.
-        $this->defaultDriverName = $this->resolveDriverName($alias);
-        return $this;
-    }
-
-    /**
-     * Dynamically registers a new alias for a driver.
-     *
-     * @param string $alias The short alias (e.g., 's').
-     * @param string $canonicalName The full driver name (e.g., 'soroush').
-     * @return $this
-     */
-    public function addCoreAlias(string $alias, string $canonicalName): self
-    {
-        $this->driverAliases[strtolower($alias)] = $canonicalName;
-        // Also add self-awareness for the new canonical name
-        $this->driverAliases[strtolower($canonicalName)] = $canonicalName;
+        // Always Canonicalize through Nemesis to resolve and store the bot-scoped aliases as well as canonical names.
+        $this->defaultDriverName = $this->nemesis()->resolveDriverName($alias);
         return $this;
     }
 
@@ -431,163 +400,4 @@ trait ProfessionalWarLordingToolkit
     {
         return new WarCouncil($this, $aliases);
     }
-
-    /**
-     * =========================================================================
-     *  ⚡️ THE TRIUMVIRATE: Oracle, Factory, Gatekeeper ⚡️
-     * =========================================================================
-     */
-
-    /**
-     * ⚙️ THE MISSING LINK: Configuration Repository
-     * This property holds the entire configuration array (e.g., contents of krubot.php).
-     * It is defined here to ensure the Trait is self-contained.
-     *
-     * @var array
-     */
-    protected array $pwl_config = [];
-
-    /**
-     * 🔧 CONFIG INJECTOR
-     * Since Traits cannot have constructors in the traditional sense without conflict,
-     * call this method from your Host Class constructor.
-     *
-     * @param array $config The full configuration array.
-     * @return $this
-     */
-    public function setConfig(array $config): self
-    {
-        $this->pwl_config = $config;
-
-        // 💧 HYDRATION PROTOCOL: Load Aliases from Config
-        // We look for 'drivers' -> 'aliases'
-        if (isset($config['drivers']['aliases']) && is_array($config['drivers']['aliases'])) {
-            $this->driverAliases = $config['drivers']['aliases'];
-        } else {
-            // Fallback / Warning protocol could go here if needed.
-            // For now, we trust the Supreme Commander's config file.
-        }
-
-        return $this;
-    }   
-
-    /**
-     * 🔮 THE ORACLE (ACCESS GATE)
-     * Retrieves the specific configuration array for a single driver.
-     * This method acts as the "Access Gate", confirming that a valid config
-     * exists for the requested driver name.
-     *
-     * @param string|null $name The canonical name of the driver (e.g., 'rubika').
-     * @return array The configuration array for the requested driver.
-     * @throws InvalidArgumentException If the configuration is missing.
-     */
-    protected function getDriverConfig(?string $name = null): array
-    {
-        // If no name is provided, use the instance's default driver name.
-        $driverName = $name ?? $this->defaultDriverName;
-
-        // Fetch config: $this->pwl_config['drivers']['rubika']
-        // This is the direct mapping: Key 'rubika' => Driver Config.
-        $driverConfig = $this->pwl_config['drivers'][$driverName] ?? null;
-        // 🔥 NOW SAFE: $this->pwl_config is defined in this Trait.
-
-        if ($driverConfig === null) {
-            throw new InvalidArgumentException("Oracle Misread: Configuration for driver '{$driverName}' not found under the 'drivers' key in your config file.");
-        }
-
-        return $driverConfig;
-    }
-
-    /**
-     * 🛡️ THE GATEKEEPER (نگهبان دروازه) (Updated for v3.0 Architecture / Logic Transplanted from KrubotServiceProvider Code)
-     * Handles the instantiation of the primary Krubot (Rubika) instance
-     * with strict token validation and full config injection for advanced features.
-     * 
-     * Handles the creation of the primary Krubot (Rubika) instance with
-     * strict token validation and full config injection.
-     *
-     * @param array $driverConfig The specific configuration array for the Rubika driver.
-     * @return \KrubiK\Krubot The fully instantiated and validated core bot.
-     * @throws InvalidArgumentException If the token is invalid.
-     * 
-     * وظیفه این متد دیگر ساختن کل Krubot نیست.
-     * وظیفه آن ساختن و اعتبارسنجی امنیتی "درایور روبیکا" است.
-     *
-     * @param array $driverConfig تنظیمات خاص درایور روبیکا
-     * @return RubikaDriver خروجی دیگر Krubot نیست، بلکه درایور است!
-     * @throws InvalidArgumentException If the token is invalid.
-    */
-    protected function instantiateRubikaDriver(array $driverConfig): RubikaDriver
-    {
-        // 1. Extract the token from the specific driver config.
-        $token = $driverConfig['token'] ?? null;
-
-        // 2. Perform the critical security check.
-        // Critical token validation (Fail Fast)
-        if (empty($token) || $token === '_') {
-            throw new InvalidArgumentException('Gatekeeper Blocked Access: Rubika Bot Token (authtoken) is missing or invalid for the default driver in config/krubot.php.'); // 'KrubiK Bot Token is not configured in .env or config/krubot.php.' // '⛔ KrubiK Critical Error: Bot Token is missing in config/krubot.php or .env'
-        }
-
-        // 3. Instantiate Krubot.
-        //    - Pass the validated token.
-        //    - Pass the ENTIRE config object ($this->pwl_config) to ensure features
-        //      like Legion Loading and Nexus Discovery have access to all settings.
-
-        // ✅✅✅ THIS IS THE CRITICAL LINE THAT ENABLES LEGION LOADING ✅✅✅
-        //-// return new \KrubiK\Krubot($token, $this->pwl_config);
-
-        // این کلاس RubikaDriver است که از VanguardCore ارث‌بری کرده و توکن را در سازنده خود مدیریت می‌کند.
-        return new RubikaDriver($driverConfig);
-
-        // 3. Instantiate Krubot.
-        // We pass the ENTIRE config object ($this->pwl_config) as the second argument,
-        // ensuring access to global settings like 'nexuses', 'discovery', etc.
-
-        // 4. Instantiate Krubot, passing BOTH token and config.
-        // Note: We use \KrubiK\Krubot explicitly as it represents the Core driver.
-    }
-
-    /**
-     * 🏭 THE GRAND FACTORY (Smart & Polymorphic Edition)
-     * Factory method to create new driver instances.
-     *
-     * 💡 UPGRADE: Now identifies the driver type from the 'driver' key inside the config,
-     * allowing multiple instances of the same platform (e.g., 'support_bot' => ['driver' => 'rubika']).
-     *
-     * @param string $name The canonical instance name of the driver (e.g., 'rubika', 'support', 'telegram_2').
-     * @return MultiverseEnforcer
-    */
-    protected function createDriver(string $name): MultiverseEnforcer
-    {
-        // 1. Consult the Oracle (The Access Gate) to get the build plan.
-        $driverConfig = $this->getDriverConfig($name);
-
-        // 2. Determine the Driver Type (The DNA).
-        // We look for the 'driver' key (e.g., 'rubika'). If missing, we fallback to the instance name.
-        $driverType = $driverConfig['driver'] ?? $name;
-
-        // 3. Manufacture based on Type (DNA), not Name.
-        return match ($driverType) {
-            // For Rubika types, delegate to the high-security Gatekeeper instantiateRubikaDriver().
-            'rubika'   => $this->instantiateRubikaDriver($driverConfig),
-            
-            // For other drivers, use standard production lines / Standard Instantiation.
-            'bale'     => new BaleDriver($driverConfig),
-            'telegram' => new TelegramDriver($driverConfig),
-            
-            default    => throw new InvalidArgumentException("Grand Factory Error: Driver type [{$driverType}] defined for instance [{$name}] is not supported."),
-        };
-    }
-
-    /**
-     * Factory method to create new driver instances.
-     * It relies on the consumer class having a `$this->config` property.
-     *
-     * @param string $name The canonical name of the driver.
-     * @return MultiverseEnforcer
-    * /
-    protected function createDriverOld(string $name): MultiverseEnforcer
-    {
-        // Removed for LLM DeAmbiguousiaty...
-    } */
 }

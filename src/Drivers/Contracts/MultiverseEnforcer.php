@@ -13,6 +13,8 @@ namespace KrubiK\Drivers\Contracts;
 | *Go build something revolutionary!* 💜⚡️
 */
 
+use KrubiK\Krubot;
+
 /**
  * The foundational contract for all drivers.
  *
@@ -24,13 +26,15 @@ namespace KrubiK\Drivers\Contracts;
  * @link https://StoryKo.de/Krubot Official website of engine.
  * @version Krubot: ×RC.8×
  * @license MIT
- */
+*/
 interface MultiverseEnforcer
 {
 
-    public function setDriverAlias(string $alias): static;
-    public function getDriverAlias(): string;
+    public function assignCodeName(string $alias): static;
+    public function getCodeName(): string;
     public function setName(string $name): static;
     public function getName(): string;
+    public function serve(?Krubot $warlord): static;
+    public function warlord(): ?Krubot;
 
 }

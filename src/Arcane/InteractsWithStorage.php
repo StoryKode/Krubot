@@ -16,6 +16,7 @@ namespace KrubiK\Arcane;
 use KrubiK\Storage\BotStorage;
 use KrubiK\Enums\Platform; // ✨ AGTP-v1 UPGRADE: Importing the holy Platform Enum
 use RuntimeException;
+use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 
 /**
  * Trait InteractsWithStorage (v3.2 Multiverse-Aware Edition)
@@ -33,55 +34,106 @@ trait InteractsWithStorage
 {
     /**
      * Instance cache to prevent object recreation within the same request.
-     * Keys are now composite: "scope:driver_alias" (e.g., "user:rubika", "chat:telegram")
+     * Keys are now composite: "scope:regiment:instance"
+     * (or "scope:instance" in legacy mode, e.g., "user:rubika", "chat:telegram")
      * @var array<string, BotStorage>
-     */
+    */
     protected array $_storageInstances = [];
 
-    // Property to hold the identity (as a string, injected by KrubotManager)
-    protected string $currentDriverAlias;
+    /**
+     * Property to hold the identity (as a string, injected by Nemesis - The KrubotManager)
+     *
+     * ⚠️ Now nullable to avoid PHP 8.2 typed-property initialization errors
+     * when the trait is used before setCurrentDriver() is invoked.
+    */
+    protected ?string $currentDriverCodeName = null;
+
+    /**
+     * Lazily-cached regiment name (invalidated when the driver context changes).
+    */
+    protected ?string $_currentRegimentCache = null;
 
     /**
      * The active "Working Verse" (Global Context Override).
      * If set, all storage calls default to this driver.
-     * @var Platform|null
-     */
-    protected ?Platform $_workingVerse = null;
+     *
+     * setWorkingVerse() call fully determines the storage destination.
+     *
+     * @var array{regiment:?string, instance:string}|null
+    */
+    protected ?array $_workingVerse = null;
 
     /**
-     * 🔮 SET WORKING VERSE (Omniscience Context Switcher - Platform Aware)
+     * 🔮 SET WORKING VERSE (Omniscience Multi-Bot Native Context Switcher)
      *
      * Sets the default driver scope for all subsequent storage calls.
      *
-     * Usage:
-     * $bot->setWorkingVerse('telegram'); // Still works!
-     * $bot->setWorkingVerse(Platform::Bale()); // ✨ HYPER-DX
-     * $bot->userStorage()->get('foo');   // Reads from Bale storage
-     * $bot->setWorkingVerse(null);       // Reset to current actual driver
+     * Fully resolves the target's (bot, instance) pair so that subsequent
+     * storage calls land in the right namespace.
      *
-     * @param string|Platform|null $platform The driver alias (e.g., 'bale'), a Platform object, or null to reset.
-     * @return static
+     * Usage:
+     *   $bot->setWorkingVerse('telegram');              // current regiment's telegram
+     *   $bot->setWorkingVerse('telegram_support');      // explicit instance
+     *   $bot->setWorkingVerse('tg', regiment: 'support');    // explicit both
+     *
+     *   $bot->setWorkingVerse(Platform::Bale());        // ✨ HYPER-DX
+     *   $bot->userStorage()->get('foo');                // Reads from Bale storage
+     *   $bot->setWorkingVerse(null);                    // Reset to current actual driver
     */
-    public function setWorkingVerse(string|Platform|null $platform): static
+    public function setWorkingVerse(string|Platform|null $platform, ?string $regiment = null): static
     {
-        // ✨ AGTP-v1 UPGRADE: Normalize any input to a Platform object or null.
-        $this->_workingVerse = $platform ? Platform::tryFrom($platform) : null;
+        if ($platform === null) {
+            $this->_workingVerse = null;
+            return $this;
+        }
+
+        $nemesis = $this->nemesis();
+        $isMulti = $nemesis->isMultiBotMode();
+
+        $logicalBot = $regiment ?? $nemesis->currentRegiment();
+        $instance   = $nemesis->resolveDriverName(
+            $platform instanceof Platform ? (string) $platform : $platform,
+            $logicalBot,
+        );
+
+        $this->_workingVerse = [
+            'regiment' => $isMulti ? $logicalBot : null,
+            'instance' => $instance,
+        ];
+
         return $this;
     }
 
-    public function setDriverAlias(string $alias): void
+    public function setCurrentDriver(string|MultiverseEnforcer $alias): void
     {
-        $this->currentDriverAlias = $alias;
+        $this->currentDriverCodeName = $alias instanceof MultiverseEnforcer
+            ? $alias->getCodeName()
+            : (string) $alias;
+
+        // Invalidate the bot cache — the context may have shifted mid-request.
+        $this->_currentRegimentCache = null;
     }
 
     /**
      * Helper to get the current ACTUAL driver's alias as a string.
-     * Relies on the Manager injecting it via setDriverAlias.
-     */
-    public function getDriverAlias(): string
+     * Relies on the Manager injecting it via setCurrentDriver.
+    */
+    public function getDriverCodeName(): string
     {
-        // اگر ست نشده بود، فرض را بر پیش‌فرض می‌گذاریم
-        return $this->currentDriverAlias ?? config('krubot.default_driver');
+        // Null-coalescing is safe now that the property is `?string`.
+        return $this->currentDriverCodeName
+            ?? (string) config('krubot.default_driver', 'rubika'); // اگر ست نشده بود، فرض را بر پیش‌فرض می‌گذاریم
+    }
+
+    /**
+     * Lazily resolve and cache the current bot name.
+    */
+    protected function currentRegimentName(): ?string
+    {
+        if ($this->_currentRegimentCache === null && app()->bound('nemesis')) {
+            $this->_currentRegimentCache = $this->nemesis()->currentRegiment();
+        }
+        return $this->_currentRegimentCache;
     }
 
     /**
@@ -91,13 +143,13 @@ trait InteractsWithStorage
      *
      * Priority 1: Inline Argument (Explicit override) -> userStorage(Platform::Bale())
      * Priority 2: Working Verse (Context switch)      -> setWorkingVerse('bale')
-     * Priority 3: Natural State (Current Driver)      -> getDriverAlias()
+     * Priority 3: Natural State (Current Driver)      -> getDriverCodeName()
      *
      * @param string|Platform|null $explicitPlatform
      * @return Platform
      * @throws RuntimeException If no valid platform can be resolved.
     */
-    protected function resolveTargetDriver(string|Platform|null $explicitPlatform): Platform
+    protected function resolveTargetDriverLegacy(string|Platform|null $explicitPlatform = null): Platform
     {
         // 1. Inline Override (High Priority "Raw" Access)
         if ($explicitPlatform !== null) {
@@ -111,11 +163,84 @@ trait InteractsWithStorage
         }
 
         // 3. Natural State (Default)
-        $platform = Platform::tryFrom($this->getDriverAlias());
+        $platform = Platform::tryFrom($this->getDriverCodeName());
         if ($platform) return $platform;
         
         // This should theoretically never be reached if the manager works correctly.
         throw new RuntimeException("KrubiK Storage Error: Could not resolve a target driver.");
+    }    
+
+    /**
+     * @deprecated Retained as a compatibility shim for subclasses that
+     *             override it. New code should use resolveStorageContext().
+     */
+    protected function resolveTargetDriver(string|Platform|null $explicitPlatform = null): Platform
+    {
+        [, $platform] = $this->resolveStorageContext($explicitPlatform);
+        return Platform::tryFrom($platform) ?? Platform::default();
+    }
+
+    /**
+     * 🧠 STORAGE CONTEXT RESOLVER (v3 - Multi-Bot Core)
+     *
+     * Returns a triple describing the storage destination:
+     *
+     *   [0] keyBot   : ?string  — the bot segment for the cache key
+     *                             (null in legacy mode → key omits bot)
+     *   [1] platform : string   — canonical platform ('telegram', ...)
+     *   [2] instance : string   — driver instance name ('telegram_main', ...)
+     *
+     * Priority for target selection:
+     *   1. Inline $driver argument        userStorage(Platform::Telegram())
+     *   2. Working Verse override         setWorkingVerse('tg', bot: 'support')
+     *   3. Natural state (current driver) (from setCurrentDriver)
+     *
+     * Priority for bot context:
+     *   1. Explicit $bot argument
+     *   2. Working Verse bot (if set)
+     *   3. Current bot from Nemesis
+     *   4. null (legacy mode fallback)
+     *
+     * @return array{0:?string, 1:string, 2:string}
+    */
+    protected function resolveStorageContext(
+        string|Platform|null $driver = null,
+        ?string $regiment = null,
+    ): array {
+        $nemesis = $this->nemesis();
+        $isMulti = $nemesis->isMultiBotMode();
+
+        // ── 1. Determine the logical regiment for resolution ──
+        // Always populated (Nemesis defaults to 'default' in legacy mode);
+        // the KEY-segment bot is separately nullified below for compat.
+        $logicalBot = $regiment
+            ?? $this->_workingVerse['regiment']
+            ?? $this->currentRegimentName()
+            ?? $nemesis->currentRegiment();
+
+        // ── 2. Determine the target instance ──
+        if ($driver !== null) {
+            $target = $driver instanceof Platform ? (string) $driver : $driver;
+            $instance = $nemesis->resolveDriverName($target, $logicalBot);
+        } elseif ($this->_workingVerse !== null) {
+            $instance = $this->_workingVerse['instance'];
+        } else {
+            // Natural state: normalize the current driver's code name.
+            $instance = $nemesis->resolveDriverName(
+                $this->getDriverCodeName(),
+                $logicalBot,
+            );
+        }
+
+        // ── 3. Determine the canonical platform from the instance config ──
+        $platform = (string) $nemesis->platformFor($instance, $logicalBot);
+
+        // ── 4. Compute the KEY-segment bot ──
+        // Legacy deployments MUST omit the bot segment to preserve existing
+        // cache keys. Multi-bot deployments MUST include it.
+        $keyBot = $isMulti ? $logicalBot : null;
+
+        return [$keyBot, $platform, $instance];
     }
 
     /**
@@ -132,16 +257,21 @@ trait InteractsWithStorage
      * @return BotStorage
      * @throws RuntimeException If user ID is not available.
     */
-    public function userStorage(string|Platform|null $driver = null, ?string $userId = null): BotStorage
+    public function userStorage(string|Platform|null $driver = null, ?string $userId = null, ?string $regiment = null): BotStorage
     {
-        $targetPlatform = $this->resolveTargetDriver($driver);
-        $targetDriverAlias = $targetPlatform->value(); // Get the string alias for keys
+        [$keyBot, $platform, $instance] = $this->resolveStorageContext($driver, $regiment);
 
-        // Cache Key: "user:telegram" vs "user:rubika"
-        $instanceKey = "user:{$targetDriverAlias}";
+        // Cache key includes BOTH dimensions so cross-bot lookups don't collide.
+        //   legacy:    "user:telegram"
+        //   multi-bot: "user:main:telegram"
+        $instanceKey = $keyBot !== null
+        ?
+            "user:{$keyBot}:{$instance}"
+        :
+            "user:{$instance}"; // Cache Key: "user:telegram" vs "user:rubika"
 
         if (!isset($this->_storageInstances[$instanceKey])) {
-            $storage = new BotStorage($targetDriverAlias, 'user');
+            $storage = new BotStorage($platform, 'user', null, $keyBot);
 
             // Lazy ID Injection:
             // If we are targeting the CURRENT driver, we can use the current senderId.
@@ -165,14 +295,18 @@ trait InteractsWithStorage
      * @param string|Platform|null $driver
      * @return BotStorage
      */
-    public function chatStorage(?string $chatId = null, string|Platform|null $driver = null): BotStorage
+    public function chatStorage(?string $chatId = null, string|Platform|null $driver = null, ?string $regiment = null): BotStorage
     {
-        $targetPlatform = $this->resolveTargetDriver($driver);
-        $targetDriverAlias = $targetPlatform->value();
-        $instanceKey = "chat:{$targetDriverAlias}";
+        [$keyBot, $platform, $instance] = $this->resolveStorageContext($driver, $regiment);
+
+        $instanceKey = $keyBot !== null
+        ?
+            "chat:{$keyBot}:{$instance}"
+        :
+            "chat:{$instance}";
 
         if (!isset($this->_storageInstances[$instanceKey])) {
-            $storage = new BotStorage($targetDriverAlias, 'chat'); // or 'channel'
+            $storage = new BotStorage($platform, 'chat', null, $keyBot); // or 'channel'
 
             $resolvedId = $this->resolveChatId($chatId);
             if ($resolvedId) {
@@ -191,9 +325,9 @@ trait InteractsWithStorage
      * @param string|Platform|null $driver
      * @return BotStorage
      */
-    public function channelStorage(?string $chatId = null, string|Platform|null $driver = null): BotStorage
+    public function channelStorage(?string $chatId = null, string|Platform|null $driver = null, ?string $regiment = null): BotStorage
     {
-        return $this->chatStorage($chatId, $driver);
+        return $this->chatStorage($chatId, $driver, $regiment);
     }
 
     /**
@@ -202,15 +336,22 @@ trait InteractsWithStorage
      * @param string|Platform|null $driver
      * @return BotStorage
      */
-    public function driverStorage(string|Platform|null $driver = null): BotStorage
+    public function driverStorage(string|Platform|null $driver = null, ?string $regiment = null): BotStorage
     {
-        $targetPlatform = $this->resolveTargetDriver($driver);
-        $targetDriverAlias = $targetPlatform->value();
-        $instanceKey = "driver:{$targetDriverAlias}";
+        [$keyBot, $platform, $instance] = $this->resolveStorageContext($driver, $regiment);
+        $instanceKey = $keyBot !== null
+        ?
+            "driver:{$keyBot}:{$instance}"
+        :
+            "driver:{$instance}";
 
         if (!isset($this->_storageInstances[$instanceKey])) {
-            $storage = new BotStorage($targetDriverAlias, 'driver');
-            $storage->setDefaultKey("{$targetDriverAlias}_system");
+            $storage = new BotStorage($platform, 'driver', null, $keyBot);
+
+            // Default key namespaces by INSTANCE, so two bots of the same
+            // platform never share system config keys.
+            $storage->setDefaultKey("{$instance}_system");
+
             $this->_storageInstances[$instanceKey] = $storage;
         }
 
@@ -222,14 +363,18 @@ trait InteractsWithStorage
      * @param string|Platform|null $driver
      * @return BotStorage
      */
-    public function contextStorage(string|Platform|null $driver = null): BotStorage
+    public function contextStorage(string|Platform|null $driver = null, ?string $regiment = null): BotStorage
     {
-        $targetPlatform = $this->resolveTargetDriver($driver);
-        $targetDriverAlias = $targetPlatform->value();
-        $instanceKey = "ctx:{$targetDriverAlias}";
+        [$keyBot, $platform, $instance] = $this->resolveStorageContext($driver, $regiment);
+
+        $instanceKey = $keyBot !== null
+        ?
+            "ctx:{$keyBot}:{$instance}"
+        :
+            "ctx:{$instance}";
 
         if (!isset($this->_storageInstances[$instanceKey])) {
-            $storage = new BotStorage($targetDriverAlias, 'ctx');
+            $storage = new BotStorage($platform, 'ctx', null, $keyBot);
 
             $uId = $this->senderId();
             $cId = $this->chatId();
@@ -278,11 +423,19 @@ trait InteractsWithStorage
         $platformInfo = $this->user(); // Returns ['id' => ..., 'first_name' => ...]
 
         // 2. Get Stored Info from Cache
-        // We use all() to fetch everything associated with this user ID
-        $storageData = $this->userStorage()->all();
+        $storage = $this->userStorage();
+        
+        // 3. We call `all()` to fetch everything associated with this user ID
+        $storageData  = $storage->all();
 
-        // 3. Return the Combined Entity
-        return new UserEntity($platformInfo, $storageData);
+        // 4. Pass the storage context down and Return the Combined Entity ✅
+        // So the UserEntity can carry its origin and re-resolve the same storage if needed.
+        return new UserEntity(
+            platformInfo:   $platformInfo,
+            storageData:    $storageData,
+            platform:       $storage->platform(),
+            operative:      $storage->operative(),
+        );
     }
 
     /**

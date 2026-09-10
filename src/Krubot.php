@@ -226,6 +226,25 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     protected Application $app;
 
+    
+    /**
+     * The armory of active, instantiated driver instances.
+     * @var array<string, MultiverseEnforcer>
+     */
+    // protected array $drivers = [];
+
+    /**
+     * ⚡️ THE SINGLE SOURCE OF TRUTH for driver identification (Dynamic).
+     * Now hydrated from config('krubot.drivers.aliases').
+     * 
+     * Maps user-friendly aliases to canonical driver names.
+     * The map is "self-aware": 'rubika' also points to 'rubika'.
+     *
+     * @var array<string, string>
+     *
+     */
+    // protected array $driverAliases = []; // 🧹 Clean Slate: No hardcoded values.
+
     /**
      * Named validation RuleSets available to this Krubot instance.
      *
@@ -235,6 +254,21 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * @var array<string, array<int, mixed>>
     */
     protected array $ruleSets = [];
+
+    // Properties for Krubot's core fluent builder
+    protected string|RichMan|null $text = null;
+    protected ?string $chatId = null;
+    protected ?string $replyToMessageId = null;
+
+    /**
+     * ⚙️ THE MISSING LINK: Configuration Repository
+     * Global configuration passed during instantiation.
+     *
+     * This property holds the entire configuration array (e.g., contents of krubot.php).
+     *
+     * @var array
+    */
+    protected array $pwl_config = [];
 
     // =========================================================================
     //  🧠 THE SINGULARITY CACHE SYSTEM (O(1) Reflection Manifest)
@@ -294,18 +328,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         return $manifest;
     }
-
-
-    // Properties for Krubot's core fluent builder
-    protected string|RichMan|null $text = null;
-    protected ?string $chatId = null;
-    protected ?string $replyToMessageId = null;
-
-    /**
-     * Global configuration passed during instantiation.
-     * @var array
-    */
-    protected array $pwl_config = [];
 
     public function __construct(Application $app, MultiverseEnforcer $driver, string|array $config = null)
     {
@@ -2472,7 +2494,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         
         // B) No specific envelope, so we use the Content signal.
         } elseif ($contentSignal !== Signal::Void) {
-            if ($contentSignal === Signal::Text) {
+            if ($contentSignal === Signal::Text || $contentSignal === Signal::Command) {
                 // It's a standard text message. Route as RT_TEXT for command/regex matching.
                 $routingType = self::RT_TEXT;
                 $routingPayload = $message->text ?? '';
@@ -3273,6 +3295,39 @@ class Krubot implements Countable // ⚡️✅️⚡️
         
         // 1. Global State Injection
         $this->currentMessage = $message;
+
+                // 2. Prime the fluent builder's chat_id from the message.
+        //
+        // WHY: CanSendFluentMessages::send() resolves the target via:
+        //   $targetChatId = $chatId ?? ($this->chat_id ?? null);
+        //   if (!$targetChatId) { $targetChatId = $this->builder_chat_id ?? throw ... }
+        //
+        // $this->chat_id is the NeonVitality / fluent builder's context property —
+        // it is NOT the same as $message->chat_id.  When Krubot::reply() calls
+        // $this->chat($this->chatId()), chatId() returns $message->chat_id which
+        // may be null if Message::fromInboundPayload() did not surface it.
+        //
+        // We prime all three sources from the heart DTO so send() always wins:
+        //   • $message->chat_id    → chatId() accessor used by reply()/say()
+        //   • $this->chat_id       → send() source 2
+        //   • $this->builder_chat_id → send() source 3 (last resort)
+        $heartChatId = (string) (
+            $message->chat_id
+            ?? $message->heart?->chatId
+            ?? $message->heart?->effectiveData['chat']['id']
+            ?? $message->heart?->coreData['message']['chat']['id']
+            ?? $message->heart?->coreData['callback_query']['message']['chat']['id']
+            ?? ''
+        );
+
+        if ($heartChatId !== '') {
+            // Surface on the Message object so chatId() accessor works
+            $message->chat_id ??= $heartChatId;
+
+            // Prime the fluent builder so send() finds it without chat() being called
+            $this->chat_id         = $heartChatId;
+            $this->builder_chat_id = $heartChatId;
+        }
         
         // 2. Primitive Extraction (Memory Optimization)
         // Extract text once to avoid repeated property access. Ensure string type.
@@ -4122,7 +4177,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
                             'sender_id'     => $this->senderId(),
                             'message_id'    => $this->findMessageId(),
                             'message_text'  => $this->text(),
-                            'driver_alias'  => $this->getDriverAlias()
+                            'driver_codename'  => $this->getDriverCodeName()
                         ]
                     ]
                 );
@@ -4370,7 +4425,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function isAdmin(?string $userId = null): bool
     {
-        $adminGuids = config('krubot.drivers.'.$this->getDriverAlias().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
+        $adminGuids = config('krubot.drivers.'.$this->resolveTargetDriver().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
         $senderId = $userId ?? $this->senderId(); // we checking for who ?!
         
         return $senderId && in_array($senderId, $adminGuids);
@@ -4420,7 +4475,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function sendMessageToAdmins(string $text): array
     {
-        $adminGuids = config('krubot.drivers.'.$this->getDriverAlias().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
+        $adminGuids = config('krubot.drivers.'.$this->resolveTargetDriver().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
         $result = [];
         foreach ($adminGuids as $admin_id) {
             $result []= $this->to($admin_id, $text);

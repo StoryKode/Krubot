@@ -71,8 +71,8 @@ use KrubiK\Keyboard\PowerButton;
  *         fn (PowerButton $b) => $b->action('krubot')->width(0.33)
  *     )
  *     ->smart();
-
- * using inside a Conversation
+ *
+ * // usage inside a Conversation
  * $this->ask(
  *     Question::create('چه کاری انجام دهیم؟')
  *         ->buttons(
