@@ -19,7 +19,14 @@ trait HasDriverIdentity
      * The identity of this driver instance (e.g., 'rubika', 'web', 'telegram').
      * @var string
     */
-    protected string $driverCodeName = 'common';
+    protected string $enforcerCodeName = 'common';
+
+    /**
+     * The operational regiment/unit scope where this enforcer operates.
+     * Immutable: Can only be set once during initialization and cannot be null.
+     * @var string
+    */
+    protected readonly string $regiment; // ?string
 
     /**
      * Set the driver's operational alias.
@@ -30,7 +37,7 @@ trait HasDriverIdentity
     */
     public function assignCodeName(string $alias): static
     {
-        $this->driverCodeName = $alias;
+        $this->enforcerCodeName = $alias;
         return $this;
     }
 
@@ -39,7 +46,7 @@ trait HasDriverIdentity
     */
     public function getCodeName(): string
     {
-        return $this->driverCodeName;
+        return $this->enforcerCodeName;
     }
 
     /**
@@ -55,6 +62,69 @@ trait HasDriverIdentity
     */
     public function getName(): string
     {
-        return $this->driverCodeName;
+        return $this->enforcerCodeName;
+    }
+
+    /**
+     * ⚡️ IMMUTABLE REGIMENT INITIALIZER (Team / Unit Assignment)
+     * 
+     * Sets the operational regiment/team for this enforcer. 
+     * Designed to be called once during the constructor initialization phase.
+     * 
+     * @param string $regiment The target regiment or team name.
+     * @return $this
+    */
+    public function setTeam(string $regiment): static
+    {
+        // If not initialized yet, set the readonly property
+        if (!isset($this->regiment)) {
+            $this->regiment = $regiment;
+        }
+        
+        return $this;
+    }
+
+    /**
+     * Alias for setTeam() for absolute linguistic flexibility.
+     * 
+     * @param string $regiment
+     * @return $this
+    */
+    public function assignTo(string $regiment): static
+    {
+        return $this->setTeam($regiment);
+    }
+
+    /**
+     * ⚡️ IMMUTABLE REGIMENT GETTER (Zero-Mutation Policy)
+     * 
+     * Returns the strict regiment scope assigned to this enforcer instance.
+     * Since `$regimentScope` is readonly, this acts purely as a getter.
+     *
+     * @return string
+    */
+    public function regiment(): string
+    {
+        return $this->regiment;
+    }
+
+    /**
+     * Alias for regiment() for absolute linguistic flexibility.
+     *
+     * @return string
+    */
+    public function operative(): string
+    {
+        return $this->regiment;
+    }
+
+    /**
+     * Alias for regiment() for absolute linguistic flexibility.
+     *
+     * @return string
+    */
+    public function team(): string
+    {
+        return $this->regiment;
     }
 }

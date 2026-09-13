@@ -117,15 +117,17 @@ class HandleDriverUpdate implements ShouldQueue
             // Resolve the specific driver instance for this job.
             // Because Nemesis caches by "operative::driver", this is O(1)
             // after the first resolution.
-            $driver = $nemesis->driver($this->driverName, $this->botName);
+            $driver = $nemesis->driver($this->driverName, $this->operativeName);
 
-            $engine->setCurrentDriver($driver);
             // Inform the Engine of the active driver (platform-agnostic side effect).
+            $engine->enforcer($driver);
 
             // The service provider closure now runs in the correct bot
             // context, so `$nemesis->driver()` inside it resolves the
             // proper driver instance (e.g. telegram_support).
-            $nemesis->enforcer()->serve($engine);
+
+            // $engine->setCurrentDriver($driver);
+            // $nemesis->enforcer()->serve($engine);
 
             // ── STEP 3: Forge the normalized Message DTO. ──
             // Payload is DTO (UniversalInboundUpdate), dispatched from Gatekeeper.

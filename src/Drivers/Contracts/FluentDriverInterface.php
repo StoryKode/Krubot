@@ -129,18 +129,4 @@ interface FluentDriverInterface
      * Delete the specified message.
      */
     public function sendDelete(): array;
-
-    // -------------------------------------------------------------------------
-    // Utility & Info Methods
-    // -------------------------------------------------------------------------
-
-    /**
-     * Download a file to a specific path.
-     */
-    public function downloadFile(string $file_id, string $to): void;
-
-    /**
-     * Get the last raw API response from the driver.
-     */
-    public function getLastResponse(): array;
 }

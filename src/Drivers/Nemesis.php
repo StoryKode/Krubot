@@ -83,6 +83,9 @@ class Nemesis extends Manager
     */
     protected ?string $currentRegiment = null;
 
+    /** One-shot bootstrap target for lazy Krubot birth. */
+    protected MultiverseEnforcer|string|null $primedEnforcer = null;
+
     /**
      * 🧠 CORTEX INTERFACE (Required by Laravel)
      *
@@ -135,24 +138,36 @@ class Nemesis extends Manager
         return $this->resolveRegimentName();
     }
 
+    // safely checks if currentRegiment property has been set and return it's data
+    public function forcedRegiment(): ?string
+    {
+        return $this->currentRegiment;
+    }
+    public function forcedOperative(): ?string
+    {
+        return $this->currentRegiment;
+    }
+
 
     /**
      * Clears the temporary Regiment context.
     */
-    public function forgetRegiment(): self
+    public function forgetRegiment(bool $sleepEnforcer = false): self
     {
 
-        $enforcer = $this->driver();
-        if($enforcer)
-            $enforcer->serve(null);
+        if($sleepEnforcer) {
+            $enforcer = $this->driver();
+            if($enforcer)
+                $enforcer->serve(null);
+        }
 
         $this->currentRegiment = null;
 
         return $this;
     }
-    public function clearOperative(): self
+    public function clearOperative(bool $sleepEnforcer = false): self
     {
-        return $this->forgetRegiment();
+        return $this->forgetRegiment($sleepEnforcer);
     }
 
     /**
@@ -234,6 +249,12 @@ class Nemesis extends Manager
             // Unknown driver — degrade gracefully.
             return Platform::tryFrom($driverName) ?? Platform::default();
         }
+    }
+
+    public function primeEnforcer(string|Platform|MultiverseEnforcer|null $driver): self
+    {
+        $this->primedEnforcer = $driver instanceof Platform ? (string) $driver : $driver;
+        return $this;
     }
 
     /**
@@ -424,12 +445,20 @@ class Nemesis extends Manager
      * @param ?string $regiment   Optional bot name; if null, resolved from context.
      * @return mixed
     */
-    public function driver($driver = null, $regiment = null)
+    public function driver($driver = null, $regiment = null, $ignorePrimed = false)
     {
 
         // Normalize inputs defensively (since types are now loose).
         $driver      = is_string($driver) && $driver !== '' ? $driver : null;
         $regiment    = is_string($regiment) && $regiment !== '' ? $regiment : null;
+
+        if(!$ignorePrimed) {
+            $driver ??= $this->primedEnforcer;
+            $this->primedEnforcer = null;
+
+            if($driver instanceof MultiverseEnforcer)
+                $driver = $driver->getCodeName();
+        }
 
         $regiment = $this->resolveRegimentName($regiment);
         $driver = $driver ?? $this->resolveDefaultDriverName($regiment);
@@ -449,9 +478,9 @@ class Nemesis extends Manager
         $cacheKey = $this->driverCacheKey($regiment, $driver);
         return $this->drivers[$cacheKey] ??= $this->spawnEnforcer($driver, $regiment); // replaces old-if (!isset($this->drivers[$cacheKey]))
     }
-    public function enforcer($driver = null, $regiment = null)
+    public function enforcer($driver = null, $regiment = null, $ignorePrimed = false)
     {
-        return $this->driver($driver, $regiment);
+        return $this->driver($driver, $regiment, $ignorePrimed);
     }
 
     /**
@@ -532,12 +561,12 @@ class Nemesis extends Manager
         );
     }
 
-     /**
+    /**
      * 🔮 BOT-SCOPED DRIVER CONFIGURATION
     */
     protected function getDriverConfig(string $name, string $regiment): array {
         $botConfig = $this->getRegimentConfig($regiment);
-        $driverConfig = $botConfig['enforcers'][$name] ?? null;
+        $driverConfig = $botConfig['enforcers'][$name] ?? $botConfig['enforcers']["{$name}_{$regiment}"] ?? null;
         if (!is_array($driverConfig)) {
             throw new InvalidArgumentException("Configuration for Driver [{$name}] was not found for Regiment [{$regiment}].");
         }
@@ -812,7 +841,7 @@ class Nemesis extends Manager
      *
      * are different organisms even when their Platform is identical.
     */
-    protected function spawnEnforcer(string $driver, string $regiment): MultiverseEnforcer
+    public function spawnEnforcer(string $driver, string $regiment): MultiverseEnforcer
     {
         $driverConfig = $this->getDriverConfig($driver, $regiment);
         $driverType = strtolower((string) ($driverConfig['driver'] ?? $driver));
@@ -852,7 +881,8 @@ class Nemesis extends Manager
          *     rubika_main
          *     rubika_support
         */
-        $this->tentacle($instance, $driver);
+        $this->tentacle($instance, $driver, $regiment);
+        $instance->assignTo($regiment);
 
         return $instance;
     }
@@ -866,8 +896,13 @@ class Nemesis extends Manager
      * @param object $bow The Bio-Organic Weapon (Driver Instance)
      * @param string $viralCode The Strain Name (rubika, bale, etc.)
     */
-    protected function tentacle(object $bow, string $viralCode): void
+    protected function tentacle(object $bow, string $viralCode, string $regiment): void
     {
+        $botConfig = $this->getRegimentConfig($regiment);
+        if(!isset($botConfig['enforcers'][$viralCode]))
+            if(isset($botConfig['enforcers']["{$viralCode}_{$regiment}"]))
+                $viralCode = "{$viralCode}_{$regiment}";
+
         // Primary path: the interface contract guarantees this method.
         if ($bow instanceof MultiverseEnforcer) {
             $bow->assignCodeName($viralCode);

@@ -61,4 +61,18 @@ class RubikaDriver extends VanguardCore implements BotDriverInterface, VanguardI
     // و بقیه متدها...
     // نکته مهم: چون VanguardCore را اکستند کردیم، اگر متدی در اینترفیس نباشد
     // ولی در Vanguard باشد (مثلا getBannedUsers)، مستقیماً قابل صدا زدن است!
+
+    /**
+     * ⚡️ THE THANOS SNAP ⚡️
+     * قلب تپنده درایور. این متد تمام درخواست‌های سطح بالا را می‌گیرد،
+     * تمیزکاری می‌کند، ترجمه می‌کند و به سمت سرور Rubika شلیک می‌کند.
+     *
+     * @param string $method نام متد API (مثلا sendMessage)
+     * @param array $params پارامترهای درخواست
+     * @return array پاسخ خام آرایه‌ای (برای استفاده داخلی)
+     */
+    public function makeRequest(string $method, array $params = []): array
+    {
+        return $this->forceCallMethod('apiRequest', [$method, $params], $core);
+    }
 }

@@ -38,9 +38,10 @@ use KrubiK\Krubot;
 use KrubiK\Helpers\PhantomShell;
 use KrubiK\Helpers\AmethystMatrix;
 use KrubiK\Helpers\OpcacheRuler;
+use KrubiK\Enums\Platform;
 
 /**
- * KrubiK WarLording Helpers v3.0
+ * KrubiK WarLording Helpers v3.6
  *
  * @author DoKtor K.
  * @link https://StoryKo.de/Krubot Official website of engine.
@@ -73,13 +74,26 @@ if (! function_exists('warlord')) {
      */
     function warlord(string|array|null $driverAlias = null): Krubot
     {
-        // 1. Resolve the Singleton instance of the Warlord from Laravel's core.
-        $bot = app('krubot'); // :OR: resolve(Krubot::class);
-        if ($driverAlias === null)
-            return $bot;
 
+        // How it works:
+        // 1. Resolve the Singleton instance of the Warlord from Laravel's core.
         // 2. Immediately invoke the `via()` method to set the temporary target.
-        return $bot->via($driverAlias);
+
+        $app = app();
+
+        if ($driverAlias === null)
+            return $app->make(Krubot::class);
+
+        if ($app->resolved(Krubot::class))
+            return $app->make(Krubot::class)->via($driverAlias);
+
+        $target = is_array($driverAlias) ? reset($driverAlias) : $driverAlias;
+
+        app('krubot.manager')->primeEnforcer(
+            $target instanceof Platform ? $target : (string) $target
+        );
+
+        return $app->make(Krubot::class)->via($driverAlias);
     }
 }
 if (! function_exists('krubot')) {

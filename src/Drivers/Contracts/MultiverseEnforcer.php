@@ -37,4 +37,11 @@ interface MultiverseEnforcer
     public function serve(?Krubot $warlord): static;
     public function warlord(): ?Krubot;
 
+    // The operational regiment/team for this enforcer.
+    public function regiment(): string;
+    public function operative(): string;
+    public function team(): string;
+    public function setTeam(string $regiment): static;
+    public function assignTo(string $regiment): static;
+
 }

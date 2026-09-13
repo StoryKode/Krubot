@@ -119,7 +119,20 @@ final readonly class RenderAura
         $operative = $nemesis->currentOperative();
     
         // Inform the Warlord of the active driver (platform-agnostic side effect).
-        warlord()?->setCurrentDriver($driver);
+        $warlord = warlord();
+        if($warlord && $warlord->listensAura()) {
+
+            $oldOperative = $warlord->operative();   // string|null
+            $oldNemesisOperative = $nemesis->forcedOperative();   // string|null
+
+            $nemesis->operative($operative);
+            $warlord->operative($operative);
+
+            $warlord->enforcer($driver, $operative);
+
+            $warlord->operative($oldOperative);         // string|null
+            $nemesis->operative($oldNemesisOperative);  // string|null
+        }
 
         // 2. get Current Request 
         /** @var \Illuminate\Http\Request $request */
@@ -418,11 +431,32 @@ final readonly class RenderAura
                 $infusedInstance = $source; // it's a direct RenderAura instance
         }
 
+        $regimentUpdated = ($regiment && (app(self::class)->operative !== $regiment));
+
         // Command Laravel's IoC container to perform the $O(1)$ hot-swap. By using `instance()`,
         // we bind the concrete object directly, bypassing any factory closures for all
         // subsequent resolutions in this request lifecycle.
         App::instance(self::class, $infusedInstance); /// app()->instance(self::class, $infusedInstance);
-        warlord()?->setCurrentDriver((string) $infusedInstance->platform);
+
+        $warlord = warlord();
+        if($warlord && $warlord->listensAura()) {
+
+            $oldRegiment = $warlord->operative(); // string|null
+            $oldNemesisOperative = $warlord->nemesis()->forcedOperative();
+            
+            $warlord->nemesis()->operative($regiment);
+            
+            $newRegiment = $regimentUpdated ? $regiment : null;
+            if($regimentUpdated)
+                $warlord->operative($regiment);
+
+            $warlord->enforcer((string) $infusedInstance->platform, $newRegiment); // $newRegiment if sent null, regimentName will be resolved from warlord or nemesis or default config
+
+            if($regimentUpdated && ($oldRegiment !== $newRegiment))
+                $warlord->operative($oldRegiment); // string|null
+
+            $warlord->nemesis()->operative($oldNemesisOperative);
+        }
 
         // Return the active instance, enabling fluent method chaining.
         return $infusedInstance;
@@ -432,8 +466,8 @@ final readonly class RenderAura
      * @param ?string $lang An optional locale for Platform-driven manifestatio.
      * @return self The active, infused Aura now residing in the container.
     */
-    public static function infuse(RenderAura|Platform $source, ?string $lang = null): self
+    public static function infuse(RenderAura|Platform $source, ?string $lang = null, ?string $regiment = null): self
     {
-        return self::impose($source, $lang);
+        return self::impose($source, $lang ?? app(self::class)->lang, $regiment);
     }
 }

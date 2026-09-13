@@ -14,13 +14,14 @@ namespace KrubiK\Arcane;
 */
 
 use KrubiK\Helpers\AmethystMatrix; // ⚡ Import the Sorceress
+use KrubiK\Drivers\Strategies\DeferredResponse;
 
 trait InteractsWithApi
 {
     // تجمیع کد: استفاده از تریت کمکی برای دسترسی به اعضای والد
     use InteractsWithLockedProperties;
 
-    public function newApiRequest(string $method, array $params = []): array
+    public function newApiRequest(string $method, array $params = []): array|DeferredResponse
     {
         $url = $this->getBaseUrl() . $method;
         $retry = 0;
@@ -97,7 +98,7 @@ trait InteractsWithApi
      * @param array $params API Parameters
      * @return array JSON decoded response
      */
-    protected function makeRequest(string $method, array $params = []): array
+    protected function makeRequest(string $method, array $params = []): array|DeferredResponse
     {
         // [Original Logic Explanation]:
         // چون Krubot از Bot ارث‌بری کرده، متد private در کلاس پدر (RubikaBot\Bot) تعریف شده است.
@@ -121,11 +122,12 @@ trait InteractsWithApi
         }
 
         $core = $this->core();
-        $result = $this->forceCallMethod('apiRequest', [$method, $params], $core);
-        AmethystMatrix::debug($method.'() has been #called with', $params);
+        $result = $core->makeRequest($method, $params);
+
+        AmethystMatrix::debug($method.'() has been #called with', [$params, 'so' => $result]);
 
         // Ensure strict return type compliance + actionable error
-        if (!is_array($result)) {
+        if (!(is_array($result) || $result instanceof DeferredResponse)) {
             $targetClass = is_object($core) ? $core::class : get_debug_type($core);
 
             throw new \RuntimeException(sprintf(

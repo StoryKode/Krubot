@@ -2,7 +2,7 @@
 
 namespace KrubiK\Drivers\Strategies;
 
-use Illuminate\Contracts\Support\Responsable;
+use KrubiK\Drivers\Strategies\DeferredResponse; // explicit import is recommended
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
  * to generate the final JSON response for the Telegram webhook.
  * This avoids making any outbound HTTP requests from the server.
  */
-final readonly class DeferredTelegramResponse implements Responsable
+final readonly class DeferredTelegramResponse implements DeferredResponse
 {
     /**
      * Creates a new deferred response instance.

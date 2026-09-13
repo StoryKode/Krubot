@@ -11,6 +11,8 @@ use KrubiK\Render\RichElements\Blocks\RichBlockEntity;
 */
 class RichBlockSeparator extends RichBlockEntity
 {
+    protected static bool $tgNative = false; // faked for tg via: `['type' => 'plain']` so we can also remove this line
+
     /**
      * Constructs a new RichBlockSeparator instance.
      *
@@ -52,8 +54,20 @@ class RichBlockSeparator extends RichBlockEntity
             // 'type' => 'separator', // @Todo: A more clear, descriptive type for this block.
             'char' => $this->char,
             'length' => $this->length,
-            'text' => str_repeat($this->char, $this->length)
+            'text' => $this->getText()
         ];
+    }
+
+    public function getText(bool $escapeForMd = false): string
+    {
+        $mychar = $escapeForMd ? $this->escForMd($this->char) : $this->char;
+        return str_repeat($mychar, $this->length);
+    }
+
+    // will be used if rich_render_fallback == 'text'
+    public function toText(): string
+    {
+        return $this->getText();
     }
 
     /**
@@ -64,7 +78,7 @@ class RichBlockSeparator extends RichBlockEntity
     public function toHtml(): string
     {
         // Generate the separator text and ensure its HTML safety.
-        $separatorText = htmlspecialchars(str_repeat($this->char, $this->length), ENT_QUOTES, 'UTF-8');
+        $separatorText = htmlspecialchars($this->getText(), ENT_QUOTES, 'UTF-8');
 
         if($this->targetsWeb())
             return '<div class="richy-separator" aria-hidden="true">' . $separatorText . '</div>';
@@ -81,6 +95,6 @@ class RichBlockSeparator extends RichBlockEntity
     public function toMd(): string
     {
         // The raw repeated text as inline visual separator, Plus followed by newlines to create a paragraph break.
-        return "\n" . str_repeat($this->escForMd($this->char), $this->length) . "\n\n";
+        return "\n" . $this->getText(true) . "\n\n";
     }
 }

@@ -26,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Contracts\View\View;
+use KrubiK\Render\RichMan;
 
 final class WebAppDriver implements MultiverseEnforcer
 {
@@ -395,7 +396,7 @@ final class WebAppDriver implements MultiverseEnforcer
         $finalParams = $params;
 
         // ── RichMan → HTML (Web loves HTML) ──────────────────────────────
-        if (isset($finalParams['text']) && $finalParams['text'] instanceof \KrubiK\RichMan) {
+        if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
             $finalParams['text']       = $finalParams['text']->toHtml();
             $finalParams['parse_mode'] = 'html';
             $finalParams['_rich']      = true;

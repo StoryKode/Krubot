@@ -218,7 +218,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * The underlying bot driver (e.g., RubikaDriver, TelegramDriver).
      * @var MultiverseEnforcer
     */
-    protected MultiverseEnforcer $driver;
+    protected ?MultiverseEnforcer $driver = null;
 
     /**
      * The Laravel application instance.
@@ -329,7 +329,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         return $manifest;
     }
 
-    public function __construct(Application $app, MultiverseEnforcer $driver, string|array $config = null)
+    public function __construct(Application $app, ?MultiverseEnforcer $driver = null, string|array $config = null)
     {
         $this->app = $app;
         $this->driver = $driver;
@@ -620,8 +620,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
             // Single, surgical strike -> Return CommandOutcomeShifter for ->then()
             if (count($aliases) === 1) {
-                $result_maker = fn() => $driver->{$method}(...$parameters);
                 $driver = $this->core(reset($aliases));
+                $result_maker = fn() => $driver->{$method}(...$parameters);
                 return $this->wrapsInOutcomeShifter
                     ? CommandOutcomeShifter::execute($this, $result_maker)
                     : $result_maker();
@@ -633,16 +633,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 // The mission resulted in failure. Capture the exception as the outcome.
                 $result = $e;
             }*/
-
-            // PRIORITY 3: Default Driver Execution
-            // All calls to the default driver are wrapped in CommandOutcomeShifter.
-            $result_maker = fn() => $this->core()->{$method}(...$parameters);
-            return $this->wrapsInOutcomeShifter
-                ? CommandOutcomeShifter::execute($this, $result_maker)
-                : $result_maker();
-
-            // Wrap the single result in a CommandOutcomeShifter to enable `->then()` chaining.
-            // return new CommandOutcomeShifter($this, $result);
         }
 
         // =====================================================================
@@ -659,6 +649,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         }
 
         // Wrap the result in a CommandOutcomeShifter, making every standard call chainable.
+        // All calls to the default driver are wrapped in CommandOutcomeShifter to enable `->then()` chaining.
         return $this->wrapsInOutcomeShifter
             ? (new CommandOutcomeShifter($this, $result))
             : $result;

@@ -14,7 +14,7 @@ class RichTextPlain extends RichTextEntity
      * @return self
     */
     public static function make(string $text): self { return new self($text); }
-    public function toArray(): array { return ['type' => 'plain', 'text' => $this->text]; }
+    public function toArray(): array { return ['text' => $this->text]; }
 
     /**
      * Renders plain text by simply escaping it.

@@ -57,7 +57,6 @@ use KrubiK\Render\RichElements\Texts\RichTextMathematicalExpression;
 use KrubiK\Render\RichElements\Texts\RichTextMention;
 use KrubiK\Render\RichElements\Texts\RichTextPhoneNumber;
 use KrubiK\Render\RichElements\Texts\RichTextPlain;
-use KrubiK\Render\RichElements\Texts\RichTextPre;
 use KrubiK\Render\RichElements\Texts\RichTextReference;
 use KrubiK\Render\RichElements\Texts\RichTextReferenceLink;
 use KrubiK\Render\RichElements\Texts\RichTextSpoiler;
@@ -94,6 +93,7 @@ use KrubiK\Render\RichElements\Blocks\RichBlockHeading;
 use KrubiK\Render\RichElements\Blocks\RichBlockList;
 use KrubiK\Render\RichElements\Blocks\RichBlockMap;
 use KrubiK\Render\RichElements\Blocks\RichBlockParagraph;
+use KrubiK\Render\RichElements\Blocks\RichBlockPreformatted;
 use KrubiK\Render\RichElements\Blocks\RichBlockPhoto;
 use KrubiK\Render\RichElements\Blocks\RichBlockPullQuotation;
 use KrubiK\Render\RichElements\Blocks\RichBlockSlideshow;
@@ -343,16 +343,16 @@ function mathematicalExpression(string $expression): RichTextMathematicalExpress
 }
 
 /**
- * Creates a RichTextPre instance.
+ * Creates a RichBlockPreformatted instance.
  * Represents a pre-formatted block of text or code, preserving whitespace.
  *
  * @param RichEntity|callable|string|array $text The content of the pre-formatted block.
  * @param string|null $language The programming language for syntax highlighting (e.g., "php", "javascript").
- * @return RichTextPre
+ * @return RichBlockPreformatted
 */
-function pre(RichEntity|callable|string|array $text, ?string $language = null): RichTextPre
+function pre(RichEntity|callable|string|array $text, ?string $language = null): RichBlockPreformatted
 {
-    return RichTextPre::make($text, $language);
+    return RichBlockPreformatted::make($text, $language);
 }
 
 /**

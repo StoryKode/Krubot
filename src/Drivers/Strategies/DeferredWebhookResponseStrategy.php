@@ -10,7 +10,7 @@ namespace KrubiK\Drivers\Strategies;
  */
 class DeferredWebhookResponseStrategy implements CallStrategy
 {
-    public function handle(string $method, array $parameters): DeferredTelegramResponse
+    public function handle(string $method, array $parameters): DeferredResponse
     {
         // This strategy's job is simple: wrap the call details into our DTO.
         // The DTO itself handles the logic of becoming a JSON response.

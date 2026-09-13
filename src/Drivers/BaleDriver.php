@@ -16,23 +16,33 @@ namespace KrubiK\Drivers;
 use EFive\Bale\Api as BaleCore;
 use KrubiK\Drivers\Contracts\BotDriverInterface;
 use KrubiK\Drivers\Contracts\Layers\StandardDriverInterface;
+use KrubiK\Drivers\Contracts\Layers\BaleVipInterface;
+use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 use KrubiK\Drivers\Arcane\NeonVitality;
 
 // ایمپورت آبجکت‌های استاندارد بله برای رعایت قرارداد اینترفیس
 use EFive\Bale\Objects\Message;
+use EFive\Bale\Objects\MessageId;
 use EFive\Bale\Objects\User;
 use EFive\Bale\Objects\Chat;
 use EFive\Bale\Objects\File;
 use EFive\Bale\Objects\Update;
 use EFive\Bale\Objects\WebhookInfo;
+use EFive\Bale\Objects\ChatFullInfo;
+use EFive\Bale\Objects\ChatMember\ChatMember;
 use EFive\Bale\Objects\StickerSet;
 use EFive\Bale\Objects\BotCommand;
+
+use Psr\Http\Message\RequestInterface;
+
+use KrubiK\Render\RichMan;
+use KrubiK\Render\RichElements\RichEntity;
 
 // ایمپورت ابزارهای KrubiK برای ترجمه کیبورد
 use KrubiK\Keyboard\Keyboard as KrubiKInlineKeyboard;
 use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
 
-class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverInterface, BaleVipInterface
+class BaleDriver extends BaleCore implements MultiverseEnforcer, StandardDriverInterface, BaleVipInterface
 {
     // 💉 تزریق روح نئونی (Fluent API + Context Management)
     use NeonVitality;
@@ -73,7 +83,8 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         $finalMethod = $method;
         $finalParams = $params;
 
-        $this->warlord()?->setCurrentDriver(Platform::Bale());
+        $oldEnforcer = $this->warlord()->enforcer();
+        $this->warlord()->enforcer($this);
 
         // Handle RichMan object for sending messages
         if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
@@ -82,8 +93,8 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
             // For Bale API, we must send simple text, not rich blocks
             $finalMethod = 'sendMessage';
 
-            // Use toText() to render RichMan Elements as Markdown
-            $finalParams['text'] = $richMan->toText();
+            // Use our dedicated method to render RichMan Elements as Markdown string
+            $finalParams['text'] = $this->renderRichToMarkdown($richMan);;
 
             // Remove keys that are irrelevant or conflict with plain text message
             unset($finalParams['parse_mode'], $finalParams['entities'], $finalParams['isRich'], $finalParams['rich_blocks']);
@@ -94,7 +105,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
             // Since Bale API does not support rich messages natively, fallback to markdown text version
             if (isset($finalParams['rich_blocks']) && is_array($finalParams['rich_blocks'])) {
                 // Convert rich_blocks to plain text string
-                $finalParams['text'] = $this->convertRichBlocksToSimpleText($finalParams['rich_blocks']);
+                $finalParams['text'] = $this->renderRichToMarkdown($finalParams['rich_blocks']);
             }
 
             $finalParams['text'] = $finalParams['text'] ?? '';
@@ -122,6 +133,9 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
             // هندلینگ خطا یا لاگ کردن
             throw $e;
         }
+
+        if($oldEnforcer !== $this)
+            $this->warlord()->enforcer($oldEnforcer);
 
         // 3. بازگرداندن آرایه (SDK بله معمولا آبجکت یا آرایه برمی‌گرداند، ما به آرایه کست می‌کنیم)
         // اگر پاسخ در کلید 'result' بود (استاندارد تلگرام/بله)، آن را استخراج می‌کنیم
@@ -230,6 +244,43 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return new $class($data);
     }
 
+    protected function renderRichToMarkdown(mixed $content): string
+    {
+        if ($content instanceof RichMan) {
+            return $this->renderRichToMarkdown(
+                $content->getElements()
+            );
+        }
+
+        if ($content instanceof RichEntity) {
+            if (method_exists($content, 'toMd')) {
+                return (string) $content->toMd();
+            }
+
+            if (method_exists($content, 'toText')) {
+                return (string) $content->toText();
+            }
+
+            return (string) $content;
+        }
+
+        if (is_array($content)) {
+            $result = '';
+
+            foreach ($content as $item) {
+                $result .= $this->renderRichToMarkdown($item);
+            }
+
+            return $result;
+        }
+
+        if ($content === null) {
+            return '';
+        }
+
+        return (string) $content;
+    }
+
     protected function convertRichBlocksToSimpleText(array $blocks): string
     {
         $text = '';
@@ -252,7 +303,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return $this->hyd(User::class, $response);
     }
 
-    public function deleteWebhook(): bool // تغییر بر اساس اینترفیس نهایی کاربر
+    public function deleteWebhook(array $params = []): bool // تغییر بر اساس اینترفیس نهایی کاربر
     {
         // در اینترفیس نهایی کاربر Turn 2، خروجی array درخواست شد ولی اینجا bool منطقی‌تر است
         // اما چون extend کردیم و strict هستیم، طبق داک بله عمل می‌کنیم.
@@ -274,7 +325,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return $this->hyd(WebhookInfo::class, $this->makeRequest('getWebhookInfo'));
     }
 
-    public function getWebhookUpdate(): Update
+    public function getWebhookUpdate(bool $shouldDispatchEvents = true, ?RequestInterface $request = null): Update
     {
         // خواندن از ورودی php://input
         $input = file_get_contents('php://input');
@@ -292,9 +343,9 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return $this->hyd(Message::class, $this->makeRequest('forwardMessage', $params));
     }
 
-    public function copyMessage(array $params): Message
+    public function copyMessage(array $params): MessageId
     {
-        return $this->hyd(Message::class, $this->makeRequest('copyMessage', $params));
+        return $this->hyd(MessageId::class, $this->makeRequest('copyMessage', $params));
     }
 
     public function sendPhoto(array $params): Message
@@ -332,21 +383,21 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return $this->hyd(File::class, $this->makeRequest('getFile', $params));
     }
 
-    public function getChatAdministrators(array $params): Chat
+    public function getChatAdministrators(array $params): array
     {
         // طبق داک بله لیستی از ممبر برمیگرداند اما اینترفیس Chat خواسته
         // اینجا باید طبق ساختار واقعی SDK عمل شود. فرض بر ChatObject است.
         return $this->hyd(Chat::class, $this->makeRequest('getChatAdministrators', $params));
     }
 
-    public function getChatMembersCount(array $params): Chat
+    public function getChatMembersCount(array $params): int
     {
-        return $this->hyd(Chat::class, $this->makeRequest('getChatMembersCount', $params));
+        return $this->makeRequest('getChatMembersCount', $params);
     }
 
-    public function getChatMember(array $params): Chat
+    public function getChatMember(array $params): ChatMember
     {
-        return $this->hyd(Chat::class, $this->makeRequest('getChatMember', $params));
+        return $this->hyd(ChatMember::class, $this->makeRequest('getChatMember', $params));
     }
 
     public function setChatDescription(array $params): bool
@@ -354,12 +405,12 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return (bool) $this->makeRequest('setChatDescription', $params);
     }
 
-    public function createChatInviteLink(array $params)
+    public function createChatInviteLink(array $params): mixed
     {
         return $this->makeRequest('createChatInviteLink', $params);
     }
 
-    public function revokeChatInviteLink(array $params)
+    public function revokeChatInviteLink(array $params): mixed
     {
         return $this->makeRequest('revokeChatInviteLink', $params);
     }
@@ -420,7 +471,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return (bool) $this->makeRequest('answerPreCheckoutQuery', $params);
     }
 
-    public function getMyCommands(): array
+    public function getMyCommands(array $params = []): array
     {
         $res = $this->makeRequest('getMyCommands');
         $commands = [];
@@ -440,7 +491,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return (bool) $this->makeRequest('deleteMyCommands', $params);
     }
 
-    public function getUpdates(array $params = []): array
+    public function getUpdates(array $params = [], bool $shouldDispatchEvents = true): array
     {
         $res = $this->makeRequest('getUpdates', $params);
         $updates = [];
@@ -450,24 +501,24 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return $updates;
     }
 
-    public function editMessageText(array $params): Message|bool
+    public function editMessageText(array $params): Message // |bool
     {
         $res = $this->makeRequest('editMessageText', $params);
-        if (is_bool($res)) return $res;
+        // if (is_bool($res)) return $res;
         return $this->hyd(Message::class, $res);
     }
 
-    public function editMessageCaption(array $params): Message|bool
+    public function editMessageCaption(array $params): Message // |bool
     {
         $res = $this->makeRequest('editMessageCaption', $params);
-        if (is_bool($res)) return $res;
+        // if (is_bool($res)) return $res;
         return $this->hyd(Message::class, $res);
     }
 
-    public function editMessageReplyMarkup(array $params): Message|bool
+    public function editMessageReplyMarkup(array $params): Message // |bool
     {
         $res = $this->makeRequest('editMessageReplyMarkup', $params);
-        if (is_bool($res)) return $res;
+        // if (is_bool($res)) return $res;
         return $this->hyd(Message::class, $res);
     }
 
@@ -500,17 +551,19 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return $this->hyd(Message::class, $this->makeRequest('sendContact', $params));
     }
 
-    public function getUserProfilePhotos(array $params)
+    public function getUserProfilePhotos(array $params): mixed
     {
         // طبق داک بله/تلگرام، خروجی UserProfilePhotos است
         // اگر کلاس آن را در EFive ندارید، می‌توانید آرایه برگردانید یا کلاس مربوطه را ایمپورت کنید
         return $this->makeRequest('getUserProfilePhotos', $params);
     }
 
-    public function sendMediaGroup(array $params): array
+    public function sendMediaGroup(array $params): Message
     {
-        // این متد آرایه‌ای از پیام‌ها برمی‌گرداند
         $response = $this->makeRequest('sendMediaGroup', $params);
+        return $this->hyd(Message::class, $response);
+
+        // این متد آرایه‌ای از پیام‌ها برمی‌گرداند
         $messages = [];
         if (is_array($response)) {
             foreach ($response as $msgData) {
@@ -580,9 +633,9 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return (bool) $this->makeRequest('leaveChat', $params);
     }
 
-    public function getChat(array $params): Chat
+    public function getChat(array $params): ChatFullInfo
     {
-        return $this->hyd(Chat::class, $this->makeRequest('getChat', $params));
+        return $this->hyd(ChatFullInfo::class, $this->makeRequest('getChat', $params));
     }
 
     public function setChatStickerSet(array $params): bool
@@ -599,7 +652,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
     // بخش ۱۴ و ۱۵: مدیریت لینک‌های دعوت و درخواست‌های عضویت
     // =========================================================================
 
-    public function editChatInviteLink(array $params)
+    public function editChatInviteLink(array $params): mixed
     {
         // خروجی ChatInviteLink است
         return $this->makeRequest('editChatInviteLink', $params);
@@ -624,7 +677,7 @@ class BaleDriver extends BaleCore implements BotDriverInterface, StandardDriverI
         return (bool) $this->makeRequest('setMyDefaultAdministratorRights', $params);
     }
 
-    public function getMyDefaultAdministratorRights(array $params)
+    public function getMyDefaultAdministratorRights(array $params): mixed
     {
         // خروجی ChatAdministratorRights است
         return $this->makeRequest('getMyDefaultAdministratorRights', $params);

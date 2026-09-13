@@ -69,7 +69,7 @@ class RichBlockListItem extends RichComponentEntity
     public function toArray(): array
     {
         return $this->filterEmpty([
-            'label' => $this->label,
+            // 'label' => $this->label,
             'blocks' => $this->normalize($this->blocks),
             'has_checkbox' => $this->has_checkbox,
             'is_checked' => $this->is_checked,

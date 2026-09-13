@@ -144,7 +144,7 @@ return [
                     'token'    => env('TELEGRAM_MAIN_TOKEN'),
                     'base_url' => 'https://api.telegram.org',
                     'admin_ids' => array_filter(explode(',', env('TELEGRAM_MAIN_ADMINS', ''))),
-                    'config'   => ['timeout' => 45],                    
+                    'config'   => ['timeout' => 45],
 
                     /**
                      * The art of response strategy. Determines how API calls are handled.
@@ -157,7 +157,7 @@ return [
                      *             if your main server is in Iran, but you have servers outside Iran that able
                      *             to Connect Telegram (including Cloudflare Workers, ...)
                     */
-                    'strategy' => env('TELEGRAM_STRATEGY', 'response'),
+                    'strategy' => env('TELEGRAM_STRATEGY', 'api'),
 
                     'bridge' => [
 
@@ -166,6 +166,29 @@ return [
                         'base_uri' => 'https://your-worker.workers.dev/straight-forward-to-tg', // The new bridge URL
                         'secret'   => 'YOUR-Bridge-_SUPER_SECRET_TOKEN', // a Secret to protect your Cloudflare,... bridge
 
+                    ],
+
+                    /*
+                    * Telegram handling for RichEntities that are not
+                    * natively supported by Telegram Rich Messages.
+                    *
+                    * omit     = silently remove unsupported elements
+                    * markdown = fallback the whole document to Telegram Rich Markdown
+                    * text     = convert unsupported elements to plain-text paragraphs
+                    */
+                    'rich_render_fallback' => 'text',
+                    
+                    /**
+                     * Official Telegram Rich Message limits (overwrite them; if you know it's updated).
+                     *
+                     * @see https://core.telegram.org/bots/api#rich-message-limits
+                    */
+                    'rich_limits' => [
+                        'max_chars'         => 32768,  // UTF-8 characters (incl. emoji alt & formula source)
+                        'max_blocks'        => 500,    // total blocks including nested, list items, table rows...
+                        'max_depth'         => 16,     // nesting depth (formatting + blocks)
+                        'max_media'         => 50,     // photo / video / animation / audio / voice_note / document
+                        'max_table_columns' => 20,     // hard limit per table
                     ],
                 ],
 
@@ -887,18 +910,18 @@ return [
         | Determines if routes defined with `#[WebPage]` or `#[WebAction]` can
         | be accessed by a regular web browser (i.e., without valid InitData).
         |
-        | 'strict'  => (Default & Recommended) - All WebApp routes are locked.
+        | 'strict'  => All WebApp routes are locked.
         |              Access is granted ONLY if a valid InitData header is
         |              present and successfully validated. A 403 Forbidden
-        |              response is sent otherwise.
+        |              response is sent otherwise. (usefule if you only need mini-apps)
         |
-        | 'standard' => WebApp routes are accessible to everyone. The identity
-        |               (platform and InitData) is still extracted if present,
-        |               allowing you to have hybrid pages that behave
-        |               differently for bot users vs. anonymous web visitors.
+        | 'standard' => (Default & Recommended) - WebApp routes are accessible to everyone. The identity
+        |               (platform and InitData) is still extracted and validated if present,
+        |               allowing you to have hybrid pages that behave differently for bot mini-app users 
+        |               vs. SearchEngines(Google,...) vs. anonymous web visitors.
         |
         */
-        'access_policy' => env('KRUBOT_WEBAPP_ACCESS_POLICY', 'strict'), // 'strict' or 'standard'
+        'access_policy' => env('KRUBOT_WEBAPP_ACCESS_POLICY', 'standard'), // 'strict' or 'standard'
 
         /*
         |----------------------------------------------------------------------

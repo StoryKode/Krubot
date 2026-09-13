@@ -22,18 +22,22 @@ use Telegram\Bot\Exceptions\TelegramSDKException;
 use Illuminate\Support\Collection;
 
 // Contracts & Traits
-use KrubiK\Enums\Platform;
-use KrubiK\Drivers\Contracts\BotDriverInterface; // For General Polymorphism
+use KrubiK\Drivers\Contracts\MultiverseEnforcer; // For MultiverseEnforcer General Polymorphism
 use KrubiK\Drivers\Contracts\Layers\TelegramExclusiveInterface;
 use KrubiK\Drivers\Arcane\NeonVitality;
+use KrubiK\Drivers\Arcane\PayloadProjector;
+
+// Import ProRendering Toolkit
+use KrubiK\Render\RenderAura;
+use KrubiK\Enums\Platform;
+use KrubiK\Render\RichMan;
 
 // The New Strategy Architecture
-use KrubiK\Render\RichMan;
 use KrubiK\Drivers\Strategies\CallStrategy;                     // The Strategy Contract
 use KrubiK\Drivers\Strategies\DirectApiCallStrategy;            // Strategy #1: The Sharpshooter
 use KrubiK\Drivers\Strategies\BridgeApiCallStrategy;            // Strategy #2: The Teleporter
 use KrubiK\Drivers\Strategies\DeferredWebhookResponseStrategy;  // Strategy #3: The Ghost
-use KrubiK\Drivers\Strategies\DeferredTelegramResponse;         // The Ghost's DTO
+use KrubiK\Drivers\Strategies\DeferredResponse;                 // The Ghost's DTO
 
 // KrubiK Keyboards (For RichKeys Adapter Logic)
 use KrubiK\Keyboard\Keyboard as KrubiKInlineKeyboard;
@@ -42,7 +46,7 @@ use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
 /**
  * Class TelegramDriver - Titan implementation
  *
- * The "Strongest" implementation of the Telegram Driver for KrubiK (v7 Obsidian).
+ * The "Strongest" implementation of the Telegram Driver for Krubot - The Miracler (v7 Obsidian).
  *
  * This class is a High-Level Adapter that bridges the gap between the KrubiK
  * Meta-Framework and the native Telegram Bot SDK. It handles:
@@ -65,10 +69,13 @@ use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
  * @version Krubot: ×RC.8×
  * @license MIT
 */
-class TelegramDriver extends TGCore implements BotDriverInterface /// , TelegramExclusiveInterface
+class TelegramDriver extends TGCore implements MultiverseEnforcer /// , TelegramExclusiveInterface
 {
     // 💉 Inject the Soul: NeonVitality adds Context, Macroability, and Magic.
     use NeonVitality;
+
+    // gifts & equips enforcer with generateTelegramRichPayload()
+    use PayloadProjector;
 
     /**
      * The specific configuration for this driver instance.
@@ -77,7 +84,7 @@ class TelegramDriver extends TGCore implements BotDriverInterface /// , Telegram
     protected array $config;
 
     // 💉 THE COMMUNICATION STRATEGY: The heart of our new architecture. (Deferred, Direct, or Bridge).
-    protected CallStrategy $strategy;
+    protected ?CallStrategy $strategy = null; // Nullable by design — initialized lazily per bot context.
 
     /**
      * TelegramDriver constructor.
@@ -112,30 +119,54 @@ class TelegramDriver extends TGCore implements BotDriverInterface /// , Telegram
             throw new \InvalidArgumentException("Telegram Token is missing in driver configuration.");
         }
 
-        // 3. Call the Old God (TGCore/Parent) constructor
-        parent::__construct($token, $async, $httpClientHandler, $baseBotUrl);
+        // ────────────────────────────────────────────────
+        // ساخت HttpClient با پروکسی برای parent (SDK)
+        // ────────────────────────────────────────────────
+        $proxy = $this->resolveProxy();
 
-        // --- Stage 4: 🚀 THE STRATEGY SOUL INJECTOR 🚀 ---
-        // Based on the config, we instantiate and inject the correct execution strategy.
-        $handler = $this->config['strategy'] ?? 'api';
-        
-        // Understanding the irazasyed/telegram-bot-sdk, we can reliably get the final base URI and token
-        // from its internal config container, ensuring our Direct strategy is always in sync.
-        $sdkConfig = $this->getBotConfig();
-        $this->strategy = match ($handler) {
-            'response'  => new DeferredWebhookResponseStrategy(),
-            'bridge'    => $this->makeBridge($token, $this->config['bridge'] ?? []),
-            'api'       => new DirectApiCallStrategy(
-                $sdkConfig->get('base_bot_url'), // Use the SDK's resolved Base URL
-                $sdkConfig->get('token')         // Use the SDK's resolved Token
-            ),
-            default => throw new \InvalidArgumentException("Invalid KrubiK Telegram handler '{$handler}' configured."),
-        };
+        if ($httpClientHandler === null && $proxy !== null) {
+            $guzzle = new \GuzzleHttp\Client([
+                'proxy'           => $proxy,
+                'timeout'         => $this->config['timeout'] ?? 30,
+                'connect_timeout' => $this->config['connect_timeout'] ?? 15,
+                'curl'            => [
+                    CURLOPT_HTTPPROXYTUNNEL => true,
+                    CURLOPT_PROXY           => $proxy,
+                ],
+                // اگر در اتصال مشکل SSL داشتید موقتاً:
+                // 'verify' => false,
+            ]);
+
+            $httpClientHandler = new \Telegram\Bot\HttpClients\GuzzleHttpClient($guzzle);
+        }
+
+        // 3. Call the Old God (TGCore/Parent) constructor
+        $baseBotUrl = rtrim(str_replace('/bot', '', $baseBotUrl), '/') . '/bot';
+        parent::__construct($token, $async, $httpClientHandler, $baseBotUrl);
 
         // 5. Ignite the NeonSoul Engine (Initialize Arcane/Context)
         if (method_exists($this, 'igniteNeon')) {
             $this->igniteNeon($this->config);
+            $this->bootStrategy();
         }
+    }
+
+    /**
+     * اولویت: config['proxy'] → HTTP_PROXY / HTTPS_PROXY
+    */
+    protected function resolveProxy(): ?string
+    {
+        $proxy = $this->config['proxy'] ?? null;
+
+        if (empty($proxy)) {
+            $proxy = getenv('HTTPS_PROXY')
+                ?: getenv('HTTP_PROXY')
+                ?: getenv('https_proxy')
+                ?: getenv('http_proxy')
+                ?: null;
+        }
+
+        return $proxy ?: null;
     }
 
     // Em-Bridge TG !!
@@ -159,6 +190,44 @@ class TelegramDriver extends TGCore implements BotDriverInterface /// , Telegram
             $bridgeSecret,
             $token
         );
+    }
+
+    /**
+     * HyperDX: Lazy strategy boot keeps multi-bot drivers lightweight.
+     * Each bot instance initializes its transport only on first execution.
+    */
+    protected function bootStrategy(): void
+    {
+        if ($this->strategy) {
+            return;
+        }
+
+        // --- 🚀 THE STRATEGY SOUL INJECTOR 🚀 ---
+        // Based on the config, we instantiate and inject the correct execution strategy.
+        $handler = $this->config['strategy'] ?? 'api';
+
+        // Understanding the irazasyed/telegram-bot-sdk, we can reliably get the final base URI and token
+        // from its internal config container, ensuring our Direct strategy is always in sync.
+        // $sdkConfig = $this->getBotConfig();
+        $this->strategy = match ($handler) {
+            'response' => new DeferredWebhookResponseStrategy(),
+
+            'bridge' => $this->makeBridge(
+                $this->token,
+                $this->config['bridge'] ?? []
+            ),
+
+            'api' => new DirectApiCallStrategy(
+                $this->config['base_url'],      // Use the SDK's resolved Base URL
+                $this->config['token'],         // Use the SDK's resolved Token
+                $this->resolveProxy(),
+                $this->config['http_options'] ?? []             // ← گزینه‌های اضافی (اختیاری)
+            ),
+
+            default => throw new \InvalidArgumentException(
+                "Invalid Krubot Telegram handler configured : '{$handler}'."
+            ),
+        };
     }
 
     /**
@@ -196,107 +265,123 @@ class TelegramDriver extends TGCore implements BotDriverInterface /// , Telegram
      *
      * @param string $method The Telegram API method name (e.g., 'sendMessage').
      * @param array $params The parameters array.
-     * @return array|DeferredTelegramResponse The standardized response as an array.
+     * @return array|DeferredResponse The standardized response as an array.
      * @throws TelegramSDKException|\Exception
     */
-    public function makeRequest(string $method, array $params = []): array|DeferredTelegramResponse
+    public function makeRequest(string $method, array $params = []): array|DeferredResponse
     {
-        // ====================================================================
-        // == PRE-FLIGHT TRANSFORMATION (Rich Message Protocol)
-        // ====================================================================
-        // Here, we check for our custom `isRich` flag. If present, we perform
-        // a dynamic transformation of both the method and the payload.
+        $this->bootStrategy(); // ensure the lib is loaded
 
-        // Use temporary variables to hold the potentially modified request.
-        $finalMethod = $method;
-        $finalParams = $params;
+        $previousAura = app(RenderAura::class);
 
-        // --- Protocol 1: The RichMan Object (Highest Priority) ---
-        // We check if the main payload is a RichMan instance. This is the new standard.
-        // We'll assume it's passed via the `text` parameter for maximum fluency with `sendMessage`.
-        if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
-            /** @var RichMan $richMan */
-            $richMan = $finalParams['text'];
-
-            // 1. Reroute to the correct API method.
-            $finalMethod = 'sendRichMessage'; // @Todo: support message draft
-
-            // 2. Build the 'InputRichMessage' payload from the object.
-            $finalParams['rich_message'] = [
-                'blocks' => $richMan->toArray(), // Use the object's own array representation.
-            ];
-
-            // 3. Intelligently copy the RTL flag from the object.
-            if ($richMan->isRtl !== null) {
-                $finalParams['rich_message']['is_rtl'] = $richMan->isRtl;
-            }
-
-            // 4. Cleanup: Remove parameters that are now irrelevant.
-            unset($finalParams['text'], $finalParams['parse_mode'], $finalParams['entities'], $finalParams['isRich'], $finalParams['rich_blocks']);
-        }
-        // --- Protocol 2: The Raw Array (Backward Compatibility) ---
-        // If no RichMan object, check for the old `isRich` flag.
-        elseif (isset($finalParams['isRich']) && $finalParams['isRich'] === true) {
-            // 1. Reroute the Method: Switch from 'sendMessage' to the new API method.
-            $finalMethod = 'sendRichMessage';
-
-            // 2. Transform the Payload: Build the 'InputRichMessage' object.
-            if (isset($finalParams['rich_blocks'])) {
-                // The API expects the blocks under a 'rich_message' key.
-                $finalParams['rich_message'] = [
-                    'blocks' => $finalParams['rich_blocks']
-                ];
-                
-                // Future-proof: Also check for other top-level InputRichMessage properties
-                // like 'is_rtl' and move them inside the rich_message object.
-                if (isset($finalParams['is_rtl'])) {
-                    $finalParams['rich_message']['is_rtl'] = $finalParams['is_rtl'];
-                    unset($finalParams['is_rtl']);
-                }
-                elseif (isset($finalParams['isRtl'])) {
-                    $finalParams['rich_message']['is_rtl'] = $finalParams['isRtl'];
-                    unset($finalParams['isRtl']);
-                }
-            }
-
-            // 3. Cleanup: Remove our custom/old parameters to avoid polluting the API call.
-            unset($finalParams['isRich'], $finalParams['isRtl'], $finalParams['rich_blocks'], $finalParams['text'], $finalParams['parse_mode']);
-        }
-        // ====================================================================
-        // == END RICH TRANSFORMATION
-        // ====================================================================
+        RenderAura::infuse(
+            Platform::Telegram()
+        );
 
         try {
-            // 1. PREPARE: Normalize the final parameters (files, keyboards, etc.).
-            // Note: We use the modified $finalParams here.
-            $normalizedParams = $this->normalizePayload($finalParams);
 
-            // 2. DELEGATE: Pass the final command to the injected strategy.
-            // Note: We use the modified $finalMethod here.
-            $response = $this->strategy->handle($finalMethod, $normalizedParams);
+            // ====================================================================
+            // == PRE-FLIGHT TRANSFORMATION (Rich Message Protocol)
+            // ====================================================================
+            // Here, we check for our custom `isRich` flag. If present, we perform
+            // a dynamic transformation of both the method and the payload.
 
-        } catch (\Exception $e) {
-            // Rethrow to be handled by the Warlord's try-catch blocks
-            throw $e;
+            // Use temporary variables to hold the potentially modified request.
+            $finalMethod = $method;
+            $finalParams = $params;
+
+
+            // --- Protocol 1: The RichMan Object (Highest Priority) ---
+            // We check if the main payload is a RichMan instance. This is the new standard.
+            // We'll assume it's passed via the `text` parameter for maximum fluency with `sendMessage`.
+            if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
+
+                /** @var RichMan $richMan */
+                $richMan = $finalParams['text'];
+
+                // 1. Reroute to the correct API method
+                $finalMethod = 'sendRichMessage'; // @Todo: support message draft
+
+                // 2. Transform it with our new Node-Reshaper
+                $finalParams['rich_message'] = $this->generateTelegramRichPayload($richMan, $this->config);
+
+                // 3. Cleanup: Remove parameters that are now irrelevant
+                unset($finalParams['text'], $finalParams['parse_mode'], $finalParams['entities'], $finalParams['isRich'], $finalParams['rich_blocks']);
+            }
+
+            // --- Protocol 2: The Raw Array (Backward Compatibility) ---
+            // If no RichMan object, check for the old `isRich` flag.
+            elseif (isset($finalParams['isRich']) && $finalParams['isRich'] === true) {
+                // 1. Reroute the Method: Switch from 'sendMessage' to the new API method.
+                $finalMethod = 'sendRichMessage';
+
+                // 2. Transform the Payload: Build the 'InputRichMessage' object.
+                if (isset($finalParams['rich_blocks'])) {
+                    // The API expects the blocks under a 'rich_message' key.
+                    $finalParams['rich_message'] = [
+                        'blocks' => $finalParams['rich_blocks']
+                    ];
+                    
+                    // Future-proof: Also check for other top-level InputRichMessage properties
+                    // like 'is_rtl' and move them inside the rich_message object.
+                    if (isset($finalParams['is_rtl'])) {
+                        $finalParams['rich_message']['is_rtl'] = $finalParams['is_rtl'];
+                        unset($finalParams['is_rtl']);
+                    }
+                    elseif (isset($finalParams['isRtl'])) {
+                        $finalParams['rich_message']['is_rtl'] = $finalParams['isRtl'];
+                        unset($finalParams['isRtl']);
+                    }
+                }
+
+                // 3. Cleanup: Remove our custom/old parameters to avoid polluting the API call.
+                unset($finalParams['isRich'], $finalParams['isRtl'], $finalParams['rich_blocks'], $finalParams['text'], $finalParams['parse_mode']);
+            }
+            // ====================================================================
+            // == END RICH TRANSFORMATION
+            // ====================================================================
+
+            try {
+                // 1. PREPARE: Normalize the final parameters (files, keyboards, etc.).
+                // Note: We use the modified $finalParams here.
+                $normalizedParams = $this->normalizePayload($finalParams);
+
+                // 2. DELEGATE: Pass the final command to the injected strategy.
+                // Note: We use the modified $finalMethod here.
+                $response = $this->strategy->handle($finalMethod, $normalizedParams);
+
+            } catch (\Exception $e) {
+                // Rethrow to be handled by the Warlord's try-catch blocks
+                throw $e;
+            }
+
+            // 3. STANDARDIZE: Prepare the result for the outside world.
+            if ($response instanceof DeferredResponse) {
+                // اگر استراتژی webhook است، اینجا شیء DeferredResponse برگردانده می‌شود
+                // این شیء توسط لاراول در کنترلر به JSON تبدیل شده و به تلگرام پاسخ داده می‌شود
+                return $response;
+            }
+
+            // Krubot's CommandOutcomeShifter expects an array to perform its magic.
+            if ($response instanceof \Telegram\Bot\Objects\BaseObject || $response instanceof Collection) {
+                return $response->toArray();
+            }
+
+            // Handle boolean/scalar responses (e.g., from deleteMessage)
+            if (is_bool($response) || is_string($response) || is_numeric($response)) {
+                return ['ok' => true, 'result' => $response];
+            }
+            return (array) $response;
+
+        } finally {
+
+            // ============================================================
+            // ♻️ Restore the previous rendering universe.
+            // Critical for scoped lifecycle / Octane safety.
+            // ============================================================
+
+            RenderAura::infuse($previousAura);
         }
-
-        // 3. STANDARDIZE: Prepare the result for the outside world.
-        if ($response instanceof DeferredTelegramResponse) {
-            // اگر استراتژی webhook است، اینجا شیء DeferredTelegramResponse برگردانده می‌شود
-            // این شیء توسط لاراول در کنترلر به JSON تبدیل شده و به تلگرام پاسخ داده می‌شود
-            return $response;
-        }
-
-        // Krubot's CommandOutcomeShifter expects an array to perform its magic.
-        if ($response instanceof \Telegram\Bot\Objects\BaseObject || $response instanceof Collection) {
-            return $response->toArray();
-        }
-
-        // Handle boolean/scalar responses (e.g., from deleteMessage)
-        if (is_bool($response) || is_string($response) || is_numeric($response)) {
-            return ['ok' => true, 'result' => $response];
-        }
-        return (array) $response;
     }
 
     /**

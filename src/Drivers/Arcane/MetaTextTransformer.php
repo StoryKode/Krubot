@@ -1,6 +1,6 @@
 <?php
 
-namespace KrubiK\Arcane;
+namespace KrubiK\Drivers\Arcane;
 /*
 |--------------------------------------------------------------------------
 | A Message to the Future Architect of Rebellion... 🚀🌌
@@ -69,7 +69,7 @@ use KrubiK\Render\RichElements\Blocks\RichBlockExpandableBlockQuotation; // TG 1
  * @link https://StoryKo.de/Krubot Official website of engine.
  * @version Krubot: ×RC.8×
  * @license MIT
- */
+*/
 trait MetaTextTransformer
 {
     /**

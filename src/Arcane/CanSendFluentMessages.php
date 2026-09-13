@@ -17,8 +17,9 @@ use Closure;
 use InvalidArgumentException;
 use KrubiK\Keyboard\Keyboard;       // کلاس کیبورد شیشه‌ای
 use KrubiK\Keyboard\ReplyKeyboard;  // کلاس کیبورد منو
-use KrubiK\Arcane\MetaTextTransformer;
+use KrubiK\Drivers\Arcane\MetaTextTransformer;
 use KrubiK\Render\RichMan;
+use KrubiK\Render\RichElements\RichEntity;
 
 /**
  * Trait CanSendFluentMessages
@@ -349,7 +350,49 @@ trait CanSendFluentMessages
             $commonParams['chat_keypad_type'] = 'New'; 
         }
 
-        // 4. Handle Attachments (Media) - بررسی وضعیت Trait HasAttachments
+        // ================================================================
+        // 4. 🔥 RICH CONTENT — MUST BE RESOLVED BEFORE ANY TEXT PARSER
+        // ================================================================
+
+        $richContent = $this->resolveRichContent($this->fText);
+
+        if ($richContent instanceof RichMan) {
+
+            // A RichMan is already a complete document tree.
+
+            if ($this->hasPendingAttachment()) {
+                // @Todo: auto-handle this problem conditionally
+                throw new InvalidArgumentException(
+                    'Rich content cannot be combined with a pending attachment. '
+                    . 'Compose the media directly inside RichMan instead.'
+                );
+            }
+
+            $result = $this->makeRequest(
+                'sendMessage',
+                array_merge(
+                    [
+                        'chat_id' => $targetChatId,
+
+                        /*
+                        * Intentionally keep the RichMan OBJECT alive.
+                        *
+                        * TelegramDriver::makeRequest() is responsible for
+                        * recognizing it and converting it to sendRichMessage.
+                        */
+                        'text' => $richContent,
+                    ],
+                    $commonParams
+                )
+            );
+
+            $this->resetFluent();
+            $this->resetAttachments();
+
+            return $result;
+        }
+
+        // 5. Handle Attachments (Media) - بررسی وضعیت Trait HasAttachments
         if ($this->hasPendingAttachment()) {
             // --- SENARIO: SEND MEDIA ---
             
@@ -436,7 +479,7 @@ trait CanSendFluentMessages
             return $result;
         }
 
-        // 5. Handle Text / Edit (No Attachment)
+        // 6. Handle Text / Edit (No Attachment)
         // --- SENARIO: SEND TEXT or EDIT MESSAGE ---
         
         // پردازش متن و متادیتا با Parsentinel
@@ -498,6 +541,65 @@ trait CanSendFluentMessages
         $this->resetAttachments(); // محض احتیاط
         
         return $result;
+    }
+
+    /**
+     * Converts any structured Rich content into a canonical RichMan document.
+     *
+     * @param mixed $content
+     * @return RichMan|null
+    */
+    protected function resolveRichContent(mixed $content): ?RichMan
+    {
+        // Already the canonical container.
+        if ($content instanceof RichMan) {
+            return $content;
+        }
+
+        // A single RichEntity.
+        if ($content instanceof RichEntity) {
+            return RichMan::summon()->add($content);
+        }
+
+        // An array containing Rich entities.
+        if (is_array($content)) {
+
+            foreach ($content as $item) {
+
+                if (
+                    $item instanceof RichEntity
+                    || $this->containsRichEntity($item)
+                ) {
+                    return RichMan::summon()->add($content);
+                }
+            }
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Recursively determines whether an arbitrary value contains
+     * at least one RichEntity.
+     */
+    protected function containsRichEntity(mixed $value): bool
+    {
+        if ($value instanceof RichEntity) {
+            return true;
+        }
+
+        if (!is_array($value)) {
+            return false;
+        }
+
+        foreach ($value as $item) {
+            if ($this->containsRichEntity($item)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

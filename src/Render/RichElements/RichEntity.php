@@ -238,6 +238,12 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
         ));
     }
 
+    protected static bool $tgNative = true; // true unless explicitly set to false
+    public function isTgNative(): bool
+    {
+        return static::$tgNative; // important to use `static` here to benefit from PHP 8+ Late Static Bindings feature
+    }
+
     // =================================================================
     // == Begin ::: Markdown Rendering Control System :::
     // =================================================================

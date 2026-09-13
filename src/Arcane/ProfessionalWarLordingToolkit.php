@@ -68,6 +68,11 @@ trait ProfessionalWarLordingToolkit
      * @var string|array|null
      */
     protected string|array|null $onetimeDriverAlias = null;
+    
+    /**
+     * The preferred Regiment to be resolved per operation.
+    */
+    protected ?string $defaultRegiment = null;
 
     // ---------------------------------------------------------------------
     //  🔌 NEMESIS BRIDGE
@@ -105,6 +110,15 @@ trait ProfessionalWarLordingToolkit
             return $this->nemesis()->driver($name);
         }
 
+        if ($this->onetimeDriverAlias !== null) {
+            $target = is_array($this->onetimeDriverAlias)
+                ? $this->onetimeDriverAlias[0]
+                : $this->onetimeDriverAlias;
+    
+            $this->onetimeDriverAlias = null; // یک‌بار مصرف
+            return $this->nemesis()->driver($target);
+        }
+
         // Local fluent override (set via setDefaultDriver).
         if ($this->defaultDriverName !== null) {
             return $this->nemesis()->driver($this->defaultDriverName);
@@ -115,20 +129,217 @@ trait ProfessionalWarLordingToolkit
     }
 
     /**
-     * Retrieves a driver instance by its CANONICAL name.
-     * This method assumes the name has already been resolved.
+     * ⚡️ THE ULTIMATE POLYVALENT ENFORCER (Hyper-DX Driver Gateway)
+     * 
+     * - Mode 1 [Getter]: No arguments -> Returns current active ?MultiverseEnforcer.
+     * - Mode 2 [Explicit Null Reset]: Explicit null -> Nullifies active driver and returns $this (WarLord) for parent chaining.
+     * - Mode 3 [Instance Injector]: MultiverseEnforcer instance -> Binds the instance, nullifies old, and returns $this (WarLord) for parent chaining.
+     * - Mode 4 [String Setter]: Driver name/alias string -> Switches driver and returns MultiverseEnforcer for driver chaining.
+     * 
+     * Try It's jQuery+ API:
      *
-     * @param string $name The full, resolved name of the driver (e.g., 'rubika').
-     * @return MultiverseEnforcer
-     */
-    public function driver(string $name): MultiverseEnforcer
+     *     $warlord->enforcer();                   // Getter → null|MultiverseEnforcer instance if there is an active one.
+     *     $warlord->enforcer('telegram');         // Setter → null|MultiverseEnforcer instance if found
+     *     $warlord->enforcer('telegram', 'main'); // Setter → null|MultiverseEnforcer instance if found
+     *     $warlord->enforcer($driverInstance);    // Setter → $this ($krubotInstance)
+     *     $warlord->enforcer(null);               // Explicit Flush → $this ($krubotInstance)
+     *
+     * Getter is detected by argument count, so:
+     *
+     *     >enforcer() !== >enforcer(null)
+     *
+     * @param string|MultiverseEnforcer|null $name Driver name, alias, instance, or explicit null.
+     * @param string|null $regiment Optional regiment scope for multi-bot isolation.
+     * @return MultiverseEnforcer|self|null
+    */
+    public function enforcer(string|MultiverseEnforcer|null $name = null, ?string $regiment = null): MultiverseEnforcer|self|null
+    {
+        // MODE 1: GETTER (No arguments passed)
+        if (func_num_args() === 0) {
+            return $this->driver;
+        }
+
+        // Clean up previous driver server binding if it exists
+        $cleanupPrevious = function () {
+            if ($this->driver) {
+                $this->driver->serve(null);
+            }
+        };
+
+        // MODE 2: EXPLICIT NULL RESET (Setter with explicit null)
+        if ($name === null) {
+
+            $cleanupPrevious();
+            $this->driver = null;
+
+            return $this;
+        }
+
+        // MODE 3: INSTANCE INJECTOR (Passed an existing MultiverseEnforcer instance)
+        if ($name && $name instanceof MultiverseEnforcer) {
+
+            // prevent redundant assigns
+            if($name === $this->driver)
+                return $this;
+
+            $cleanupPrevious();
+            $this->driver = $name;
+            $this->driver->serve($this);
+            $this->setCurrentDriver($name);
+
+            // if($regiment)
+                // $this->regiment($regiment, true);
+
+            return $this;
+        }
+
+        // MODE 2: STRING SETTER (Driver name or alias lookup)
+        /** @var \KrubiK\Drivers\Nemesis $nemesis */
+        $nemesis = $this->nemesis();
+        $regiment ??= $this->defaultRegiment;
+
+        $canonicalName = $nemesis->resolveDriverName($name, $regiment);
+
+        // 4. INSTANTIATION: Fetch/initialize the target driver instance.
+        // Attempt to fetch the driver from Nemesis. 
+        // If Nemesis throws InvalidArgumentException (e.g. invalid driver name/spawn failure),
+        // the catch block intercepts it, keeping the current active driver state pristine and safe.
+        $driver = null;
+        try {           
+            $driver = $nemesis->enforcer($canonicalName, $regiment);
+        } catch (InvalidArgumentException $e) {
+            // State remains untouched; rethrow or enhance the error context if needed
+            // throw $e;
+            // throw new InvalidArgumentException(sprintf('KrubiK Agency Error: Target Enforcer [%s] (resolved from driver alias: [%s]) could not be initialized or is invalid.', $canonicalName, $name));
+            $driver = null;
+        }
+
+        if($driver) { // && $driver instanceof MultiverseEnforcer
+
+            $cleanupPrevious();
+            $this->driver = $driver;
+            
+            $this->driver->serve($this);
+            $this->setCurrentDriver($driver);
+
+            // if($regiment)
+                // $this->regiment($regiment, true);
+        }
+        
+
+        return $driver; // ?MultiverseEnforcer
+    }
+
+    /**
+     * Alias for enforcer() for absolute linguistic flexibility.
+     *
+     * @param string|MultiverseEnforcer|null $name Driver name, alias, instance, or explicit null.
+     * @param string|null $regiment Optional regiment scope for multi-bot isolation.
+     * @return MultiverseEnforcer|self|null
+    */
+    public function driver(string|MultiverseEnforcer|null $name = null, ?string $regiment = null): MultiverseEnforcer|self|null
+    {
+        return (func_num_args() === 0) ? $this->enforcer() : $this->enforcer($name, $regiment);
+    }
+
+    /**
+     * 🔎 FIND ENFORCER — Non-Fluent Lookup Gateway
+     *
+     * Resolves an Enforcer using the exact same Name + Regiment contract,
+     * but never mutates the active Enforcer on this object.
+     *
+     *     $bot->findEnforcer('telegram');
+     *     $bot->findEnforcer('telegram', 'main');
+     *     $bot->findEnforcer(); // active Enforcer, if already bound
+     *
+     * Returns null when the requested Enforcer cannot be resolved.
+     *
+     * @param string $name
+     * @param string|null $regiment
+     * @return MultiverseEnforcer|null
+    */
+    public function findEnforcer(string $name = null, ?string $regiment = null): ?MultiverseEnforcer
     {
 
-        // Thin passthrough. Nemesis owns caching, identity stamping,
-        // bot resolution, and multi-bot isolation.
-        return $this->nemesis()->driver($name, $bot);
-        // Lazy Load: Create the driver on first access.
-    } 
+        // 🧠 Nemesis owns alias resolution, Regiment isolation and caching.
+        try {
+            return $this->nemesis()->driver($name, $regiment ?? $this->defaultRegiment);
+        } catch (InvalidArgumentException $ignoring) {
+            // 🛡️ "find" semantics: missing/invalid targets resolve to null.
+            return null;
+        }
+    }
+
+    /**
+     * ⚡️ THE ULTIMATE REGIMENT VALVET GATEWAY (jQuery-Style Fluent Getter/Setter & Chainable)
+     * 
+     * Manages the active regiment/operative scope for multi-bot isolation with maximum performance.
+     * 
+     * - Mode 1 [Getter]: No arguments -> Returns current active ?string regiment scope.
+     * - Mode 2 [Explicit Null Reset]: Explicit null -> Resets active regiment to null and returns $this for chaining.
+     * - Mode 3 [String Setter]: Regiment string -> Updates regiment only if it differs from the current one (Zero-redundancy optimization), 
+     *   then returns $this for fluent method chaining.
+     * 
+     * Try It's jQuery+ API:
+     *
+     *     $warlord->regiment();         // Getter → null|string (current active regiment)
+     *     $warlord->regiment('main');   // Setter → $this ($krubotInstance) [Skipped if already 'main']
+     *     $warlord->regiment(null);     // Explicit Flush → $this ($krubotInstance)
+     *
+     * @param string|null $regiment Target regiment scope, explicit null, or none for getter mode.
+     * @return string|self|null
+    */
+    public function regiment(?string $regiment = null, bool $preventCircular = false): string|self|null
+    {
+        /** @var \KrubiK\Drivers\Nemesis $nemesis */
+        $nemesis = $this->nemesis();
+
+        // MODE 1: GETTER (No arguments passed)
+        if (func_num_args() === 0) {
+            // Return local current regiment if set, otherwise fallback to Nemesis query.
+            return $this->defaultRegiment ?? $nemesis->currentRegiment();
+        }
+
+        // MODE 2: EXPLICIT NULL RESET (Setter with explicit null parameter)
+        if ($regiment === null) {
+            if ($this->defaultRegiment !== null) {
+                $this->defaultRegiment = null;
+            }
+            return $this;
+        }
+
+        // MODE 3: STRING SETTER (Zero-Redundancy Performance Optimization)
+
+        // Check if the incoming regiment is identical to the current one to prevent redundant state mutations.
+        $currentEnforcer = $this->enforcer();
+        if($currentEnforcer && ($currentEnforcer->regiment() == $regiment))
+            return $this;            
+
+        // if ($this->defaultRegiment !== $regiment)
+        $this->defaultRegiment = $regiment;
+
+        // Safe-try to refresh Enforcer
+        try {
+            if(!$preventCircular)
+                $this->enforcer(
+                    $nemesis->enforcer(null, $regiment, true) // null → ask nemesis | true → $ignorePrimed
+                );
+        } catch (InvalidArgumentException $ignoring) {}
+
+        // Return $this for fluent parent chaining
+        return $this;
+    }
+
+    /**
+     * Alias for regiment() for absolute linguistic flexibility.
+     * 
+     * @param string|null $regiment
+     * @return string|self|null
+    */
+    public function operative(?string $regiment = null, bool $preventCircular = false): string|self|null
+    {
+        return (func_num_args() === 0) ? $this->regiment() : $this->regiment($regiment);
+    }
 
     /**
      * ⚡️ THE RESOLVER: Translates any alias or name into its canonical form.
@@ -140,7 +351,7 @@ trait ProfessionalWarLordingToolkit
      *
      * @param string $alias The alias to resolve.
      * @return string The canonical driver name.
-     */
+    */
     public function resolveDriverName(string $alias): string
     {
         // Delegate to Nemesis for bot-scoped alias resolution.
@@ -152,11 +363,55 @@ trait ProfessionalWarLordingToolkit
      *
      * @param string $alias The alias or full name of the new default driver.
      * @return $this
-     */
+    */
     public function setDefaultDriver(string $alias): self
     {
         // Always Canonicalize through Nemesis to resolve and store the bot-scoped aliases as well as canonical names.
         $this->defaultDriverName = $this->nemesis()->resolveDriverName($alias);
+        return $this;
+    }
+
+    /*───────────────────────────────────────────────────────────────
+    |  ⚡ Fine-DX Aura Listener (Krubot Language)
+    |  Mutable Singleton • Zero Ceremony • Maximum Signal Clarity
+    ───────────────────────────────────────────────────────────────*/
+
+    /**
+     * Internal Aura-listening state.
+     *
+     * true  = Krubot actively listens to RenderAura changes
+     * false = Krubot ignores Aura synchronization signals
+     *
+     * This is intentionally mutable: Warlord owns the live listening state
+     * while RenderAura remains an immutable execution-context snapshot.
+     */
+    protected bool $listensAura = false;
+
+    /**
+     * jQuery-style dual accessor for the Aura-listening state.
+     *
+     * Getter:
+     *   $krubot->listensAura()
+     *
+     * Setter:
+     *   $krubot->listensAura(true)
+     *
+     * No argument returns the current state.
+     * Passing a boolean updates the state and returns $this for fluent chaining.
+     *
+     * @param  bool  $value
+     * @return self|bool
+     */
+    public function listensAura(bool $value = true): self|bool
+    {
+        // ⚡ Zero-argument form = pure state read.
+        if (func_num_args() === 0) {
+            return $this->listensAura;
+        }
+
+        // 🚀 One-argument form = mutate listener state and stay fluent.
+        $this->listensAura = $value;
+
         return $this;
     }
 

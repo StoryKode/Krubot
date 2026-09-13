@@ -23,6 +23,7 @@ namespace KrubiK\Drivers;
 
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 use KrubiK\Drivers\Arcane\NeonVitality;
+use KrubiK\Render\RichMan;
 
 use KrubiK\Keyboard\Keyboard as KrubiKInlineKeyboard;
 use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
@@ -180,7 +181,7 @@ class CLIDriver implements MultiverseEnforcer
         $finalParams = $params;
 
         // ── RichMan handling (mirrors BaleDriver) ─────────────────────────
-        if (isset($finalParams['text']) && $finalParams['text'] instanceof \KrubiK\RichMan) {
+        if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
             $richMan = $finalParams['text'];
             $finalParams['text']  = $richMan->toText(); // CLI = plain text
             $finalParams['_rich'] = true;

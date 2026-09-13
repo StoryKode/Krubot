@@ -45,7 +45,7 @@ class RichBlockList extends RichBlockEntity
         return [
             'type' => 'list', 
             'items' => $this->normalize($this->items),
-            'style' => $this->style
+            // 'style' => $this->style
         ];
     }
     

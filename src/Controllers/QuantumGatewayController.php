@@ -222,7 +222,7 @@ class QuantumGatewayController extends Controller
         // We now use our configuration-aware dispatcher.
         //
         // The job carries SCALAR identifiers only:
-        //   - bot name      → worker re-enters Nemesis::bot($botName)
+        //   - bot name      → worker re-enters Nemesis::operative($regimentName)
         //   - driver name   → worker re-resolves the instance via Nemesis
         //   - platform name → for logging + forensic correlation in the job
         //
