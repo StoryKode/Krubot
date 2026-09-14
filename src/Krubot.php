@@ -2274,8 +2274,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
         // =====================================================================
         // PHASE 1: FETCH DATA (THE EYES)
         // =====================================================================
-        // We use the driver's internal API client to fetch updates.
-        $apiResponse = $this->newApiRequest('getUpdates');
+        // We use the our fresh API client to fetch updates.
+        $apiResponse = $this->pulseApi('getUpdates');
 
         // Check for 'data' key wrapper (Rubika Standard)
         $data = $apiResponse['data'] ?? [];
@@ -3330,7 +3330,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         $this->currentResolvedHandler = null;
         $this->finalResponse = null;
 
-        $this->resetContextData(); // 🌋 THE ASYNC GUARDIAN: WIPE THE SLATE CLEAN! [bot->get() && bot->set() data]
+        $this->resetContextData(); // 🌋 THE ASYNC GUARDIAN: WIPE THE SLATE CLEAN! [bot->getX() && bot->setX() data]
         $this->tunnelAmethyst($message); // We Can Auto-Fill it by $this->currentMessage, but not now!
 
         // =========================================================================

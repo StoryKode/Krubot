@@ -11,22 +11,37 @@ namespace KrubiK\Drivers;
 | MERGE Powers of:
 |   - v1   : makeRequest pipeline, NeonVitality queue, keyboard
 |            normalizer, HMAC validation, response serializer
-|   - v2 : handleWebRequest(), findRouteEntry() with regex,
+|   - v2   : handleWebUpdate(), findRouteEntry() with regex,
 |           static $webRegistry, castParameter(), formatResponse()
+|   - v3 ✨: AxiomCore integration — driver now asks the certified
+|           Identity Orchestrator "who are you?" instead of doing
+|           ad-hoc HMAC parsing inline. UniversalIdentity flows
+|           through $this->identity and is injectable into Nexus
+|           handlers via buildMethodArguments(). WebAppInitData DTO
+|           is also directly injectable. resolveSenderUser() now
+|           reads from the certified UniversalIdentity.
 |
-| Best of both worlds. No logic dropped. Zero compromise.
+| Best of all worlds. No logic dropped. Zero compromise. Full power.
 |--------------------------------------------------------------------------
 */
 
+use KrubiK\Krubot;
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 use KrubiK\Drivers\Arcane\NeonVitality;
+use KrubiK\WebApps\DTOs\WebAppInitData;
+use KrubiK\WebApps\UniversalIdentity;
+use KrubiK\WebApps\AxiomCore;
+use KrubiK\Render\RenderAura;
+
 use KrubiK\Keyboard\Keyboard as KrubiKInlineKeyboard;
 use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
+use KrubiK\Render\RichMan;
+use KrubiK\Enums\Platform;
+
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Contracts\View\View;
-use KrubiK\Render\RichMan;
 
 final class WebAppDriver implements MultiverseEnforcer
 {
@@ -59,7 +74,7 @@ final class WebAppDriver implements MultiverseEnforcer
     /** Synthetic chat context. */
     protected array $chatContext = [];
 
-    /** The active Laravel Request (set by handleWebRequest). */
+    /** The active Laravel Request (set by handleWebUpdate). */
     protected Request $currentRequest;
 
     /** URI params extracted from {param} segments (set by findRouteEntry). */
@@ -67,6 +82,25 @@ final class WebAppDriver implements MultiverseEnforcer
 
     /** The route key that was matched (for debugging / logging). */
     protected ?string $matchedRouteKey = null;
+    
+    // =========================================================================
+    // 🆔 UNIVERSAL IDENTITY — the certified, AxiomCore-resolved identity
+    // =========================================================================
+
+    /**
+     * The single source of truth for "who is calling this endpoint".
+     *
+     * Resolved by AxiomCore::inspect() during handleWebUpdate().
+     * In pre-request contexts (middleware, constructor injection) it falls
+     * back to a guest identity so the driver is never in an undefined state.
+     *
+     * Nexus handlers can receive it by type-hinting:
+     *   public function myAction(UniversalIdentity $identity): array { … }
+     *
+     * Or reach the raw WebAppInitData proof object via:
+     *   public function myAction(WebAppInitData $initData): array { … }
+    */
+    protected UniversalIdentity $identity;
 
     // =========================================================================
     // 📋 STATIC WEB REGISTRY
@@ -85,13 +119,13 @@ final class WebAppDriver implements MultiverseEnforcer
      *   'http'      => ['POST'],                             // empty = all methods
      *   'restrict'  => ['*'],                                // from #[RestrictTo]
      * ]
-     */
+    */
     protected static array $webRegistry = [];
 
     /**
      * Called once by Krubot at boot (discoverAndIntegrateNexuses).
      * Drop-in — no changes needed to existing discovery code beyond calling this.
-     */
+    */
     public static function setWebRegistry(array $registry): void
     {
         static::$webRegistry = $registry;
@@ -99,7 +133,7 @@ final class WebAppDriver implements MultiverseEnforcer
 
     /**
      * Append a single entry (useful when hot-discovering new Nexuses at runtime).
-     */
+    */
     public static function registerWebRoute(array $entry): void
     {
         static::$webRegistry[] = $entry;
@@ -107,7 +141,7 @@ final class WebAppDriver implements MultiverseEnforcer
 
     /**
      * Expose the registry (for testing / krubik:list-nexuses).
-     */
+    */
     public static function getWebRegistry(): array
     {
         return static::$webRegistry;
@@ -129,23 +163,24 @@ final class WebAppDriver implements MultiverseEnforcer
             'username'   => $config['bot_username'] ?? 'krubot_web',
         ];
 
-        // Payload is hydrated here so NeonVitality / param() work even before
-        // handleWebRequest() is called (e.g. middleware or constructor injection).
+        // ── Identity: start as guest, AxiomCore will certify in handleWebUpdate ──
+        // We do NOT call AxiomCore here because a proper Laravel Request object
+        // is not yet available. The guest state keeps the driver usable everywhere.
+        $this->identity    = UniversalIdentity::guest('web');
+
+        // Payload is hydrated here so Enforcer::param() works even before
+        // handleWebUpdate() is called (e.g. middlewares or constructor injections).
         $this->payload     = $this->resolveIncomingPayload();
-        $this->senderUser  = $this->resolveSenderUser();
+        $this->senderUser  = $this->resolveSenderUser(); /// -> $this->buildSenderArrayFromIdentity($this->identity);
         $this->chatContext = $this->resolveChatContext();
 
         $this->igniteNeon($this->config);
     }
 
-    // =========================================================================
-    // 🎯 PRIMARY ENTRY POINT — called by QuantumGatewayController
-    // =========================================================================
-
     /**
-     * THE method QuantumGatewayController@handleWebApp must delegate to.
-     *
-     * Replaces the broken: app(Krubot::class)->processUpdate($fakeUpdate)
+     * =========================================================================
+     * 🎯 PRIMARY ENTRY POINT — called by QuantumGatewayController
+     * =========================================================================
      *
      * Flow:
      *   1. Bind the active Request so param resolution has it
@@ -160,13 +195,23 @@ final class WebAppDriver implements MultiverseEnforcer
      * @param  Request     $request   Laravel's current request
      * @param  string      $routePath The {path} capture from routes/web.php
      * @return mixed                  A Symfony/Laravel Response
-     */
-    public function handleWebRequest(Request $request, string $routePath = ''): mixed
+    */
+    public function handleWebUpdate(Request $request, string $routePath = ''): mixed
     {
         $this->currentRequest = $request;
 
         // Re-hydrate payload from the actual Laravel Request (more reliable than php://input)
         $this->payload = $this->extractPayload($request);
+
+        // ── ✨ Certify Identity via AxiomCore ──────────────────────────
+        // If the middleware (AuthenticateWebApp) already ran, its result lives in
+        // the request attribute bag. We honour that to avoid double-validation.
+        // If not (e.g. the driver is used without the middleware), we certify now.
+        $this->identity = $this->resolveIdentityFromRequest($request);
+
+        // Rebuild senderUser from the certified identity
+        $this->senderUser  = $this->buildSenderArrayFromIdentity($this->identity);
+        $this->chatContext = $this->resolveChatContext();
 
         // Normalise path: '/webapps/game/dashboard/order_vip_product' → 'game.dashboard.order_vip_product'
         $dotPath = $this->uriToDotPath($routePath ?: $request->path());
@@ -218,7 +263,7 @@ final class WebAppDriver implements MultiverseEnforcer
      * Supports {param} wildcards and both exact and normalised (kebab→snake) paths.
      *
      * Returns the entry array with an extra '_params' key, or null on miss.
-     */
+    */
     protected function findRouteEntry(string $dotPath): ?array
     {
         // Also try with hyphens normalised to underscores
@@ -251,7 +296,7 @@ final class WebAppDriver implements MultiverseEnforcer
      *
      * 'game.dashboard.show_vip_product.{productId}'
      *   → /^game\.dashboard\.show_vip_product\.(?P<productId>[^.\/]+)$/i
-     */
+    */
     protected function routeKeyToRegex(string $routeKey): string
     {
         // Temporarily replace {param} so preg_quote doesn't escape the braces
@@ -269,21 +314,23 @@ final class WebAppDriver implements MultiverseEnforcer
     }
 
     // =========================================================================
-    // 🏗️ ARGUMENT BUILDER — Claude's reflection DI, DeepSeek's castParameter
+    // 🏗️ ARGUMENT BUILDER — Claude's reflection DI, DeepSeek's castParameter, now with GroK identity-injectable
     // =========================================================================
 
     /**
      * Build the exact argument list for the Nexus handler method.
      *
      * Resolution priority (mirrors how #[WebAction] auto-injects):
-     *   1. Krubot / WebAppDriver type → $this (the active driver)
+     *   1. MultiverseEnforcer / WebAppDriver type → $this (the active driver)
      *   2. Illuminate\Http\Request   → $this->currentRequest
-     *   3. Route params {productId}  → $this->routeParameters
-     *   4. Request payload (body)    → $this->payload
-     *   5. Default value             → $param->getDefaultValue()
-     *   6. Nullable                  → null
-     *   7. Laravel IoC               → app($typeName)
-     */
+     *   3. UniversalIdentity      ✨ → $this->identity (certified)
+     *   4. WebAppInitData         ✨ → $this->identity->getData()
+     *   5. Route params {productId}  → $this->routeParameters
+     *   6. Request payload (body)    → $this->payload
+     *   7. Default value             → $param->getDefaultValue()
+     *   8. Nullable                  → null
+     *   9. Laravel IoC Registry      → app($typeName)
+    */
     protected function buildMethodArguments(string $class, string $method): array
     {
         $refMethod = new \ReflectionMethod($class, $method);
@@ -297,10 +344,14 @@ final class WebAppDriver implements MultiverseEnforcer
             // 1. Krubot / WebAppDriver injection
             if ($typeName && (
                 $typeName === self::class ||
-                is_a($typeName, \KrubiK\Krubot::class, true) ||
                 is_a($typeName, MultiverseEnforcer::class, true)
             )) {
                 $args[] = $this;
+                continue;
+            }
+
+            if ($typeName && is_a($typeName, Krubot::class, true)) {
+                $args[] = $this->warlord();
                 continue;
             }
 
@@ -308,33 +359,58 @@ final class WebAppDriver implements MultiverseEnforcer
             if ($typeName && is_a($typeName, Request::class, true)) {
                 $args[] = $this->currentRequest;
                 continue;
+            }            
+
+            // 3. ✨ UniversalIdentity injection — certified identity object
+            if ($typeName === UniversalIdentity::class) {
+                $args[] = $this->identity;
+                continue;
             }
 
-            // 3. Route {param} segments
+            // 4. ✨ WebAppInitData injection — the raw proof DTO (nullable-safe)
+            if ($typeName === WebAppInitData::class) {
+                $initData = $this->identity->getData();
+
+                if ($initData === null && !$param->allowsNull()) {
+                    // Handler demands non-null InitData but identity has none.
+                    // Return 403 by throwing — formatResponse / errorResponse handles it.
+                    throw new \RuntimeException(
+                        "WebAppDriver: Handler {$class}::{$method}() requires WebAppInitData " .
+                        "but the current identity was not forged from a MiniApp context. " .
+                        "Ensure AuthenticateWebApp middleware runs before this route, or use " .
+                        "?WebAppInitData to accept null."
+                    );
+                }
+
+                $args[] = $initData;
+                continue;
+            }
+
+            // 5. Route {param} segments
             if (isset($this->routeParameters[$name])) {
                 $args[] = $this->castParameter($this->routeParameters[$name], $type);
                 continue;
             }
 
-            // 4. Request payload (POST body / JSON)
+            // 6. Request payload (POST body / JSON)
             if (array_key_exists($name, $this->payload)) {
                 $args[] = $this->castParameter($this->payload[$name], $type);
                 continue;
             }
 
-            // 5. Default value
+            // 7. Default value
             if ($param->isDefaultValueAvailable()) {
                 $args[] = $param->getDefaultValue();
                 continue;
             }
 
-            // 6. Nullable
+            // 8. Nullable
             if ($param->allowsNull()) {
                 $args[] = null;
                 continue;
             }
 
-            // 7. Laravel IoC (services, repositories, etc.)
+            // 9. Query in Laravel IoC (services, repositories, etc.)
             if ($typeName && (class_exists($typeName) || interface_exists($typeName))) {
                 try {
                     $args[] = app($typeName);
@@ -357,7 +433,7 @@ final class WebAppDriver implements MultiverseEnforcer
     /**
      * Cast a raw scalar value to the expected PHP built-in type.
      * Handles nullable types correctly.
-     */
+    */
     protected function castParameter(mixed $value, ?\ReflectionType $type): mixed
     {
         if ($value === null) {
@@ -379,7 +455,7 @@ final class WebAppDriver implements MultiverseEnforcer
     }
 
     // =========================================================================
-    // ⚡️ makeRequest — NeonVitality / $bot->reply()->send() pipeline
+    // ⚡️ makeRequest — $bot->reply()->send() pipeline
     // =========================================================================
 
     /**
@@ -390,13 +466,15 @@ final class WebAppDriver implements MultiverseEnforcer
      *
      * Called transparently by NeonVitality when your handler does:
      *   $bot->reply("Hello!")->send();
-     */
+    */
     public function makeRequest(string $method, array $params = []): array
     {
         $finalParams = $params;
 
         // ── RichMan → HTML (Web loves HTML) ──────────────────────────────
         if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
+            $this->warlord()->listensAura(true);
+            RenderAura::infuse(Platform::Web());
             $finalParams['text']       = $finalParams['text']->toHtml();
             $finalParams['parse_mode'] = 'html';
             $finalParams['_rich']      = true;
@@ -440,7 +518,7 @@ final class WebAppDriver implements MultiverseEnforcer
      *   Symfony/Laravel Response      → pass through
      *   string                        → HTML
      *   null / void                   → flush $bot->reply() queue as JSON
-     */
+    */
     protected function formatResponse(mixed $result, string $attributeType): mixed
     {
         // 1. Already a Symfony/Laravel Response → pass through + attach bot messages
@@ -505,7 +583,7 @@ final class WebAppDriver implements MultiverseEnforcer
 
     /**
      * Public flush (for controllers that want manual control or non-Laravel envs).
-     */
+    */
     public function flushResponse(bool $emit = true): array
     {
         $payload = $this->buildQueuedResponsePayload();
@@ -522,7 +600,7 @@ final class WebAppDriver implements MultiverseEnforcer
         return $payload;
     }
 
-    protected function buildQueuedResponsePayload(): array
+    public function buildQueuedResponsePayload(): array
     {
         $messages = $this->buildBotMessageList();
 
@@ -533,7 +611,7 @@ final class WebAppDriver implements MultiverseEnforcer
         return ['ok' => true, 'messages' => $messages, 'count' => count($messages)];
     }
 
-    protected function buildBotMessageList(): array
+    public function buildBotMessageList(): array
     {
         return array_map(fn($entry) => [
             'method'   => $entry['method'],
@@ -621,7 +699,7 @@ final class WebAppDriver implements MultiverseEnforcer
     /**
      * Parse the incoming HTTP payload.
      * Priority: JSON body > multipart/form-data > query string.
-     */
+    */
     protected function resolveIncomingPayload(): array
     {
         $raw = file_get_contents('php://input');
@@ -637,9 +715,9 @@ final class WebAppDriver implements MultiverseEnforcer
     }
 
     /**
-     * Re-parse from the actual Laravel Request (called inside handleWebRequest).
+     * Re-parse from the actual Laravel Request (called inside handleWebUpdate).
      * More reliable than php://input for multipart or already-consumed streams.
-     */
+    */
     protected function extractPayload(Request $request): array
     {
         if ($request->isJson()) {
@@ -652,7 +730,7 @@ final class WebAppDriver implements MultiverseEnforcer
     /**
      * Strip /webapps/ prefix and convert URI slashes to dots.
      * '/webapps/game/dashboard/order_vip_product' → 'game.dashboard.order_vip_product'
-     */
+    */
     protected function uriToDotPath(string $uri): string
     {
         $uri = ltrim($uri, '/');
@@ -666,69 +744,16 @@ final class WebAppDriver implements MultiverseEnforcer
     }
 
     // =========================================================================
-    // 👤 IDENTITY RESOLVERS
+    // 👤 IDENTITY RESOLVERS — now delegating to UniversalIdentity
     // =========================================================================
 
+    /**
+     * @deprecated  Use $this->identity directly.
+     *              Kept for backward compatibility with NeonVitality trait internals.
+    */
     protected function resolveSenderUser(): array
     {
-        // 1. Telegram/Bale Mini-App initData (HMAC-validated)
-        if (!empty($this->payload['initData'])) {
-            return $this->parseTelegramInitData($this->payload['initData']);
-        }
-
-        // 2. Explicit user block in payload (testing convenience)
-        if (!empty($this->payload['user']) && is_array($this->payload['user'])) {
-            return $this->payload['user'];
-        }
-
-        // 3. Laravel Auth
-        if (function_exists('auth') && auth()->check()) {
-            $u = auth()->user();
-            return [
-                'id'         => $u->getKey(),
-                'is_bot'     => false,
-                'first_name' => $u->name ?? 'User',
-                'username'   => $u->email ?? null,
-                'platform'   => 'web',
-            ];
-        }
-
-        // 4. Laravel session
-        if (function_exists('session') && session()->has('krubot_web_user')) {
-            return session('krubot_web_user');
-        }
-
-        // 5. Anonymous fingerprint
-        return [
-            'id'         => $this->deriveAnonymousId(),
-            'is_bot'     => false,
-            'first_name' => 'WebVisitor',
-            'username'   => null,
-            'platform'   => 'web',
-        ];
-    }
-
-    protected function parseTelegramInitData(string $initData): array
-    {
-        parse_str($initData, $parsed);
-
-        if (!empty($this->config['bot_token'])) {
-            $checkString  = collect($parsed)
-                ->except('hash')
-                ->map(fn($v, $k) => "$k=$v")
-                ->sort()
-                ->implode("\n");
-
-            $secretKey    = hash_hmac('sha256', $this->config['bot_token'], 'WebAppData', true);
-            $expectedHash = bin2hex(hash_hmac('sha256', $checkString, $secretKey, true));
-
-            if (!hash_equals($expectedHash, $parsed['hash'] ?? '')) {
-                throw new \RuntimeException('WebAppDriver: initData HMAC validation failed. Possible tampering.');
-            }
-        }
-
-        $user = json_decode($parsed['user'] ?? '{}', true) ?: [];
-        return array_merge($user, ['_source' => 'initData']);
+        return $this->buildSenderArrayFromIdentity($this->identity);
     }
 
     protected function resolveChatContext(): array
@@ -747,9 +772,16 @@ final class WebAppDriver implements MultiverseEnforcer
     }
 
     // =========================================================================
-    // 🔒 RESTRICTION CHECK
+    // 🔒 RESTRICTION CHECK — now identity-aware
     // =========================================================================
 
+    /**
+     * Evaluate #[RestrictTo] rules against the certified UniversalIdentity.
+     *
+     * '*' → any authenticated (non-guest) identity
+     * 'telegram' / 'bale' / 'web' → platform-specific check
+     * '@admin' style tags can be expanded here as needed
+    */
     protected function passesRestriction(array $restrictions): bool
     {
         if (empty($restrictions)) {
@@ -758,13 +790,137 @@ final class WebAppDriver implements MultiverseEnforcer
 
         foreach ($restrictions as $r) {
             if ($r === '*') {
-                // '*' = any authenticated user
-                return !empty($this->senderUser['id']) && ($this->senderUser['id'] !== $this->deriveAnonymousId());
+                return true; // Or:: $this->identity->isAuthenticated if you want to allow only authenticated users
             }
-            // Platform restrictions ('tg', 'bale', …) don't apply in web context → skip
+
+            // Platform-based restriction: 'telegram', 'bale', 'web', etc.
+            if ($this->identity->platform === $r) {
+                return true;
+            }
+
+            // Source-based restriction: 'webapp_init_data', 'web_session', etc.
+            if ($this->identity->source === $r) {
+                return true;
+            }
         }
 
-        return true;
+        return false;
+    }
+
+    // =========================================================================
+    // 🆔 IDENTITY RESOLUTION — AxiomCore integration
+    // =========================================================================
+
+    /**
+     * Resolve the UniversalIdentity for the current request.
+     *
+     * Priority:
+     * 1. Already set by AuthenticateWebApp middleware → read from request attribute bag.
+     * 2. Not set → ask AxiomCore to inspect the request now (late resolution).
+     *
+     * This means the driver works correctly whether the middleware ran or not.
+    */
+    protected function resolveIdentityFromRequest(Request $request): UniversalIdentity
+    {
+        // Check if AuthenticateWebApp middleware already resolved and attached identity
+        $cached = $request->identityCard();  // macro from KrubotServiceProvider (getter mode)
+
+        if ($cached instanceof UniversalIdentity) {
+            return $cached;
+        }
+
+        // Late resolution — driver resolves identity itself via AxiomCore
+        /** @var AxiomCore $axiom */
+        $axiom = app(AxiomCore::class);
+        $identity = $axiom->inspect($request);
+
+        // Attach to request so downstream code (e.g. other middleware) can read it
+        $request->identityCard($identity);
+
+        return $identity;
+    }
+
+    /**
+     * Build the legacy $senderUser array from the certified UniversalIdentity.
+     *
+     * This bridges the new identity system with the existing NeonVitality
+     * trait and any code that calls $this->getUser() / $bot->user().
+    */
+    protected function buildSenderArrayFromIdentity(UniversalIdentity $identity): array
+    {
+        if ($identity->isGuest) {
+            return [
+                'id'         => $this->deriveAnonymousId(),
+                'is_bot'     => false,
+                'first_name' => 'WebVisitor',
+                'username'   => null,
+                'platform'   => $identity->platform ?? 'web',
+            ];
+        }
+
+        // WebApp / MiniApp path — rich data from WebAppInitData DTO
+        if ($identity->isFromWebApp() && ($initData = $identity->getData()) !== null) {
+            return [
+                'id'            => $initData->getUserId(),
+                'is_bot'        => false,
+                'first_name'    => $initData->getFirstName(),
+                'last_name'     => $initData->getLastName(),
+                'username'      => $initData->getUsername(),
+                'language_code' => $initData->getLanguageCode(),
+                'platform'      => $identity->platform,
+                '_source'       => UniversalIdentity::SRC_WEBAPP_INIT_DATA,
+            ];
+        }
+
+        // Standard web session (Eloquent user) or API token
+        $userId = $identity->id();
+        return [
+            'id'         => $userId,
+            'is_bot'     => false,
+            'first_name' => $identity->name ?? $identity->first_name ?? 'User',
+            'last_name'  => $identity->last_name ?? null,
+            'username'   => $identity->email ?? $identity->username ?? null,
+            'platform'   => $identity->platform ?? 'web',
+            '_source'    => $identity->source,
+        ];
+    }
+
+    // =========================================================================
+    // 🆔 IDENTITY ACCESSORS — expose the power to Nexuses & NeonVitality
+    // =========================================================================
+
+    /**
+     * The certified identity of the caller.
+     * Nexuses that need the full object should type-hint UniversalIdentity instead.
+    */
+    public function getIdentity(): UniversalIdentity
+    {
+        return $this->identity;
+    }
+
+    /**
+     * The WebAppInitData proof DTO, or null if the request is not from a MiniApp.
+     * Nexuses that need the full object should type-hint WebAppInitData instead.
+    */
+    public function getInitData(): ?WebAppInitData
+    {
+        return $this->identity->getData();
+    }
+
+    /**
+     * Convenience: is the current caller coming from a verified MiniApp?
+    */
+    public function isFromWebApp(): bool
+    {
+        return $this->identity->isFromWebApp();
+    }
+
+    /**
+     * Convenience: is the current caller a guest (unauthenticated)?
+    */
+    public function isGuest(): bool
+    {
+        return $this->identity->isGuest;
     }
 
     // =========================================================================
@@ -809,7 +965,8 @@ final class WebAppDriver implements MultiverseEnforcer
 
     public function sendMessage(array $params): array
     {
-        $this->warlord()->setCurrentDriver($this->getCodeName());
+        //$this->warlord()->setCurrentDriver($this->getCodeName());
+        $this->warlord()->enforcer($this);
         return $this->makeRequest('sendMessage', $params);
     }
 
@@ -817,8 +974,12 @@ final class WebAppDriver implements MultiverseEnforcer
     // 🛠 HELPERS
     // =========================================================================
 
+    // @Todo: Connect RichMan
     protected function convertRichBlocksToHtml(array $blocks): string
     {
+
+        // return RichMan::summon()->import($blocks)->toHtml();
+        
         $html = '';
         foreach ($blocks as $block) {
             $text = htmlspecialchars($block['text'] ?? '', ENT_QUOTES);

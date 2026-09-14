@@ -75,7 +75,7 @@ trait MetaTextTransformer
     /**
      * @var array<string, string> Maps URL prefixes to Rubika's MentionText object types.
      * This is a critical piece of domain knowledge for creating rich mentions.
-     */
+    */
     private const MENTION_PREFIX_TYPES = [
         'u' => 'User',
         'g' => 'Group',
@@ -94,12 +94,13 @@ trait MetaTextTransformer
         // structured tree of RichEntity objects (SSoT).
 
         if($input instanceof RichMan) {
-            $richEntities = $input->toArray(); // Use the object's own array representation.
+            $richEntities = $input->getElements(); // Use the object's own array representation.
         }
         elseif(is_string($input)) {
 
             $specialist = Parsentinel::summon($format);
             $richEntities = $specialist->decipher($input);
+
         }
         else
             $richEntities = $input;

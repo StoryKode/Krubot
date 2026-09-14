@@ -37,6 +37,7 @@ use Psr\Http\Message\RequestInterface;
 
 use KrubiK\Render\RichMan;
 use KrubiK\Render\RichElements\RichEntity;
+use KrubiK\Drivers\Strategies\DeferredResponse;
 
 // ایمپورت ابزارهای KrubiK برای ترجمه کیبورد
 use KrubiK\Keyboard\Keyboard as KrubiKInlineKeyboard;
@@ -78,7 +79,7 @@ class BaleDriver extends BaleCore implements MultiverseEnforcer, StandardDriverI
      * @param array $params پارامترهای درخواست
      * @return array پاسخ خام آرایه‌ای (برای استفاده داخلی)
      */
-    public function makeRequest(string $method, array $params = []): array
+    public function makeRequest(string $method, array $params = []): array|DeferredResponse
     {
         $finalMethod = $method;
         $finalParams = $params;
@@ -179,6 +180,7 @@ class BaleDriver extends BaleCore implements MultiverseEnforcer, StandardDriverI
             }
         }
 
+        unset($params['_parse_mode']); // always consume the hint
         return $params;
     }
 

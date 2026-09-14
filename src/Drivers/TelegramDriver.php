@@ -245,10 +245,23 @@ class TelegramDriver extends TGCore implements MultiverseEnforcer /// , Telegram
     */
     public function __call($method, $parameters)
     {
-        $this->warlord()?->setCurrentDriver(Platform::Telegram());
+        $oldEnforcer = $this->warlord()->enforcer();
+        $this->warlord()->enforcer($this);
+
         // We route EVERYTHING through our central request maker.
-        // The first argument of SDK calls is always the params array.
-        return $this->makeRequest($method, $parameters[0] ?? []);
+        
+        try {
+            // The first argument of SDK calls is always the params array.
+            $response = $this->makeRequest($method, $parameters[0] ?? []);
+            return $response;
+        } catch (\Throwable $e) {
+            // هندلینگ خطا یا لاگ کردن
+            throw $e;
+        }
+        finally {
+            if($oldEnforcer !== $this)
+                $this->warlord()->enforcer($oldEnforcer);
+        }
 
         // Parent's __call handles the command bus and macro calls logic. 
     }
@@ -441,6 +454,7 @@ class TelegramDriver extends TGCore implements MultiverseEnforcer /// , Telegram
             // D) If it's already a JSON string or null, leave it alone.
         }
 
+        unset($params['_parse_mode']); // always consume the hint
         return $params;
     }
 

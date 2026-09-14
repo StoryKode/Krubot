@@ -39,7 +39,11 @@ namespace KrubiK\Drivers\Arcane;
 use KrubiK\Render\RichMan;
 use KrubiK\Render\RichElements\RichEntity;
 use KrubiK\Render\RichElements\Blocks\RichBlockEntity;
-use function KrubiK\Render\Helpers\paragraph;
+use SplObjectStorage;
+
+use function KrubiK\Render\Helpers\{
+    paragraph, plain
+};
 
 /**
  * Trait Telegram-Exclusive Rich_Payload Node-Reshaper
@@ -61,6 +65,27 @@ use function KrubiK\Render\Helpers\paragraph;
 */
 trait PayloadProjector
 {
+
+    /**
+     * Telegram child containers that may contain nested RichEntity nodes.
+     *
+     * `blocks` and `items` are the canonical Telegram RichElement child stores.
+     * Add future child-bearing containers here without touching the recursion core.
+     * 
+     * Add a key here when a future RichElement introduces another child-bearing container.
+     *
+     * @var array<int, string>
+    */
+    protected static array $telegramRichChildrenContainers = [
+        'blocks', 'items', 'text'
+    ];
+
+    /**
+     * Cached ReflectionProperty maps per RichEntity class.
+     *
+     * @var array<class-string, array<string, \ReflectionProperty|null>>
+    */
+    protected static array $telegramRichChildrenPropertyCache = [];
 
     /**
      * Official Telegram Rich Message limits (overridable via config).
@@ -138,6 +163,14 @@ trait PayloadProjector
 
                 // Native Telegram block → use its official toArray()
                 if ($element->isTgNative()) {
+
+                    $requiresMarkdown = false;    
+                    $this->reshapeRichNode($element, $fallback, $requiresMarkdown);
+    
+                    if ($requiresMarkdown) {
+                        return null;
+                    }
+
                     $blocks[] = $element->toArray();
                     continue;
                 }
@@ -169,6 +202,14 @@ trait PayloadProjector
             if ($element instanceof RichEntity) {
 
                 if ($element->isTgNative()) {
+                    
+                    $requiresMarkdown = false;
+                    $this->reshapeRichNode($element, $fallback, $requiresMarkdown);
+
+                    if ($requiresMarkdown) {
+                        return null;
+                    }
+
                     // Promote inline entity to a paragraph block
                     $blocks[] = paragraph($element)->toArray();
                     continue;
@@ -202,6 +243,181 @@ trait PayloadProjector
         }
 
         return array_values($blocks);
+    }
+
+    /**
+     * Recursively reshapes a Telegram RichEntity tree before its parent is serialized.
+     * 
+     * Surgical find-and-replace of non-tg-native descendants inside any native block.
+     *
+     * Walks the child tree of $element depth-first. For every child:
+     *  - native leaf / fully-native sub-tree  → kept as-is via toArray()
+     *  - non-native child (any depth):
+     *      · fallback=text  → replaced by paragraph(toText())->toArray()
+     *      · fallback=omit  → dropped silently
+     *      · fallback=markdown → returns null (caller bubbles up to markdown mode)
+     *
+     * Native children survive untouched.
+     * Non-native children are replaced/removed according to the active fallback.
+     *
+     * @param RichEntity  $element   A native element whose children may not be.
+     * @param string      $fallback  'text' | 'omit' | 'markdown'
+     * @param bool $requiresMarkdown Set to true when nested unsupported content
+     *                               requires whole-message markdown fallback.
+     * @param SplObjectStorage|null $seen Visit-cache to prevent duplicate checks.
+     * @return bool                 The Operation Result
+    */
+    protected function reshapeRichNode(RichEntity $node, string $fallback, bool &$requiresMarkdown, ?SplObjectStorage $seen = null): bool
+    {
+        $seen ??= new SplObjectStorage();
+
+        if ($seen->contains($node)) {
+            return true;
+        }
+
+        $seen->attach($node);
+
+        if (!$node->isTgNative()) {
+            if ($fallback === 'markdown') {
+                $requiresMarkdown = true;
+            }
+
+            return false;
+        }
+
+        foreach (static::$telegramRichChildrenContainers as $container) {
+            $property = $this->accessChildrenProperty($node, $container);
+
+            if ($property === null) {
+                continue;
+            }
+
+            $children = $property->getValue($node);
+
+            // Single RichEntity stored directly in the property (e.g. pullquote.text)
+            if ($children instanceof RichEntity) {
+                if ($children->isTgNative()) {
+                    $this->reshapeRichNode($children, $fallback, $requiresMarkdown, $seen);
+
+                    if ($requiresMarkdown) {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if ($fallback === 'markdown') {
+                    $requiresMarkdown = true;
+                    return true;
+                }
+
+                if ($fallback === 'omit') {
+                    $property->setValue($node, null);
+                    continue;
+                }
+
+                $replacement = $this->reshapeNonTelegramNode($children, $node, $container);
+                $property->setValue($node, $replacement);
+                continue;
+            }
+
+            if (!is_array($children) && !$children instanceof \Traversable) {
+                continue;
+            }
+
+            $children = is_array($children) ? $children : iterator_to_array($children);
+            $repaired = [];
+
+            foreach ($children as $key => $child) {
+                if (!$child instanceof RichEntity) {
+                    $repaired[$key] = $child;
+                    continue;
+                }
+
+                if ($child->isTgNative()) {
+                    $this->reshapeRichNode($child, $fallback, $requiresMarkdown, $seen);
+
+                    if ($requiresMarkdown) {
+                        return true;
+                    }
+
+                    $repaired[$key] = $child;
+                    continue;
+                }
+
+                // ── if Non-native (isTgNative() === false) ───
+
+                if ($fallback === 'markdown') {
+                    $requiresMarkdown = true;
+                    return true;
+                }
+
+                if ($fallback === 'omit') {
+                    continue;
+                }
+
+                $replacement = $this->reshapeNonTelegramNode($child, $node, $container);
+
+                if ($replacement !== null) {
+                    $repaired[$key] = $replacement;
+                }
+            }
+
+            $property->setValue($node, $repaired);
+        }
+
+        return true;
+    }
+
+    /**
+     * Replace one unsupported nested child with a Telegram-native RichEntity.
+     *
+     * The replacement is contextualized by the parent container so future
+     * containers can gain specialized reshaping rules without changing the walker.
+    */
+    protected function reshapeNonTelegramNode(RichEntity $child, RichEntity $parent, string $container): ?RichEntity
+    {
+        $text = $this->richElementText($child);
+
+        if ($text === null || $text === '') {
+            return null;
+        }
+
+        // Inline / text context: keep it as plain RichText so parent serializes a bare string
+        if ($container === 'text') {
+            return plain($text);
+        }
+        
+        return paragraph($text);
+    }
+
+    /**
+     * Resolve a child-bearing property once per RichEntity class.
+    */
+    protected function accessChildrenProperty(RichEntity $node, string $name): ?\ReflectionProperty
+    {
+        $class = $node::class;
+
+        if (!array_key_exists($class, static::$telegramRichChildrenPropertyCache)) {
+            $reflection = new \ReflectionClass($node);
+            $map = [];
+
+            foreach (static::$telegramRichChildrenContainers as $container) {
+                $map[$container] = $reflection->hasProperty($container)
+                    ? $reflection->getProperty($container)
+                    : null;
+            }
+
+            static::$telegramRichChildrenPropertyCache[$class] = $map;
+        }
+
+        $property = static::$telegramRichChildrenPropertyCache[$class][$name] ?? null;
+
+        if ($property !== null) {
+            $property->setAccessible(true);
+        }
+
+        return $property;
     }
 
     /**
@@ -585,81 +801,6 @@ trait PayloadProjector
         $item['blocks'] = $this->collapseEmptyParagraphs($cleanBlocks);
 
         return $item;
-    }
-
-    /**
-     * Convert any RichText value to the official Telegram wire format:
-     *   - plain text/ {"type":"plain",...}     → bare JSON string
-     *   - array of RichText                    → array of normalized values
-     *   - typed object                         → keep type + recursively normalize children
-     *
-     * Also accumulates character count against the configured limit.
-    */
-    protected function normalizeRichText1(mixed $text, int $depth, array $limits, array &$state): mixed
-    {
-        if ($depth > $limits['max_depth']) {
-            return '';
-        }
-
-        // Already correct plain text
-        if (is_string($text)) {
-            $state['charCount'] += mb_strlen($text, 'UTF-8');
-            return $text;
-        }
-
-        if (is_scalar($text)) {
-            $str = (string) $text;
-            $state['charCount'] += mb_strlen($str, 'UTF-8');
-            return $str;
-        }
-
-        if (!is_array($text)) {
-            return '';
-        }
-
-        // List of RichText parts
-        if (array_is_list($text)) {
-            $clean = [];
-            foreach ($text as $part) {
-                $normalized = $this->normalizeRichText($part, $depth + 1, $limits, $state);
-                if ($normalized !== '' && $normalized !== null) {
-                    $clean[] = $normalized;
-                }
-                if ($state['charCount'] >= $limits['max_chars']) {
-                    break;
-                }
-            }
-            return $clean;
-        }
-
-        // Broken plain object produced by some helpers: {"text":"foo"} (no type)
-        if (isset($text['text']) && !isset($text['type']) && count($text) <= 2) {
-            return $this->normalizeRichText($text['text'], $depth, $limits, $state);
-        }
-
-        // Typed RichText node
-        if (isset($text['type'])) {
-            // Recurse into the nested text payload
-            if (array_key_exists('text', $text)) {
-                $text['text'] = $this->normalizeRichText($text['text'], $depth + 1, $limits, $state);
-            }
-
-            // Count extra string fields that also contribute to the character budget
-            foreach (['bank_card_number', 'bot_command', 'hashtag', 'cashtag', 'username', 'url', 'email', 'phone_number', 'name'] as $extra) {
-                if (isset($text[$extra]) && is_string($text[$extra])) {
-                    $state['charCount'] += mb_strlen($text[$extra], 'UTF-8');
-                }
-            }
-
-            return $text;
-        }
-
-        // Last-resort fallback
-        if (isset($text['text'])) {
-            return $this->normalizeRichText($text['text'], $depth, $limits, $state);
-        }
-
-        return '';
     }
 
     /**

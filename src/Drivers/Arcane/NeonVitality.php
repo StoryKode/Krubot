@@ -15,7 +15,7 @@ namespace KrubiK\Drivers\Arcane;
 
 use KrubiK\Krubot;
 use KrubiK\Arcane\InteractsWithApi;
-use KrubiK\Arcane\InteractsWithLockedProperties;
+// use KrubiK\Arcane\InteractsWithLockedProperties;
 // use KrubiK\Arcane\SummonsCodeSpyz;
 use KrubiK\Arcane\InteractsWithContext; // ⚡ Import Context
 use WeakReference;
@@ -43,7 +43,7 @@ trait NeonVitality // PowerCell / NeonSoul / NeonCore / FusionCore / FusionSoul
     use InteractsWithApi;
 
     // 3. Reflection & Spying (Accessing parent's private props)
-    use InteractsWithLockedProperties;
+    // use InteractsWithLockedProperties;
 
     // use SummonsCodeSpyz;
 

@@ -17,12 +17,12 @@ trait InteractsWithContext
 {
     /**
      * Shared data container for the current request lifecycle.
-     */
+    */
     protected array $contextData = [];
 
     /**
      * Set a value in the context (Shared between middlewares/handlers).
-     */
+    */
     public function setData(string $key, mixed $value): self
     {
         $this->contextData[$key] = $value;
@@ -31,7 +31,7 @@ trait InteractsWithContext
 
     /**
      * Retrieve a value from the context.
-     */
+    */
     public function getData(string $key, mixed $default = null): mixed
     {
         return $this->contextData[$key] ?? $default;
@@ -39,16 +39,16 @@ trait InteractsWithContext
 
     /**
      * Alias for setData (UniChatKit 'set' compatibility).
-     */
-    public function set(string $key, mixed $value): self
+    */
+    public function setX(string $key, mixed $value): self
     {
         return $this->setData($key, $value);
     }
 
     /**
      * Alias for getData (UniChatKit 'get' compatibility).
-     */
-    public function get(string $key, mixed $default = null): mixed
+    */
+    public function getX(string $key, mixed $default = null): mixed
     {
         return $this->getData($key, $default);
     }
@@ -58,7 +58,7 @@ trait InteractsWithContext
      *
      * @param string $key The key to check.
      * @return bool True if the key exists, false otherwise.
-     */
+    */
     public function hasData(string $key): bool
     {
         return array_key_exists($key, $this->contextData);
@@ -69,7 +69,7 @@ trait InteractsWithContext
      * Useful for debugging or logging the entire request state.
      *
      * @return array A copy of the context data array.
-     */
+    */
     public function allData(): array
     {
         return $this->contextData;
@@ -82,11 +82,15 @@ trait InteractsWithContext
      * leaking into the next in a long-running application server.
      *
      * @return $this
-     */
+    */
     public function resetContextData(): self
     {
         $this->contextData = [];
         return $this;
+    }
+    public function flushContext(): self
+    {
+        return $this->resetContextData();
     }
 
     /**
@@ -134,5 +138,7 @@ trait InteractsWithContext
         }
         return $this;
     }
-    public function forget(string|array $keys): self { return $this->forgetData($keys); }
+    public function forget(string|array $keys): self {
+        return $this->forgetData($keys);
+    }
 }

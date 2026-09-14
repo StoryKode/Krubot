@@ -15,18 +15,49 @@ namespace KrubiK\Arcane;
 
 use KrubiK\Helpers\AmethystMatrix; // ⚡ Import the Sorceress
 use KrubiK\Drivers\Strategies\DeferredResponse;
+use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 
 trait InteractsWithApi
 {
-    // تجمیع کد: استفاده از تریت کمکی برای دسترسی به اعضای والد
-    use InteractsWithLockedProperties;
-
-    public function newApiRequest(string $method, array $params = []): array|DeferredResponse
+ 
+    public function dispatchApi(string $method, array $params = [], ?MultiverseEnforcer $driver = null): array|DeferredResponse
     {
-        $url = $this->getBaseUrl() . $method;
+        return $this->pulseApi($method, $params, $driver);
+    }
+
+    public function pulseApi(string $method, array $params = [], ?MultiverseEnforcer $driver = null): array|DeferredResponse
+    {
+
+        $driver ??= $this->core();
+
+        /*if(!$driver) {
+            throw new \Exception('pulseApi Error: Driver not Booted Up Yet!');
+        }*/
+
+        $baseUrl = null;
+        if($driver && method_exists($driver, 'getBaseUrl'))
+            $baseUrl = $driver->getBaseUrl();
+        else {
+            // Consume 'base_url'
+            if(isset($params['base_url'])) {
+                $baseUrl = $params['base_url'];
+                unset($params['base_url']);
+            }
+            elseif(isset($params['baseUrl'])) {
+                $baseUrl = $params['baseUrl'];
+                unset($params['baseUrl']);
+            }
+        }
+
+        if(!$baseUrl) {
+            throw new \Exception('pulseApi Error: $baseUrl can\'t be determined');
+        }
+
+        $url = $baseUrl . $method;
         $retry = 0;
 
-        while ($retry < 3) {
+        $max_retries = config('krubot.http.max_retries', 3);
+        while ($retry < $max_retries) {
             $ch = curl_init($url);
             try {
 
@@ -77,10 +108,10 @@ trait InteractsWithApi
             } catch (\Exception $e) {
                 curl_close($ch);
                 $retry++;
-                if ($retry === 3) {
+                if ($retry === $max_retries) {
                     throw $e;
                 }
-                sleep(1);
+                usleep(767_767);
             }
         }
 
@@ -97,7 +128,7 @@ trait InteractsWithApi
      * @param string $method API Method name
      * @param array $params API Parameters
      * @return array JSON decoded response
-     */
+    */
     protected function makeRequest(string $method, array $params = []): array|DeferredResponse
     {
         // [Original Logic Explanation]:
@@ -131,7 +162,7 @@ trait InteractsWithApi
             $targetClass = is_object($core) ? $core::class : get_debug_type($core);
 
             throw new \RuntimeException(sprintf(
-                "Krubot::makeRequest() expected array from %s::apiRequest(), got %s. Method=%s",
+                "Krubot::makeRequest() expected array|DeferredResponse from %s::makeRequest(), got %s. Method=%s",
                 $targetClass,
                 get_debug_type($result),
                 $method
@@ -139,62 +170,5 @@ trait InteractsWithApi
         }
 
         return $result;
-    }
-
-    /*
-     * BaseUrlInjector Module
-     * Provides runtime control over the private $baseUrl property of RubikaBot\Bot.
-     * 
-     * [Original Architecture Note]:
-     * Each instance maintains its own ReflectionProperty handle to remain thread‑safe.
-     * Fully compatible with PHP 8.2.29+ and multi‑instance environments.
-     * 
-     * [Refactored Architecture Note]:
-     * Note: Internal caching logic (ReflectionProperty handle) has been abstracted away 
-     * to 'InteractsWithParentProperties' via an associative array cache.
-    */
-
-    /**
-     * Lazily reflect the $baseUrl property for this instance.
-     * Creates and caches ReflectionProperty only once per bot instance.
-     * 
-     * Dynamically change private $baseUrl value for the current instance.
-     *
-     * @param string $newUrl The new base URL to inject at runtime.
-     * @return static Returns self for method chaining.
-     * @throws \ReflectionException (Handled silently in trait)
-     */
-    public function setBaseUrl(string $newUrl): static
-    {
-        $formattedUrl = rtrim($newUrl, '/') . '/'; // ensure trailing slash consistency
-
-        // Delegation to parent property handler (now cached internally)
-        $this->forceSetProperty('baseUrl', $formattedUrl, $this->core()); // OldName Was : forceSetParentProperty
-
-        return $this;
-    }
-
-    /**
-     * Retrieve the current private $baseUrl value from the instance.
-     *
-     * @return string
-     * @throws \ReflectionException
-     */
-    public function getBaseUrl(): string
-    {
-        // Delegation to parent property handler (now cached internally)
-        return (string) $this->forceGetProperty('baseUrl', $this->core()); // OldName Was : forceGetParentProperty
-    }
-
-    /**
-     * Revoke reflection access and reset internal state.
-     * Useful for reinitialization or security cleanup.
-     *
-     * @return void
-     */
-    public function resetBaseUrlReflection(): void
-    {
-        // Calls the centralized cache clearing method in the trait
-        $this->clearReflectionCache();
     }
 }

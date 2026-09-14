@@ -17,9 +17,9 @@ use Closure;
 use InvalidArgumentException;
 use KrubiK\Keyboard\Keyboard;       // کلاس کیبورد شیشه‌ای
 use KrubiK\Keyboard\ReplyKeyboard;  // کلاس کیبورد منو
-use KrubiK\Drivers\Arcane\MetaTextTransformer;
 use KrubiK\Render\RichMan;
 use KrubiK\Render\RichElements\RichEntity;
+use KrubiK\Drivers\RubikaDriver;
 
 /**
  * Trait CanSendFluentMessages
@@ -37,8 +37,6 @@ trait CanSendFluentMessages
 {
     // ادغام تریت مدیریت پیوست‌ها برای دسترسی به متدها و پراپرتی‌های مدیا
     use CanSendMedia;
-
-    use MetaTextTransformer; // parse rich-blocks to rubika-compatible format
 
     // --- Text & Options State ---
     protected string|RichMan|null $fText = null;
@@ -66,7 +64,7 @@ trait CanSendFluentMessages
     /**
      * تنظیم متن پیام.
      * به صورت پیش‌فرض از پارسر MarkdownMode استفاده می‌کند.
-     */
+    */
     public function message(string|RichMan $text): static
     {
         $this->fText = $text;
@@ -76,7 +74,7 @@ trait CanSendFluentMessages
 
     /**
      * تنظیم متن پیام با فرمت HTML.
-     */
+    */
     public function html(string $html): static
     {
         $this->fText = $html;
@@ -86,7 +84,7 @@ trait CanSendFluentMessages
 
     /**
      * تنظیم متن پیام با فرمت Markdown.
-     */
+    */
     public function markdown(string $markdown): static
     {
         $this->fText = $markdown;
@@ -97,7 +95,7 @@ trait CanSendFluentMessages
     /**
      * تنظیم متن پیام با فرمت MarkdownV2.
      * در روبیکا معمولا همان MarkdownMode استاندارد پاسخگو است.
-     */
+    */
     public function markdownV2(string $markdown): static
     {
         $this->fText = $markdown;
@@ -111,7 +109,7 @@ trait CanSendFluentMessages
 
     /**
      * ریپلای زدن روی یک پیام خاص.
-     */
+    */
     public function replyToMessage(int $messageId): static
     {
         $this->fReplyTo = $messageId;
@@ -120,7 +118,7 @@ trait CanSendFluentMessages
 
     /**
      * ارسال پیام بدون صدا (Silent).
-     */
+    */
     public function silent(): static
     {
         $this->fSilent = true;
@@ -130,7 +128,7 @@ trait CanSendFluentMessages
     /**
      * محافظت از محتوا (جلوگیری از فوروارد/ذخیره).
      * (پشتیبانی این ویژگی در کلاینت‌های مختلف روبیکا ممکن است متفاوت باشد)
-     */
+    */
     public function beProtected(): static
     {
         $this->fProtected = true;
@@ -139,7 +137,7 @@ trait CanSendFluentMessages
 
     /**
      * غیرفعال کردن پیش‌نمایش لینک‌ها.
-     */
+    */
     public function withoutPreview(): static
     {
         $this->fWithoutPreview = true;
@@ -156,7 +154,7 @@ trait CanSendFluentMessages
      * 
      * @param Keyboard|Closure|array $keyboard
      * @return static
-     */
+    */
     public function keyboard(Keyboard|Closure|array $keyboard): static
     {
         if ($keyboard instanceof Closure) {
@@ -180,7 +178,7 @@ trait CanSendFluentMessages
      * 
      * @param ReplyKeyboard|Closure|array $keyboard
      * @return static
-     */
+    */
     public function replyKeyboard(ReplyKeyboard|Closure|array $keyboard): static
     {
         if ($keyboard instanceof Closure) {
@@ -199,7 +197,7 @@ trait CanSendFluentMessages
     /**
      * حذف کیبورد منو (Reply Keyboard).
      * در استاندارد تلگرام remove_keyboard است.
-     */
+    */
     public function removeReplyKeyboard(bool $selective = false): static
     {
         $this->fReplyKeyboard = [
@@ -216,7 +214,7 @@ trait CanSendFluentMessages
     /**
      * فعال‌سازی حالت ویرایش پیام.
      * متد send رفتار خود را به editMessage تغییر می‌دهد.
-     */
+    */
     public function edit(int $messageId): static
     {
         $this->isEditMode = true;
@@ -235,7 +233,7 @@ trait CanSendFluentMessages
 
     /**
      * حذف کیبورد یک پیام (ویرایش و خالی کردن کیبورد).
-     */
+    */
     public function deleteKeyboard(int $messageId): static
     {
         $this->edit($messageId);
@@ -246,7 +244,7 @@ trait CanSendFluentMessages
     /**
      * فوروارد کردن پیام.
      * این متد متد نهایی send را مجبور به استفاده از forwardMessages می‌کند.
-     */
+    */
     public function forwardMessage(string $fromChatId, int $messageId): static
     {
         $this->forcedMethod = 'forwardMessages';
@@ -261,7 +259,7 @@ trait CanSendFluentMessages
      * کپی کردن پیام.
      * از آنجا که روبیکا متد اختصاصی copyMessage مشابه تلگرام ندارد،
      * ما این را به forwardMessage نگاشت می‌کنیم تا پایداری حفظ شود.
-     */
+    */
     public function copyMessage(string $fromChatId, int $messageId): static
     {
         return $this->forwardMessage($fromChatId, $messageId);
@@ -271,7 +269,7 @@ trait CanSendFluentMessages
 
     /**
      * حذف آنی یک پیام.
-     */
+    */
     public function deleteMessage(int $messageId): array
     {
         // استفاده از متد makeRequest والد یا apiRequest
@@ -283,7 +281,7 @@ trait CanSendFluentMessages
 
     /**
      * حذف آنی چندین پیام.
-     */
+    */
     public function deleteMessages(array|int ...$ids): array
     {
         $flatIds = [];
@@ -305,6 +303,12 @@ trait CanSendFluentMessages
     // 5. THE HYPER-METHOD: SEND
     // ========================================================================
 
+     // =========================================================================
+    // 5. ⚡ send() — pure dispatcher, zero platform logic
+    //
+    // Builds the param bag with raw text + `_parse_mode` hint.
+    // makeRequest() (overridden in the driver) owns ALL transformation.
+    // =========================================================================
     /**
      * متد نهایی و قدرتمند ارسال.
      * این متد قلب تپنده سیستم است و با بررسی تمام وضعیت‌ها (متن، مدیا، ادیت، فوروارد)
@@ -313,7 +317,7 @@ trait CanSendFluentMessages
      * @param string|null $chatId شناسه چت هدف (اگر null باشد، تلاش می‌کند هوشمندانه پیدا کند)
      * @return array خروجی خام API روبیکا (json decoded)
      * @throws InvalidArgumentException اگر chat_id یا متن ضروری یافت نشود.
-     */
+    */
     public function send(?string $chatId = null): array
     {
         // 1. Resolve Target Chat ID
@@ -329,26 +333,14 @@ trait CanSendFluentMessages
             // فوروارد نیازی به پردازش متن و کیبورد معمول ندارد
             $result = $this->makeRequest($this->forcedMethod, $params);
             $this->resetFluent();
+            $this->resetAttachments();
             return $result;
         }
 
-        // 3. Prepare Common Parameters
-        // این پارامترها بین ارسال متن، مدیا و حتی برخی ادیت‌ها مشترک هستند
-        $commonParams = [];
-        if ($this->fReplyTo) $commonParams['reply_to_message_id'] = $this->fReplyTo;
-        if ($this->fSilent) $commonParams['disable_notification'] = true;
-        
-        // مدیریت کیبورد شیشه‌ای (Inline)
-        if ($this->fInlineKeyboard) {
-            $commonParams['inline_keypad'] = $this->fInlineKeyboard;
-        }
-        
-        // مدیریت کیبورد منو (Chat Keypad)
-        // روبیکا نیاز دارد type آن مشخص شود
-        if ($this->fReplyKeyboard) {
-            $commonParams['chat_keypad'] = $this->fReplyKeyboard;
-            $commonParams['chat_keypad_type'] = 'New'; 
-        }
+        // 3. Prepare Common {Shared} Parameters
+        // All keys are driver-agnostic internal names.
+        // The driver's normalizeParams() renames, strips, or transforms as needed.
+        $commonParams = $this->buildCommonParams();
 
         // ================================================================
         // 4. 🔥 RICH CONTENT — MUST BE RESOLVED BEFORE ANY TEXT PARSER
@@ -392,86 +384,12 @@ trait CanSendFluentMessages
             return $result;
         }
 
-        // 5. Handle Attachments (Media) - بررسی وضعیت Trait HasAttachments
+        // 5. Handle Attachments (Media) - بررسی وضعیت CanSendMedia Trait
         if ($this->hasPendingAttachment()) {
-            // --- SENARIO: SEND MEDIA ---
+            // --- SCENARIO: SEND MEDIA ---
             
-            // ترکیب کپشن با اطلاعات اضافی (مثل آدرس Venue)
-            $caption = $this->attachmentCaption;
-            if (isset($this->extraPayload['venue_info'])) {
-                $caption .= $this->extraPayload['venue_info'];
-            }
-
-            // پردازش متن کپشن برای استخراج متادیتا (بولد، لینک و ...)
-            $metadata = null;
-            if ($caption) {
-                $parsed = $this->parseToRubika($caption, $this->fParseMode); // Engage MetaTextTransformer Engine
-                $caption = $parsed['text'];
-                if (!empty($parsed['metadata'])) {
-                    $metadata = $parsed['metadata'];
-                }
-            }
-
-            // پارامترهای پایه مدیا
-            $mediaParams = array_merge([
-                'chat_id' => $targetChatId,
-                'caption' => $caption,
-                'metadata' => $metadata, // روبیکا معمولا متادیتا را برای کپشن هم پردازش می‌کند
-            ], $commonParams);
-
-            // تعیین متد API بر اساس نوع مدیا
-            $method = 'sendMessage'; // Fallback
-            $fileParamKey = 'file_inline'; // نام پارامتر پیش‌فرض برای فایل در اکثر متدها
-
-            switch ($this->attachmentType) {
-                case 'Contact':
-                    $method = 'sendContact';
-                    $mediaParams['phone_number'] = $this->extraPayload['phone_number'];
-                    $mediaParams['first_name'] = $this->extraPayload['first_name'];
-                    $mediaParams['last_name'] = $this->extraPayload['last_name'] ?? '';
-                    // Contact کپشن و متادیتا ندارد
-                    unset($mediaParams['caption'], $mediaParams['metadata']); 
-                    break;
-                    
-                case 'Location':
-                    $method = 'sendLocation';
-                    $coords = json_decode($this->attachmentContent, true);
-                    $mediaParams['latitude'] = $coords['lat'];
-                    $mediaParams['longitude'] = $coords['long'];
-                    // Location کپشن و متادیتا ندارد
-                    unset($mediaParams['caption'], $mediaParams['metadata']);
-                    break;
-
-                // سایر مدیاها که فایل محور هستند
-                case 'Image': $method = 'sendImage'; break;
-                case 'Video': $method = 'sendVideo'; break;
-                case 'Voice': $method = 'sendVoice'; break;
-                case 'Music': $method = 'sendMusic'; break;
-                case 'File':  $method = 'sendFile';  break;
-            }
-
-            // افزودن فایل به پارامترها (برای متدهای غیر Contact/Location)
-            if (!in_array($this->attachmentType, ['Contact', 'Location'])) {
-                // حل کردن مسیر فایل (Local, URL, Storage)
-                $filePath = $this->resolveFilePath($this->attachmentContent);
-                
-                // اختصاص به پارامتر مربوطه
-                $mediaParams[$fileParamKey] = $filePath;
-                
-                // اگر نام فایل تنظیم شده باشد
-                if ($this->attachmentFileName) {
-                    $mediaParams['file_name'] = $this->attachmentFileName;
-                }
-                
-                // اگر تامنیل داشته باشیم (برای ویدیو)
-                if ($this->thumbnailPath && $this->attachmentType === 'Video') {
-                    $mediaParams['thumb_inline'] = $this->thumbnailPath;
-                }
-            }
-
-            // اجرای درخواست مدیا
-            // فرض بر این است که کلاس والد متد makeRequest را دارد
-            $result = $this->makeRequest($method, $mediaParams);
+            // ── The Unique Media path
+            $result = $this->dispatchMediaMessage($targetChatId, $commonParams);
             
             // پاکسازی و بازگشت
             $this->resetFluent();
@@ -480,19 +398,34 @@ trait CanSendFluentMessages
         }
 
         // 6. Handle Text / Edit (No Attachment)
+        // ── send/edit(Text) path
+        // اجرای درخواست متن/ادیت
+        $result = $this->dispatchTextMessage($targetChatId, $commonParams);
+        
+        // پاکسازی وضعیت
+        $this->resetFluent();
+        $this->resetAttachments(); // محض احتیاط
+        
+        return $result;
+    }
+
+    private function responsingRubika(): bool
+    {
+        $activeDriver = $this->enforcer();
+        return ($activeDriver && $activeDriver instanceof RubikaDriver);
+    }
+
+    /**
+     * Dispatch a sendMessage or editMessageText request.
+     * Raw text passed through — driver owns transformation.
+    */
+    private function dispatchTextMessage(string $targetChatId, array $commonParams): array
+    {
+        // 6. Handle Text / Edit (No Attachment)
         // --- SENARIO: SEND TEXT or EDIT MESSAGE ---
         
         // پردازش متن و متادیتا با Parsentinel
         $finalText = $this->fText;
-        $metadata = null;
-        
-        if ($finalText !== null) {
-            $parsed = $this->parseToRubika($finalText, $this->fParseMode); // Engage MetaTextTransformer Engine
-            $finalText = $parsed['text'];
-            if (!empty($parsed['metadata'])) {
-                $metadata = $parsed['metadata'];
-            }
-        }
 
         // پارامترهای پایه متن
         $textParams = array_merge([
@@ -500,47 +433,102 @@ trait CanSendFluentMessages
         ], $commonParams);
 
         if ($this->isEditMode) {
-            // --- حالت ویرایش (EDIT) ---
-            $textParams['message_id'] = $this->editMessageId;
-            
-            if ($finalText !== null) {
-                // ویرایش متن (همراه با کیبورد احتمالی)
-                $textParams['text'] = $finalText;
-                if ($metadata) $textParams['metadata'] = $metadata;
-                $method = 'editMessageText';
-            } elseif ($this->fInlineKeyboard !== null) {
-                // فقط ویرایش کیبورد (بدون تغییر متن)
-                // در روبیکا متد editMessageReplyMarkup کمتر رایج است، اما اگر متن ندهیم
-                // و از editMessageText استفاده کنیم ممکن است خطا دهد.
-                // راهکار ایمن: معمولا کاربر متن را هم می‌فرستد.
-                // اگر کاربر متن نفرستاده بود، سعی می‌کنیم از editMessageText استفاده نکنیم مگر مجبور شویم.
-                // fallback: تلاش برای استفاده از editMessageText (ممکن است نیاز به متن داشته باشد)
-                // یا اگر API روبیکا متد editMessageReplyMarkup دارد:
-                // $method = 'editMessageReplyMarkup';
-                // فعلاً فرض بر editMessageText است چون رایج‌تر است.
-                 throw new InvalidArgumentException("For editing, please provide the text again (even if unchanged) to ensure stability in Rubika API.");
-            } else {
-                // نه متن داده شده نه کیبورد
-                throw new InvalidArgumentException("For editing, provide text or keyboard.");
+        // --- حالت ویرایش (EDIT) ---
+
+            // @Todo: Automate this
+            if ($this->fText === null) {
+                throw new InvalidArgumentException(
+                    '[Krubot] edit() requires text. Pass the current text to update keyboard-only.'
+                );
             }
-        } else {
-            // --- حالت ارسال جدید (NEW MESSAGE) ---
-            if ($finalText === null) {
-                 throw new InvalidArgumentException("Message text is required when not sending attachments.");
-            }
-            $textParams['text'] = $finalText;
-            if ($metadata) $textParams['metadata'] = $metadata;
-            $method = 'sendMessage';
+            // ویرایش متن (همراه با کیبورد احتمالی)
+            return $this->makeRequest('editMessageText', array_merge($textParams, [
+                'message_id' => $this->editMessageId,
+                'text'       => (string) $this->fText,
+            ]));
         }
 
-        // اجرای درخواست متن/ادیت
-        $result = $this->makeRequest($method, $textParams);
+        // --- حالت ارسال جدید (NEW MESSAGE) ---
+
+        if ($this->fText === null) {
+            throw new InvalidArgumentException('[Krubot] send() requires text when no attachment is pending.');
+        }
+
+        // اجرای درخواست ارسال
+        // Hand off to InteractsWithApi::makeRequest which calls driver()->apiRequest() &+ AmethystMatrix debug
+        return $this->makeRequest('sendMessage', array_merge($textParams, [
+            'text' => (string) $this->fText,
+        ]));
+    }
+
+    /**
+     * Dispatch a media (file-based or contact/location) request.
+     *
+     * Method names are Telegram-style; RubikaDriver::RENAMED_METHODS translates them.
+     * Now Raw text is passed as-is; only RubikaDriver parses it via MetaTextTransformer.
+    */
+    private function dispatchMediaMessage(string $chatId, array $common): array
+    {
+        $typeToMethod = [
+            'Image'    => 'sendPhoto',
+            'Video'    => 'sendVideo',
+            'Voice'    => 'sendVoice',
+            'Music'    => 'sendAudio',
+            'File'     => 'sendDocument',
+            'Contact'  => 'sendContact',
+            'Location' => 'sendLocation',
+        ];
+
+        // تعیین متد API بر اساس نوع مدیا
+        $method = $typeToMethod[$this->attachmentType] ?? 'sendDocument';
         
-        // پاکسازی وضعیت
-        $this->resetFluent();
-        $this->resetAttachments(); // محض احتیاط
-        
-        return $result;
+        // پارامترهای پایه
+        $params = array_merge([
+            'chat_id' => $chatId
+        ], $common);
+
+        if ($this->attachmentType === 'Contact') {
+            return $this->makeRequest($method, array_merge($params, [
+                'phone_number' => $this->extraPayload['phone_number'],
+                'first_name'   => $this->extraPayload['first_name'],
+                'last_name'    => $this->extraPayload['last_name'] ?? '',
+            ]));
+        }
+
+        if ($this->attachmentType === 'Location') {
+            $coords = json_decode($this->attachmentContent, true);
+            return $this->makeRequest($method, array_merge($params, [
+                'latitude'  => $coords['lat'],
+                'longitude' => $coords['long'],
+            ]));
+        }
+
+        // File-based media — raw path/id; driver resolves to FileObject
+        $params['file_inline'] = $this->attachmentContent;
+
+        // ترکیب کپشن با اطلاعات اضافی (مثل آدرس Venue)
+        // $caption = null;
+        $caption = $this->attachmentCaption; // Presence Signal of a Caption-able Content
+        if ($caption && isset($this->extraPayload['venue_info'])) {
+            $caption .= $this->extraPayload['venue_info'];
+        }
+
+        if ($caption)
+            $params['caption']      = $caption;
+
+        // اگر نام فایل تنظیم شده باشد
+        if ($this->attachmentFileName) {
+            $params['file_name'] = $this->attachmentFileName;
+        }
+
+        // اگر تامنیل داشته باشیم (برای ویدیو)
+        if ($this->thumbnailPath && $this->attachmentType === 'Video') {
+            $params['thumb_inline'] = $this->thumbnailPath;
+        }
+
+        // اجرای درخواست مدیا
+        // InteractsWithApi متد makeRequest را دارد
+        return $this->makeRequest($method, $params);
     }
 
     /**
@@ -602,6 +590,48 @@ trait CanSendFluentMessages
         return false;
     }
 
+    // =========================================================================
+    // PRIVATE DISPATCH HELPERS
+    // =========================================================================
+
+    /**
+     * Build the param fields shared across text and media calls.
+     *
+     * Uses internal field names only. The `_parse_mode` hint (underscore prefix)
+     * is an opaque token for the driver — this trait doesn't interpret it.
+     */
+    private function buildCommonParams(): array
+    {
+
+        // Common Parameters
+        // این پارامترها بین ارسال متن، مدیا و حتی برخی ادیت‌ها مشترک هستند
+
+        // '_parse_mode' → hint مخصوص driver، با underscore prefix تا با هیچ API field ای collision نداشته باشد.
+        // InteractsWithApi یا driver آن را مصرف و از params حذف می‌کند.
+        $commonParams = [
+            '_parse_mode' => $this->fParseMode, // opaque hint — driver consumes & removes
+        ];
+
+        if ($this->fReplyTo) $commonParams['reply_to_message_id'] = $this->fReplyTo;
+        if ($this->fSilent) $commonParams['disable_notification'] = true;
+        if ($this->fProtected)  $commonParams['protect_content'] = true;
+        if ($this->fWithoutPreview) $commonParams['disable_web_page_preview'] = true;
+        
+        // مدیریت کیبورد شیشه‌ای (Inline)
+        // کیبوردها با همان کلیدهای RC.8 — InteractsWithApi::makeRequest cleanup را دارد
+        if ($this->fInlineKeyboard) {
+            $commonParams['inline_keypad'] = $this->fInlineKeyboard;
+        }
+        
+        // مدیریت کیبورد منو (Chat Keypad)
+        // روبیکا نیاز دارد type آن مشخص شود
+        if ($this->fReplyKeyboard) {
+            $commonParams['chat_keypad'] = $this->fReplyKeyboard;
+            // $commonParams['chat_keypad_type'] = 'New'; // responsibility /Moved to RubikaDriver
+        }
+        return $commonParams;
+    }
+
     /**
      * بازنشانی تمام متغیرهای وضعیت Fluent برای جلوگیری از تداخل در درخواست‌های بعدی.
      */
@@ -631,7 +661,7 @@ trait CanSendFluentMessages
     /**
      * هلپر متد برای حل کردن chat_id در صورتی که null باشد.
      * (برای استفاده داخلی در متدهای deleteMessage و ...)
-     */
+    */
     protected function resolveChatId(?string $chatId): string
     {
         $id = $chatId ?? ($this->chat_id ?? null);

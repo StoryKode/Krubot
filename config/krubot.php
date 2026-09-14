@@ -195,6 +195,7 @@ return [
                 'rubika_main' => [
                     'driver'    => 'rubika',
                     'token'     => env('RUBIKA_MAIN_TOKEN'),
+                    'base_url'  => 'https://botapi.rubika.ir/v3/',
                     'salt'      => env('RUBIKA_MAIN_SALT', 'MainSalT'),
                     'admin_ids' => array_filter(explode(',', env('RUBIKA_MAIN_ADMINS', ''))),
                     'config'    => ['ignore_self_messages' => true, 'timeout' => 30],
@@ -231,6 +232,7 @@ return [
                 'rubika_support' => [
                     'driver'    => 'rubika',
                     'token'     => env('RUBIKA_SUPPORT_TOKEN'),
+                    'base_url'  => 'https://botapi.rubika.ir/v3/',
                     'salt'      => env('RUBIKA_SUPPORT_SALT', 'SupportSalT'),
                     'admin_ids' => array_filter(explode(',', env('RUBIKA_SUPPORT_ADMINS', ''))),
                     'config'    => ['ignore_self_messages' => true, 'timeout' => 30],
@@ -294,6 +296,7 @@ return [
         'rubika' => [
             'driver'    => 'rubika',
             'token'     => env('RUBIKA_BOT_TOKEN', '_'),
+            'base_url'  => 'https://botapi.rubika.ir/v3/',
             'salt'      => env('RUBIKA_BOT_SALT', 'KrubiKSalT'),
             'admin_ids' => [],
             'config'    => [
