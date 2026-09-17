@@ -13,6 +13,8 @@ namespace KrubiK\Arcane;
 | *Go build something revolutionary!* 💜⚡️
 */
 
+use KrubiK\Helpers\JackPoint; // Import "JackPoint" - The Tactical EventHook System
+
 trait InteractsWithContext
 {
     /**
@@ -25,7 +27,9 @@ trait InteractsWithContext
     */
     public function setData(string $key, mixed $value): self
     {
+        [$key, $value] = JackPoint::transform('context.data.set', [$key, $value], $this);
         $this->contextData[$key] = $value;
+        JackPoint::fire('context.data.put', $key, $value, $this);
         return $this;
     }
 
@@ -34,7 +38,9 @@ trait InteractsWithContext
     */
     public function getData(string $key, mixed $default = null): mixed
     {
-        return $this->contextData[$key] ?? $default;
+        $key   = JackPoint::transform('context.data.get.key', $key, $this);
+        $value = $this->contextData[$key] ?? $default;
+        return JackPoint::transform('context.data.get.value', $value, $key, $this);
     }
 
     /**
@@ -61,6 +67,7 @@ trait InteractsWithContext
     */
     public function hasData(string $key): bool
     {
+        $key = JackPoint::transform('context.data.has.key', $key, $this);
         return array_key_exists($key, $this->contextData);
     }
     
@@ -72,7 +79,7 @@ trait InteractsWithContext
     */
     public function allData(): array
     {
-        return $this->contextData;
+        return JackPoint::transform('context.data.all', $this->contextData, $this);
     }
 
     /**
@@ -85,7 +92,14 @@ trait InteractsWithContext
     */
     public function resetContextData(): self
     {
+        $verdict = JackPoint::fire('context.data.flushing', $this->contextData, $this);
+        if ($verdict === false) {
+            return $this;
+        }
+
         $this->contextData = [];
+        JackPoint::fire('context.data.flushed', $this);
+
         return $this;
     }
     public function flushContext(): self
@@ -102,6 +116,8 @@ trait InteractsWithContext
         if (!$this->hasData($key)) {
             $this->setData($key, $value);
         }
+        else
+            JackPoint::fire('context.data.add.skipped', $key, $value, $this); // usefule for debugging
         return $this;
     }
 
@@ -112,7 +128,9 @@ trait InteractsWithContext
     */
     public function mergeData(array $data): self
     {
+        $data = JackPoint::transform('context.data.merge', $data, $this);
         $this->contextData = array_merge($this->contextData, $data);
+        JackPoint::fire('context.data.merged', $data, $this);
         return $this;
     }
 
@@ -133,8 +151,12 @@ trait InteractsWithContext
     */
     public function forgetData(string|array $keys): self
     {
-        foreach ((array) $keys as $key) {
-            unset($this->contextData[$key]);
+        $keys = JackPoint::transform('context.data.forget.keys', $keys, $this);
+        if($keys !== -1) {
+            foreach ((array) $keys as $key) {
+                unset($this->contextData[$key]);
+            }
+            JackPoint::fire('context.data.forgotten', $keys, $this);
         }
         return $this;
     }

@@ -48,6 +48,7 @@
         "laravel": {
             "providers": [
                 "KrubiK\\Providers\\KrubotInstallerProvider",
+                "KrubiK\\Extensions\\BlackWire",
                 "KrubiK\\Providers\\KrubotRouteProvider",
                 "KrubiK\\Providers\\KrubotServiceProvider"
             ],

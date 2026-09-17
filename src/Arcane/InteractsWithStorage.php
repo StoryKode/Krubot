@@ -17,6 +17,7 @@ use KrubiK\Storage\BotStorage;
 use KrubiK\Enums\Platform; // ✨ AGTP-v1 UPGRADE: Importing the holy Platform Enum
 use RuntimeException;
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
+use KrubiK\Helpers\JackPoint; // Import "JackPoint" - The Tactical EventHook System
 
 /**
  * Trait InteractsWithStorage (v3.2 Multiverse-Aware Edition)
@@ -82,10 +83,21 @@ trait InteractsWithStorage
     */
     public function setWorkingVerse(string|Platform|null $platform, ?string $regiment = null): static
     {
+
+        $previousVerse = $this->_workingVerse;
+
         if ($platform === null) {
             $this->_workingVerse = null;
+            JackPoint::fire('storage.verse.reset', $previousVerse, $this);
+
             return $this;
         }
+
+        [$platform, $regiment] = JackPoint::transform(
+            'storage.verse.set',
+            [$platform, $regiment],
+            $this
+        );
 
         $nemesis = $this->nemesis();
         $isMulti = $nemesis->isMultiBotMode();
@@ -101,6 +113,8 @@ trait InteractsWithStorage
             'instance' => $instance,
         ];
 
+        JackPoint::fire('storage.verse.updated', $this->_workingVerse, $previousVerse, $this);
+
         return $this;
     }
 
@@ -112,6 +126,8 @@ trait InteractsWithStorage
 
         // Invalidate the bot cache — the context may have shifted mid-request.
         $this->_currentRegimentCache = null;
+        
+        JackPoint::fire('storage.driver.set', $this->currentDriverCodeName, $this);
     }
 
     /**
@@ -121,8 +137,9 @@ trait InteractsWithStorage
     public function getDriverCodeName(): string
     {
         // Null-coalescing is safe now that the property is `?string`.
-        return $this->currentDriverCodeName
-            ?? (string) config('krubot.default_driver', 'rubika'); // اگر ست نشده بود، فرض را بر پیش‌فرض می‌گذاریم
+        $name = $this->currentDriverCodeName ?? (string) config('krubot.default_driver', 'rubika'); // اگر ست نشده بود، فرض را بر پیش‌فرض می‌گذاریم
+        return JackPoint::transform('driver.codename.resolve', $name, $this->currentDriverCodeName, $this);
+            
     }
 
     /**
@@ -133,7 +150,13 @@ trait InteractsWithStorage
         if ($this->_currentRegimentCache === null && app()->bound('nemesis')) {
             $this->_currentRegimentCache = $this->nemesis()->currentRegiment();
         }
-        return $this->_currentRegimentCache;
+
+        return JackPoint::transform(
+            'storage.regiment.name',
+            $this->_currentRegimentCache,
+            $this
+        );
+
     }
 
     /**
@@ -240,7 +263,14 @@ trait InteractsWithStorage
         // cache keys. Multi-bot deployments MUST include it.
         $keyBot = $isMulti ? $logicalBot : null;
 
-        return [$keyBot, $platform, $instance];
+        // ⚡ CRITICAL — plugins can reroute storage to another verse entirely
+        return JackPoint::transform(
+            'storage.context.resolve',
+            [$keyBot, $platform, $instance],
+            $driver,
+            $regiment,
+            $this
+        );
     }
 
     /**
@@ -278,14 +308,29 @@ trait InteractsWithStorage
             // If targeting a DIFFERENT driver, user must provide ID or we assume ID matches (Cross-Platform ID).
             $resolvedId = $userId ?? $this->senderId();
 
+            // ⚡ allow plugins to rescue / rewrite the user id
+            $resolvedId = JackPoint::transform(
+                'storage.resolve.user.id',
+                $resolvedId,
+                $userId,
+                $this
+            );
+
             if ($resolvedId) {
                 $storage->setDefaultKey($resolvedId);
             }
 
             $this->_storageInstances[$instanceKey] = $storage;
+
+            JackPoint::fire('storage.user.created', $resolvedId, $storage, $instanceKey, $this);
         }
 
-        return $this->_storageInstances[$instanceKey];
+        return JackPoint::transformUserStorageGenesis(
+            $this->_storageInstances[$instanceKey],
+            $instanceKey,
+            $this
+        );
+
     }
 
     /**
@@ -309,12 +354,29 @@ trait InteractsWithStorage
             $storage = new BotStorage($platform, 'chat', null, $keyBot); // or 'channel'
 
             $resolvedId = $this->resolveChatId($chatId);
+
+            $resolvedId = JackPoint::transform(
+                'storage.resolve.chat.id',
+                $resolvedId,
+                $chatId,
+                $this
+            );
+
             if ($resolvedId) {
                 $storage->setDefaultKey($resolvedId);
             }
 
             $this->_storageInstances[$instanceKey] = $storage;
+
+            JackPoint::fire('storage.chat.created', $storage, $instanceKey, $this);
         }
+
+        return JackPoint::transform(
+            'storage.chat.genesis',
+            $this->_storageInstances[$instanceKey],
+            $instanceKey,
+            $this
+        );
 
         return $this->_storageInstances[$instanceKey];
     }
@@ -348,14 +410,28 @@ trait InteractsWithStorage
         if (!isset($this->_storageInstances[$instanceKey])) {
             $storage = new BotStorage($platform, 'driver', null, $keyBot);
 
+            $defaultKey = JackPoint::transform(
+                'storage.resolve.driver.key',
+                "{$instance}_system",
+                $instance,
+                $this
+            );
+
             // Default key namespaces by INSTANCE, so two bots of the same
             // platform never share system config keys.
             $storage->setDefaultKey("{$instance}_system");
 
             $this->_storageInstances[$instanceKey] = $storage;
+
+            JackPoint::fire('storage.driver.created', $storage, $instanceKey, $this);
         }
 
-        return $this->_storageInstances[$instanceKey];
+        return JackPoint::transform(
+            'storage.driver.genesis',
+            $this->_storageInstances[$instanceKey],
+            $instanceKey,
+            $this
+        );
     }
 
     /**
@@ -379,21 +455,35 @@ trait InteractsWithStorage
             $uId = $this->senderId();
             $cId = $this->chatId();
 
+            // ⚡ plugins may rewrite the composite ctx key
+            [$uId, $cId] = JackPoint::transform(
+                'storage.ctx.ids',
+                [$uId, $cId],
+                $this
+            );
+
             if ($uId && $cId) {
                 $storage->setDefaultKey("{$cId}_{$uId}");
             }
 
             $this->_storageInstances[$instanceKey] = $storage;
+
+            JackPoint::fire('storage.ctx.created', $storage, $instanceKey, $this);
         }
 
-        return $this->_storageInstances[$instanceKey];
+        return JackPoint::transform(
+            'storage.ctx.genesis',
+            $this->_storageInstances[$instanceKey],
+            $instanceKey,
+            $this
+        );
     }
 
     /**
      * Access Global Storage (Shared across ALL drivers if designed so,
      * but usually we scope it to driver to avoid key collisions in Redis unless intended).
      * For true GLOBAL (driver-agnostic) storage, we can force a 'global' driver key.
-     */
+    */
     public function globalStorage(): BotStorage
     {
         // Global storage usually doesn't care about the driver,
@@ -403,8 +493,16 @@ trait InteractsWithStorage
             $storage = new BotStorage('universe', 'global');
             $storage->setDefaultKey('system_registry');
             $this->_storageInstances['global'] = $storage;
+
+            JackPoint::fire('storage.global.created', $storage, $this);
         }
-        return $this->_storageInstances['global'];
+
+        return JackPoint::transform(
+            'storage.global.resolve',
+            $this->_storageInstances['global'],
+            $this
+        );
+
     }
 
     // =========================================================================
@@ -419,6 +517,12 @@ trait InteractsWithStorage
      */
     public function getStoredUser(): UserEntity
     {
+
+        $verdict = JackPoint::fire('storage.user.entity.before', $this);
+        if ($verdict === false) {
+            throw new RuntimeException('storage.user.entity.before vetoed getStoredUser().');
+        }
+
         // 1. Get Basic Info from the update
         $platformInfo = $this->user(); // Returns ['id' => ..., 'first_name' => ...]
 
@@ -430,12 +534,18 @@ trait InteractsWithStorage
 
         // 4. Pass the storage context down and Return the Combined Entity ✅
         // So the UserEntity can carry its origin and re-resolve the same storage if needed.
-        return new UserEntity(
+        $entity = new UserEntity(
             platformInfo:   $platformInfo,
             storageData:    $storageData,
             platform:       $storage->platform(),
             operative:      $storage->operative(),
         );
+
+        $entity = JackPoint::transform('storage.user.entity.genesis', $entity, $storage, $this);
+
+        JackPoint::fire('storage.user.entity.after', $entity, $this);
+
+        return $entity;
     }
 
     /**
@@ -444,7 +554,14 @@ trait InteractsWithStorage
      */
     public function flushUserStorage(): void
     {
+        $verdict = JackPoint::fire('storage.user.flush.before', $this);
+        if ($verdict === false) {
+            return;
+        }
+
         // Calling delete() without arguments on the manager deletes the default context key
         $this->userStorage()->delete();
+
+        JackPoint::fire('storage.user.flush.after', $this);
     }
 }

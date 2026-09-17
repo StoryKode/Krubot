@@ -61,7 +61,7 @@ use KrubiK\Attributes\FallbackOn;
 use KrubiK\Attributes\RestrictTo;
 use KrubiK\Attributes\ForceJoin;
 use KrubiK\Middlewares\ConversationMiddleware; // ⚡ Import Middleware
-use KrubiK\WarLording\CommandOutcomeShifter;
+use KrubiK\WarLording\CommandOutcomeShifter;   // Pairs with `ResultWrapper`
 use KrubiK\Router\Route; // ⚡ Import Route Class
 use Illuminate\Support\Facades\Route as LaravelRoute; // ⚡ Import Laravel'z Route Class
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
@@ -75,6 +75,7 @@ use ReflectionClass;
 use ReflectionMethod;
 use ReflectionFunction;
 use ReflectionNamedType;
+use ReflectionUnionType;
 use RuntimeException;
 use Throwable;
 use Countable;
@@ -88,7 +89,8 @@ use KrubiK\WebApps\Attributes\WebApp;
 use KrubiK\WebApps\Attributes\WebPage;
 use KrubiK\WebApps\Attributes\WebAction;
 
-use KrubiK\Facades\Opcache; // ✨ OpCaching came into the game ✨
+use KrubiK\Helpers\JackPoint; // Import "JackPoint" - The Tactical EventHook System
+use KrubiK\Facades\Opcache;   // ✨ OpCaching came into the game ✨
 
 use KrubiK\Arcane\InteractsWithContext; // ⚡ Import Context
 use KrubiK\Arcane\InteractsWithApi;
@@ -99,6 +101,8 @@ use KrubiK\Arcane\HasCommandGroups;
 use KrubiK\Arcane\AdvancedRouting;
 use KrubiK\Arcane\ProfessionalWarLordingToolkit;
 use KrubiK\Arcane\SummonsCodeSpyz;
+use KrubiK\Arcane\ResilienceKit;        // provides `resilientRun()`, `resilientLog()`, `resilientIoC()`
+use KrubiK\Arcane\ResultWrapper;        // provides ES-Like `then()`,`catch()`,`finally()`,`throw()` to API-Operations
 use KrubiK\Arcane\HasKeyboards;
 use KrubiK\Arcane\CanSendFluentMessages;
 use KrubiK\Arcane\CanPin;
@@ -135,6 +139,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     use HasWebInterface; // Empower Krubot to response & handle Mini-Apps / Web-Apps / Websites
     use AdvancedRouting;
     use SummonsCodeSpyz;
+    use ResilienceKit;
     use HasCommandGroups;
     use ProfessionalWarLordingToolkit; // Injects core(), prime(), driver(), via(), etc.
     use HasKeyboards;
@@ -145,6 +150,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     use CanInitConversations;
     use CanPlayDiceGames;
     use PHPRBK_Methods;
+    use ResultWrapper;
 
     use HasAmethystMatrix; // ⚡ Inject Amethyst Powers
 
@@ -226,11 +232,21 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     protected Application $app;
 
+    /**
+     * Cache registry of booted Nexus synapses to guarantee idempotency and store registered hook tokens.
+     *
+     * Format:
+     *  - FQCN => true  (when `SomeNexus::synapses()` returned void/completed)
+     *  - FQCN => array (when `SomeNexus::synapses()` returned listener IDs/hook tokens)
+     *
+     * @var array<class-string, bool|array<int|string, mixed>>
+    */
+    private array $injectedSynapses = [];
     
     /**
      * The armory of active, instantiated driver instances.
      * @var array<string, MultiverseEnforcer>
-     */
+    */
     // protected array $drivers = [];
 
     /**
@@ -291,7 +307,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     {
         // ⚡ Cache Hit: O(1) Return. Never reflect the same class twice!
         if (isset(self::$reflectionManifestCache[$className])) {
-            return self::$reflectionManifestCache[$className];
+            return JackPoint::transform('nexus.manifest.cached', self::$reflectionManifestCache[$className], $className);
         }
 
         $manifest = [
@@ -326,11 +342,13 @@ class Krubot implements Countable // ⚡️✅️⚡️
             AmethystMatrix::error("Manifest Engine: Failed to reflect [{$className}]", ['error' => $e->getMessage()]);
         }
 
-        return $manifest;
+        return JackPoint::transform('nexus.manifest.built', $manifest, $className);
     }
 
     public function __construct(Application $app, ?MultiverseEnforcer $driver = null, string|array $config = null)
     {
+        JackPoint::fire('krubot.awaken.before', $this);
+
         $this->app = $app;
         $this->driver = $driver;
 
@@ -348,6 +366,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
         // This is crucial for lazy-loading drivers later via createDriver().
         $this->pwl_config = $config ?? $this->app['config']->get('krubot', []);
 
+        $this->pwl_config = JackPoint::transform('krubot.boot.config', $this->pwl_config, $this);
+
+        // @Todo: Refine me !
         // 2. Set default driver if specified in config, otherwise it defaults to 'rubika'.
         if (isset($this->pwl_config['default_driver'])) {
             $this->setDefaultDriver($this->pwl_config['default_driver']);
@@ -383,6 +404,11 @@ class Krubot implements Countable // ⚡️✅️⚡️
         // 🔮 WAKE THE SORCERESS
         // This links the current instance to the static helper.
         $this->awakenAmethystMatrix();
+        
+        // 🔥 EVENT: krubot.constructed — plugins may now attach listeners.
+        JackPoint::fireKrubotAwaken($this, $this->pwl_config);
+
+        JackPoint::fire('krubot.awaken.after', $this, $this->pwl_config);
     }
 
     public function __TheOldConstruct(string $token, array $config = [])
@@ -397,7 +423,16 @@ class Krubot implements Countable // ⚡️✅️⚡️
    */
     public function __destruct()
     {
+    
+        // 🔥 EVENT: krubot.destructing — last chance to flush, save, or disconnect.
+        JackPoint::fireKrubotSleeping($this);
+
+        $this->pwl_config = JackPoint::transform('krubot.shutdown.config', $this->pwl_config, $this);
+
         $this->sleepAmethystMatrix();
+
+        JackPoint::fireKrubotSlept($this);
+        
     }
 
     /* *
@@ -438,67 +473,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
     } */
 
     /**
-     * --------------------------------------------------------------------------
-     * ⚙️ Global Outcome Wrapping Control
-     * --------------------------------------------------------------------------
-     * This property acts as a global switch to control whether method
-     * call results are wrapped in a CommandOutcomeShifter object.
-     *
-     * @var bool Defaults to `false` to disable ``->then()_chaining`` by default.
-    */
-    public bool $wrapsInOutcomeShifter = false;
-
-    /**
-     * Globally disables the CommandOutcomeShifter wrapping mechanism.
-     *
-     * After calling this, all subsequent bot method calls will return the raw
-     * result from the driver (e.g., an array, an int, or an exception).
-     * This will disable the ->then() chaining capability.
-     *
-     * @return void
-    */
-    public function disableOutcomeWrapping(): void
-    {
-        $this->wrapsInOutcomeShifter = false;
-    }
-    public function DisableESPromiseMode(): void // switch to Normal Method Chaining
-    {
-        $this->wrapsInOutcomeShifter = false;
-    }
-    /**
-     * Globally enables the CommandOutcomeShifter wrapping mechanism (default behavior).
-     *
-     * After calling this, all subsequent bot method calls will wrap their
-     * results in a CommandOutcomeShifter object, enabling ->then() chaining.
-     *
-     * @return void
-    */
-    public function enableOutcomeWrapping(): void
-    {
-        $this->wrapsInOutcomeShifter = true;
-    }
-    public function EnableESPromiseMode(): void // switch to ES-Promises Like Chaining
-    {
-        $this->wrapsInOutcomeShifter = true;
-    }
-    /**
-     * Globally toggles the CommandOutcomeShifter wrapping mechanism (default behavior).
-     *
-     * After calling this, all subsequent bot method calls will wrap their
-     * results in a CommandOutcomeShifter object, enabling ->then() chaining.
-     *
-     * @return void
-    */
-    public function toggleOutcomeWrapping(): void
-    {
-        $this->wrapsInOutcomeShifter = !$this->wrapsInOutcomeShifter;
-    }
-    public function toggleESPromises(): void // toggle ECMASciprt_Like-Promises Chaining state
-    {
-        $this->wrapsInOutcomeShifter = !$this->wrapsInOutcomeShifter;
-    }
-
-    /**
      * 👁️ SENSORY ENGINE: Detects the true nature of the incoming message.
      * This method now acts as a high-level accessor to the powerful Signal::detect() engine.
      * It retrieves the current message context and delegates the detection logic,
@@ -522,7 +496,14 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         // ⚡ Delegate the entire detection logic to the centralized, optimized,
         // and architecturally-sound Signal::detect() method.
-        return Signal::detect($msg, $prioritizeEnvelopeDetection);
+        $detected = Signal::detect($msg, $prioritizeEnvelopeDetection);
+
+        return JackPoint::transformSignalDetect(
+            $detected,
+            $msg,
+            $prioritizeEnvelopeDetection,
+            $this
+        );
     }
 
     /**
@@ -573,9 +554,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
             // For consistency with the new architecture, we wrap the macro's result
             // in a CommandOutcomeShifter object. This makes macros chainable with `->then()` too.
-            return $this->wrapsInOutcomeShifter
-                ? (new CommandOutcomeShifter($this, $result))
-                : $result;
+            return $this->wrapIfNeeded($result);
         }
 
         // =====================================================================
@@ -618,13 +597,11 @@ class Krubot implements Countable // ⚡️✅️⚡️
             // B) SINGLE-STRIKE MISSION (`via('tg')`)
             // If there's only one alias, we proceed with the "Overlord's Gaze" strategy.
 
-            // Single, surgical strike -> Return CommandOutcomeShifter for ->then()
+            // Single, surgical strike -> Return CommandOutcomeShifter for ->then() chaining
             if (count($aliases) === 1) {
                 $driver = $this->core(reset($aliases));
-                $result_maker = fn() => $driver->{$method}(...$parameters);
-                return $this->wrapsInOutcomeShifter
-                    ? CommandOutcomeShifter::execute($this, $result_maker)
-                    : $result_maker();
+                $result = $driver->{$method}(...$parameters);
+                return $this->wrapIfNeeded($result); /// CommandOutcomeShifter::execute($this, $result_maker)
             }
             /*try {
                 $alias = $aliases[0];
@@ -650,9 +627,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         // Wrap the result in a CommandOutcomeShifter, making every standard call chainable.
         // All calls to the default driver are wrapped in CommandOutcomeShifter to enable `->then()` chaining.
-        return $this->wrapsInOutcomeShifter
-            ? (new CommandOutcomeShifter($this, $result))
-            : $result;
+        return $this->wrapIfNeeded($result);
     }
 
     /**
@@ -712,6 +687,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
         $this->namedRoutes = []; // Purge all named route references.
         $this->integratedNexuses = []; // Reset the tracking list of integrated Nexuses.
         $this->ruleSets = [];
+        $this->injectedSynapses = [];
+
+        JackPoint::fire('nexus.cleared');
 
         return $this;
     }
@@ -811,11 +789,24 @@ class Krubot implements Countable // ⚡️✅️⚡️
             return;
         }
 
+        // =========================================================================
+        // ⚡️ [THE ARCHITECT'S TOUCH]: INJECT SYNAPSES RIGHT HERE! ⚡️
+        // =========================================================================
+        $this->injectSynapses($nexus);
+        JackPoint::fire('nexus.synapses.injected', $nexus, $this);
+
         //  Commander K. Order: Cache the default web access policy once to avoid
         //  repeated 'config()' calls inside the loops.
         if (WebApp::$systemDefaultAccessPolicy === null) {
             WebApp::$systemDefaultAccessPolicy = config('krubot.webapps.access_policy', 'strict');
         }
+
+        // اجازه دادن به listenerها که اطلاعات nexus رو پیش از integration تغییر بدن
+        $className = JackPoint::transform('nexus.class.resolve', $className, $this);
+
+        // 🔥 EVENT: nexus.integrating — veto or mutate before scanning.
+        $veto = JackPoint::fire('nexus.integrating', $className, $this);
+        if ($veto === false) return;
 
         try {
             // 🧠 The Magic: Get everything instantly! Build the Manifest ONCE per worker lifecycle.
@@ -1478,14 +1469,22 @@ class Krubot implements Countable // ⚡️✅️⚡️
             // [CRITICAL FIX] Mark as integrated *after* successful processing.
             $this->integratedNexuses[$className] = true;
 
+            // 🔥 EVENT: nexus.integrated — post-scan hook, run side-effects.
+            JackPoint::fire('nexus.integrated', $className, $this);
+
         } catch (\ReflectionException $e) {
-            // Critical Error Handling:
-            AmethystMatrix::yell("Nexus Integration Failed: The Singularity Engine encountered a critical reflection error.", [
-                'nexus_target' => $className,
-                'error_message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
+
+            // 🔥 EVENT: nexus.failed — observability, not a crash.
+            $allowReport = JackPoint::fire('nexus.failed', $className, $e, $this);
+
+            if($allowReport !== false)
+                // Critical Error Handling:
+                AmethystMatrix::yell("Nexus Integration Failed: The Singularity Engine encountered a critical reflection error.", [
+                    'nexus_target' => $className,
+                    'error_message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]);
         }
     }
 
@@ -1566,6 +1565,12 @@ class Krubot implements Countable // ⚡️✅️⚡️
             /** @var \SplFileInfo $phpFile */
             $realPath = $phpFile->getRealPath();
 
+            $realPath = JackPoint::transform('discovery.file.resolve.path', $realPath, $this);
+
+            // 🔥 EVENT: discovery.file.found — inspect/skip/veto a candidate file.
+            $veto = JackPoint::fire('discovery.file.found', $realPath, $this);
+            if ($veto === false) continue;
+
             if($opcacheMasterSwitch) {
                 
                 // Prepare a relative path for matching against config wildcards.
@@ -1615,6 +1620,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         // After all nexuses have been scanned, resolve the priorities for each types.
         $this->prioritizeFallbacks();
+
+        // 🔥 EVENT: discovery.completed — full report of what was loaded.
+        JackPoint::fire('discovery.completed', $integratedCount, $directory, $this);
         
         // 6. Final Report: Return the count of successfully loaded Nexuses.
         return $integratedCount;
@@ -1716,6 +1724,151 @@ class Krubot implements Countable // ⚡️✅️⚡️
     }
 
     /**
+     * Boot the JackPoint synapses for a given Nexus class, if it declares one.
+     *
+     * Rules:
+     *  - Only runs once per Nexus FQCN per process (idempotent via $bootedSynapses).
+     *  - Supports both `synapses(): void` and `synapses(): array` signatures.
+     *  - If synapses() returns an array of [event => callable], registers each pair
+     *    via JackPoint::on<Event>() automatically.
+     *  - The method is called in a JackPoint-scoped closure so that any
+     *    JackPoint::on* /fire* /pipe* calls inside synapses() are fully supported.
+    *
+    * @param  string|object $nexus  FQCN string or an instantiated Nexus object.
+    * @return void
+    */
+    private function injectSynapses(string|object $nexus): void
+    {
+        $nexusClassName = is_object($nexus) ? $nexus::class : $nexus;
+
+        // جلوگیری از اجرای دو‌باره synapses یک Nexus
+        if (isset($this->injectedSynapses[$nexusClassName])) {
+            return;
+        }
+
+        try {
+            $reflection = new ReflectionClass($nexusClassName);
+
+            $methodName = 'synapses';
+
+            if (!$reflection->hasMethod($methodName)) {
+
+                $methodName = 'hooks'; // Try for hooks method
+
+                if (!$reflection->hasMethod($methodName))
+                    return;
+            }
+
+            $method = $reflection->getMethod($methodName);
+
+            // فقط متد public استاتیک یا قابل اجرا روی instance
+            if (!$method->isPublic()) {
+                return;
+            }
+
+            // Only handle public/protected static OR instance methods named synapses()
+            // that take zero required parameters.
+            if ($method->getNumberOfRequiredParameters() > 0) {
+                return;
+            }
+
+            // High-Precision Return Type Verification (PHP 8.2+ Union/Intersection/Named safe)
+            $returnType = $method->getReturnType();
+            if ($returnType !== null) {
+                $validReturn = false;
+                $typesToCheck = ($returnType instanceof ReflectionUnionType) 
+                    ? $returnType->getTypes() 
+                    : [$returnType];
+
+                foreach ($typesToCheck as $type) {
+                    if ($type instanceof ReflectionNamedType && in_array($type->getName(), ['void', 'mixed', 'array'], true)) {
+                        $validReturn = true;
+                        break;
+                    }
+                }
+
+                // بررسی return type: باید void یا array باشد
+                if (!$validReturn) {
+                    return;
+                }
+            }
+
+            // 🛑 TACTICAL VETO HOOK: Opportunity to abort injection externally
+            if (JackPoint::fire('nexus.synapses.injecting', $nexusClassName, $this) === false) {
+                JackPoint::fire('nexus.synapses.vetoed', $nexusClassName);
+                return;
+            }
+
+            // علامت‌گذاری قبل از اجرا — حتی اگر exception بدهد، دو‌بار اجراء نمی‌شود
+            // Mark as booted BEFORE execution to prevent re-entrancy if synapses()
+            // itself triggers another bootNexusSynapses() call down the chain.
+            $this->injectedSynapses[$nexusClassName] = true;
+
+            $injectMySynapses = function () use($nexusClassName, $method, $nexus)
+            {
+                // اجرا: اگر static باشد بدون instance، وگرنه instance می‌سازیم
+                // $nexusInstance = $this->app->make($nexusClassName);
+                $nexusInstance = is_object($nexus) ? $nexus : ($method->isStatic() ? null : (new ReflectionClass($nexusClassName))->newInstanceWithoutConstructor());
+
+                $result   = $method->isStatic()
+                ? $nexusClassName::synapses()
+                : $method->invoke($nexusInstance);
+
+                // If synapses() returned an array.
+                if (is_array($result) && !empty($result)) {
+                    $registeredHooks = [];
+
+                    // Flat array of pre-registered listener tokens/IDs
+                    if(array_is_list($result)) {
+                        $this->injectedSynapses[$nexusClassName] = $result;
+                        $registeredHooks = $result;
+                    }
+                    else {
+                        // Associative array: ['event.name' => callable]
+                        foreach ($result as $event => $listener) {
+                            if (is_string($event) && is_callable($listener)) {
+                                $registeredHooks []= JackPoint::{'on' . ucfirst($event)}($listener);
+                            }
+                        }
+                    }
+                    
+                    // ⚡ Hook Loaded Event (Stage complete)
+                    JackPoint::fire('nexus.synapses.loaded', $nexusClassName, $registeredHooks, $this);
+                }
+            };
+
+            $scopedRegister = config('krubot.extensions.scoped-register', false);
+
+            if($scopedRegister) {
+
+                // Execute inside a JackPoint scope so all JackPoint::* calls
+                // made inside synapses() are valid and fully supported.
+                JackPoint::scopedExecute($nexusClassName, $injectMySynapses);
+
+            }
+            else {
+
+                // بدون scope wrapper ـ JackPoint همچنان کار می‌کند، فقط scope ایزوله نخواهد بود
+                $injectMySynapses();
+            }
+
+            // Stage: Injection fully realized
+            JackPoint::fire('nexus.synapses.injected', $nexusClassName, $this);
+
+        } catch (\ReflectionException $e) {
+            AmethystMatrix::warning("Synapses Runner: Could not reflect [{$nexusClassName}]", [
+                'error' => $e->getMessage()
+            ]);
+            JackPoint::fire('nexus.synapses.failed', $nexusClassName, $e);
+        } catch (\Throwable $e) {
+            AmethystMatrix::error("Synapses Runner: Failed executing synapses() on [{$nexusClassName}]", [
+                'error' => $e->getMessage()
+            ]);
+            JackPoint::fire('nexus.synapses.failed', $nexusClassName, $e);
+        }
+    }
+
+    /**
      * Fulfills the \Countable contract to get the number of registered routes.
      *
      * This implementation enables the intuitive use of PHP's native `count()`
@@ -1743,6 +1896,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function middleware(string|array $middleware): self
     {
+        $middleware = JackPoint::transformMiddlewareRegister($middleware, $this);
+
         if (is_array($middleware)) {
             $this->globalMiddlewares = array_merge($this->globalMiddlewares, $middleware);
         } else {
@@ -1991,6 +2146,21 @@ class Krubot implements Countable // ⚡️✅️⚡️
     {
         // Apply Group Attributes (Prefix, Middlewares)
         $attrs = array_merge($this->getGroupAttributes(), $attributes);
+
+        $definition = JackPoint::transformRouteAdding([
+            'pattern'    => $pattern,
+            'handler'    => $handler,
+            'type'       => $routeType,
+            'attrs'      => $attrs,
+            'attributes' => $attrs,
+        ], $this);
+
+        if($definition) {
+            $pattern    = (string) ($definition['pattern'] ?? $pattern);
+            $handler    = $definition['handler'] ?? $handler;
+            $routeType  = (string) ($definition['type'] ?? $routeType);
+            $attrs      = (array) ($definition['attributes'] ?? $definition['attrs'] ?? $attrs);        
+        }
         
         // Handle Prefix
         if (isset($attrs['prefix'])) {
@@ -2023,6 +2193,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
         
         // Track for group chaining ($bot->group()->middleware())
         $this->registerRouteToGroup($route);
+
+        // 🔥 EVENT: route.added — post-registration, e.g., audit / docs generator.
+        JackPoint::fireRouteAdded($route, $this);
         
         return $route;
     }
@@ -2163,7 +2336,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function fallback(callable|array|string $handler): self
     {
-        $this->fallbackHandler = $handler;
+        $this->fallbackHandler = JackPoint::transformFallbackRegister($handler, null, $this);
         return $this;
     }
 
@@ -2193,7 +2366,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
                     "Use the global fallback() method for catch-all scenarios."
                 );
             }
-            $this->fallbackRegistry[$type][$priority] = $handler;
+            $this->fallbackRegistry[$type][$priority] = JackPoint::transformFallbackRegister(
+                $handler, $type, $this
+            );
         }
 
         // Returning $this allows for method chaining, e.g., $bot->fallbackOn(...)->fallback(...);
@@ -2373,6 +2548,20 @@ class Krubot implements Countable // ⚡️✅️⚡️
         );
     }
     
+    private function resolveRoutingSignal(Message $message): array
+    {
+        $tuple = $this->resolveRoutingSignalCore($message);
+
+        $transformed = JackPoint::transformRoutingResolve(
+            $tuple,
+            $message,
+            $this
+        );
+
+        return (is_array($transformed) && count($transformed) === 5)
+            ? array_values($transformed)
+            : $tuple;
+    }
     /**
      * Resolve the primary routing signal AND pre-compute all sensory data.
      * This is the unified "Sensory Command Center" of the engine.
@@ -2391,7 +2580,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * This is the polymorphic radar of the engine.
      * Priority: WebAction > WebApp > Callback > Text
      */
-    private function resolveRoutingSignal(Message $message): array
+    private function resolveRoutingSignalCore(Message $message): array
     {
 
         // =========================================================================
@@ -2507,6 +2696,16 @@ class Krubot implements Countable // ⚡️✅️⚡️
         return [$routingType, $routingPayload, [], $envelopeSignal, $contentSignal];
     }
 
+    private function parseActionPayload(string $payload): array
+    {
+        $parsed = $this->parseActionPayloadCore($payload);
+
+        $transformed = JackPoint::transformParseAction($parsed, $payload, $this);
+
+        return (is_array($transformed) && count($transformed) === 2)
+            ? array_values($transformed)
+            : $parsed;
+    }
     /**
      * Unified callback payload parser (strict + flexible).
      *
@@ -2523,7 +2722,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      *
      * @return array{0:?string,1:array<string,mixed>}
     */
-    private function parseActionPayload(string $payload): array
+    private function parseActionPayloadCore(string $payload): array
     {
         $payload = trim($payload);
 
@@ -3258,9 +3457,31 @@ class Krubot implements Countable // ⚡️✅️⚡️
         return false;
     }
 
-
     // End Deprecation _ Area
     // Welcome to New PowerFUL...
+    public function processUpdate(Message $message): void
+    {
+        $startedAt = microtime(true);
+        $before = JackPoint::fire('update.before', $message);
+
+        // Returning false is an explicit interception contract.
+        if ($before === false) {
+            $allowSkip = JackPoint::fire('update.skipped', $message);
+            if($allowSkip !== false)
+                return;
+        }
+
+        try {
+            $this->processUpdateKernel($message);
+            JackPoint::fire('update.after', $message, $this->response(), microtime(true) - $startedAt);
+        } catch (\Throwable $e) {
+            $allowReport = JackPoint::fire('update.failed', $message, $e, microtime(true) - $startedAt);
+            if($allowReport !== false)
+                throw $e;
+        } finally {
+            JackPoint::fire('update.finally', $message, $this->response(), microtime(true) - $startedAt);
+        }
+    }
     /**
      * =========================================================================
      *  ⚡ THE ULTRA-POWERFUL ROUTING ENGINE v12.0 (MULTI-VERSE ULTIMATE CONSOLIDATED)
@@ -3278,7 +3499,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * 
      * @param Message $message The incoming update message.
     */
-    public function processUpdate(Message $message): void
+    public function processUpdateKernel(Message $message): void
     {
         // =====================================================================
         // PHASE 0: STATE INITIALIZATION & OPTIMIZATION
@@ -3983,8 +4204,21 @@ class Krubot implements Countable // ⚡️✅️⚡️
     /**
      * --- THE UNIFIED DEPENDENCY RESOLUTION ---
      *        THE SACRED SANCTUM 🏛️
+     * 
+     * Resolve all parameters of a reflected method into a concrete argument array.
+     * 
      * This is the new, dedicated heart of our auto-wiring logic. It *always* runs.
      * It honors all sacred priorities and forges the final, definitive argument payload.
+     *
+     * Priority ladder (first match wins, continues to next parameter):
+     *
+     *   P1 · ExtraInjects  — caller-supplied objects matched by type (e.g. Answer DTOs)
+     *   P2 · Core pillars  — Krubot/self, Message, Update — always available, zero cost
+     *   P3 · JackPoint DI  — plugin injectors via JackPoint::injectParam()
+     *                        (type-keyed first, name-keyed as fallback — scope-aware)
+     *   P4 · Payload name  — $payloadData[$name] with automatic scalar casting
+     *   P5 · Default value — parameter default from the method signature
+     *   P6 · Nullable      — explicit null (object types deferred to app()->call())
      *
      * @param ReflectionMethod|ReflectionFunction $method The reflection of the target action.
      * @param array $payloadData The merged context and route data. (Parameters extracted from Route Regex or Action Payload.)
@@ -4035,7 +4269,16 @@ class Krubot implements Countable // ⚡️✅️⚡️
                     continue 2;
             }
 
-            // PRIORITY 3: Payload Data Injection by Name (The Metaphysical Cast)
+            // ── PRIORITY 3: JackPoint plugin DI — scope-aware, competing resolvers. ─────────────
+            // injectParam() probes TYPE injectors first, NAME injectors as fallback.
+            // Returns null when no plugin claims the parameter → we fall through.
+            $injected = JackPoint::injectParam($parameter, $payloadData, $this, $method);
+            if ($injected !== null) {
+                $dependencies[$name] = $injected;
+                continue;
+            }
+
+            // PRIORITY 4: Payload Data Injection by Name (The Metaphysical Cast)
             if (array_key_exists($name, $payloadData)) {
                 $val = $payloadData[$name];
                 // Automatic type casting for scalar types based on reflection.
@@ -4045,7 +4288,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
                         'bool'   => filter_var($val, FILTER_VALIDATE_BOOLEAN),
                         'float'  => (float) $val,
                         'string' => (string) $val,
-                        'array'  => (array) $val,
+                        // 'array'  => (array) $val,
+                        'array'  => is_array($value) ? $value : (json_decode((string) $value, true) ?? [(string) $value]),
                         default  => $val,
                     };
                 }
@@ -4053,7 +4297,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 continue;
             }
 
-            // PRIORITY 4: Safe Fallbacks (Default Values & Nullables)
+            // PRIORITY 5: Safe Fallbacks (Default Values & Nullables)
             if ($parameter->isDefaultValueAvailable()) {
                 $dependencies[$name] = $parameter->getDefaultValue();
                 continue;
@@ -4071,199 +4315,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
         }
 
         return $dependencies;
-    }
-
-    /**
-     * 🛡️ The Divine Shield of Resilience (resilientCall/rescueResult method) 🛡️
-     * 🛡️ The Archangel's Aegis Protocol v4.0 (resilientRun Remastered) 🛡️
-     *
-     * This method imbues Krubot with a divine shield, allowing it to gracefully
-     * Executes a given callback, gracefully catching any exceptions thrown within it.
-     * 
-     * Acts as a metaphysical force-field, allowing Krubot to continue his mission 
-     * even when unforeseen turbulences arise, ensuring a seamless
-     * user experience and robust system operation.
-     *
-     * It integrates deeply with AmethystMatrix for intelligent logging and
-     * offers a flexible custom exception handler, embodying the ultimate HyperDX.
-     *
-     * @param callable $op          The risky operation to execute.
-     * @param mixed   $def      TThe value to return if an exception is caught. Defaults to null.
-     * @param Closure|null $exceptionHandler Optional. A custom callback to handle the caught exception.
-     *                                   It receives: `function(Throwable $e, Krubot $bot): mixed` as arguments.
-     *                                   If this handler returns a non-null value, that value (from exceptionHandler) will be used
-     *                                   instead of the `defaultValue`. This is where `$handleException($e, $this);`
-     *                                   concept finds its ultimate expression.
-     * @param null|bool    $useLaravelContainer If true, the callback will be executed via `App::call()`,
-     *                                   enabling automatic dependency injection for its parameters. Defaults to false for maximum performance.
-     * @param null|bool    $logExceptions      Optional. Whether to log the exception via AmethystMatrix. Defaults to null.
-     * @return mixed The result of the callback, the default value, or the result of the customExceptionHandler.
-    */
-    public function resilientRun(
-        callable $op,
-        mixed $def = null,
-        ?Closure $exceptionHandler = null,
-        ?bool $useLaravelContainer = null, // ⚡️ NEW: Control Laravel IoC container usage
-        ?bool $logExceptions = null         // Changed to nullable for dynamic fallback
-    ): mixed {
-
-        // ⚡ HyperDX Logic: Harmonizing explicit call parameters with Krubot's internal configuration.
-        // If the method parameter is explicitly provided (not null), it takes precedence.
-        // Otherwise, Krubot consults its internal 'bRCUseLaravelContainer' and 'bRCLogException' states.
-        $bUseLaravelContainer = $useLaravelContainer ?? $this->bRCUseLaravelContainer;
-        $bLogException = $logExceptions ?? $this->bRCLogException;
-
-        // rename variables
-        $callback = &$op;
-        $defaultValue = &$def;
-
-        try {
-            // Attempt to execute the sacred operation.
-            if ($bUseLaravelContainer && function_exists('app')) {
-                // ⚡️ Laravel Container Power: Invoke the callback using App::call()
-                // This enables automatic dependency injection for the callback's parameters.
-                // The Krubot instance ($this) is always available as a bound instance in the container.
-                // For optimal flexibility, we pass an array of parameters, ensuring Krubot is available
-                // for injection if the callback requests it.
-
-                // Engage the full metaphysical auto-wiring engine.
-                $reflection = new ReflectionFunction(Closure::fromCallable($callback));
-
-                // The payload remains simple here as the engine will resolve the rest.
-                $payloadData = ['bot' => $this, 'message' => $this->thisMessage(), 'msg' => $this->thisMessage()];
-                $extraInjects = [$this, $this->thisMessage()];
-                
-                return $this->invokeWithAutoWiring(
-                    method: $reflection,
-                    payloadData: $payloadData,
-                    extraInjects: $extraInjects
-                    // No forceNative flag needed, as we are in the correct 'if' block.
-                );
-            } else {
-                // --- PATH OF THE SWIFT BLADE (NATIVE PHP) ---
-                // No reflection, no overhead. A direct, lightning-fast invocation.
-                // Default execution: Directly invoke the callback
-                return $callback($this);
-                // Pass Krubot instance to the callback for context
-            }
-        } catch (Throwable $e) {
-            // A disturbance in the force detected!
-            // Engage the AmethystMatrix for cosmic record-keeping and activate The Divine Shield.
-
-            // 1. 🔮 AmethystMatrix Logging (The Oracle's Chronicle)
-            if ($bLogException && class_exists(AmethystMatrix::class)) {
-                AmethystMatrix::yell(
-                    "Krubot Divine Shield: An unexpected anomaly occurred during a protected operation.",
-                    [
-                        'error_message' => $e->getMessage(),
-                        'error_code'    => $e->getCode(),
-                        'file'          => $e->getFile(),
-                        'line'          => $e->getLine(),
-                        'trace'         => $e->getTraceAsString(),
-                        'default_value' => $defaultValue,
-                        'operation_context' => 'rescue_attempt',
-                        // ⚡ HyperDX: Auto-inject relevant Krubot context for deeper insights
-                        'bot_context'   => [
-                            'chat_id'       => $this->chatId(),
-                            'sender_id'     => $this->senderId(),
-                            'message_id'    => $this->findMessageId(),
-                            'message_text'  => $this->text(),
-                            'driver_codename'  => $this->getDriverCodeName()
-                        ]
-                    ]
-                );
-            }
-
-            // 2. ⚡ Custom Exception Handler (The Warlord's Decree)
-            // If a custom handler is provided, invoke it. This is where the
-            // `$customHandlerResult = $handleException($e, $this);` concept comes to life.
-            if ($exceptionHandler instanceof Closure) {
-
-                $customHandlerResult = null;               
-                // ⚜️ The handler's execution path mirrors the main operation's path. ⚜️
-                if ($bUseLaravelContainer && function_exists('app')) {
-                    // ⚡️ NEW: Hyper-Laravel Container Power for exception handler
-                    // The handler also gets full auto-wiring power.
-                    $handlerReflection = new ReflectionFunction($exceptionHandler);
-
-                    // The payload for the handler includes the exception itself.
-                    $handlerPayload = [
-                        'bot' => $this, 
-                        'message' => $this->thisMessage(),
-                        'msg' => $this->thisMessage(),
-                        'e' => $e,
-                        'exception' => $e,
-                        Throwable::class => $e
-                    ];
-                    // Pass the exception and Krubot instance explicitly, allowing D-I via Laravel|invokeWithAutoWiring() for other params.
-                    $handlerExtraInjects = [$this, $this->thisMessage(), $e];
-
-                    $customHandlerResult = $this->invokeWithAutoWiring(
-                        method: $handlerReflection,
-                        payloadData: $handlerPayload,
-                        extraInjects: $handlerExtraInjects
-                    );
-
-                } else {
-
-                    // --- PATH OF THE SWIFT BLADE (NATIVE PHP) ---
-                    // Direct, fast, and simple invocation for the handler.
-                    // Pass the exception and the current Krubot instance to the custom handler
-                    $customHandlerResult = $exceptionHandler($e, $this);
-
-                }
-
-                // If the handler returned a non-null value, it is the new decree so takes precedence.
-                if ($customHandlerResult !== null) {
-                    return $customHandlerResult;
-                }
-            }
-
-            // 3. ✨ Return Default Value (The Graceful Retreat)
-            // If no custom handler or if it returned null, fall back to the default value.
-            return $defaultValue;
-        }
-    }
-    /**
-     * 🔮 Configures the IoC Container (Laravel App::call) usage for resilientCall.
-     *
-     * This method allows you to dynamically control whether subsequent calls to `resilientCall`
-     * will leverage Laravel's service container for dependency injection within callbacks
-     * and exception handlers by default. It's a powerful lever for performance optimization and
-     * architectural flexibility, embodying the HyperDX principle of granular control over
-     * Krubot's operational parameters.
-     *
-     * @param bool $useLaravelContainer If true, `resilientCall` will attempt to use `App::call()`
-     *                                  by default. If false, it will directly invoke callbacks.
-     *                                  Defaults to `true` to enable IoC by default when calling this setter.
-     * @return Krubot Returns the current Krubot instance for method chaining,
-     *                allowing for fluent configuration of Krubot's metaphysical state.
-     */
-    public function resilientIoC(bool $useLaravelContainer = true): self
-    {
-        // ⚡️ Setting the default behavior for IoC container usage across all resilient operations.
-        // This affects resilientCall when its `$useLaravelContainer` parameter is null,
-        // providing a central control point for Krubot's dependency resolution strategy.
-        $this->bRCUseLaravelContainer = $useLaravelContainer;
-        return $this; // 🚀 Chainable for fluent configuration, aligning with ECMA2026 paradigms.
-    }
-
-    /**
-     * 📡 Configures exception logging via AmethystMatrix for resilientCall.
-     *
-     * @param bool $logExceptions If true, exceptions will be logged by default. If false, they will be
-     *                           silently handled without AmethystMatrix intervention.
-     *                           Defaults to `true` to enable logging by default when calling this setter.
-     * @return Krubot Returns the current Krubot instance for method chaining,
-     *                facilitating a fluid configuration experience.
-     */
-    public function resilientLog(bool $logExceptions = true): self
-    {
-        // 📡 Setting the default behavior for exception logging across all resilient operations.
-        // This affects resilientCall when its `$logExceptions` parameter is null,
-        // granting Krubot the power to decide its level of self-reporting.
-        $this->bRCLogException = $logExceptions;
-        return $this; // 🚀 Chainable for fluent configuration.
     }
 
     // =========================================================================
@@ -4308,52 +4359,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
     }
 
     /**
-     * Helper to send message without reply (Say), and without auto-send.
-    */
-    public function say(string|RichMan $text): static
-    {
-        if (!$this->chatId())
-            return $this;
-        $this->chat($this->chatId())->message($text);
-        return $this;
-    }
-
-    /**
-     * Helper to reply to the current message.
-     * Automatically sets replyTo ID if available.
-    */
-    public function reply(string|RichMan $text): static
-    {
-        if (!$this->chatId()) {
-            $this->message($text);
-            return $this;
-        }
-        
-        $builder = $this->chat($this->chatId());
-        
-        if ($msgId = $this->findMessageId()) {
-            $builder->replyTo($msgId);
-        }
-        
-        $builder->message($text);
-        return $this;
-    }
-
-    /**
-     * Helper to edit a specific message.
-    */
-    public function modify(string $messageId, string $newText): static
-    {
-        if (!$this->chatId()) return $this;
-
-        $this->chat($this->chatId())
-             ->messageId($messageId)
-             ->message($newText);
-             
-        return $this;
-    }
-
-    /**
      * Download file from message to Laravel Storage.
     */
     public function downloadTo(string $fileId, string $path, string $disk = 'local'): bool
@@ -4391,7 +4396,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function senderId(): ?string
     {
-        return $this->user()['id'] ?? null;
+        $id = $this->user()['id'] ?? null;
+        return JackPoint::transform('resolve.identity.id', $id, $this->user(), $this);
     }
 
     /**
@@ -4399,7 +4405,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function who(): ?string
     {
-        return $this->user()['id'] ?? null;
+        return $this->senderId();
     }
 
     /**
@@ -4407,7 +4413,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function cleanText(): string
     {
-        return trim($this->text());
+        $text = trim($this->text());
+        return JackPoint::transform('resolve.clean.text', $text, $this->text(), $this);
     }
 
     /**
@@ -4417,48 +4424,13 @@ class Krubot implements Countable // ⚡️✅️⚡️
     public function isAdmin(?string $userId = null): bool
     {
         $adminGuids = config('krubot.drivers.'.$this->resolveTargetDriver().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
+        $adminGuids = JackPoint::transform('identity.admin.list', $adminGuids, $this);
+
         $senderId = $userId ?? $this->senderId(); // we checking for who ?!
+
+        $isAdmin = $senderId && in_array($senderId, $adminGuids);
         
-        return $senderId && in_array($senderId, $adminGuids);
-    }
-
-    /**
-     * Send a message to a SPECIFIC target (User/Group GUID) directly.
-    */
-    public function to(string $targetChatId, string|RichMan $text): array
-    {
-        return $this->chat($targetChatId)
-            ->message($text)
-            ->send();
-    }
-
-    /**
-     * Delete the current message immediately.
-    */
-    public function deleteCurrent(): array
-    {
-        if (!$this->chatId() || !$this->findMessageId()) {
-            return ['status' => 'ERROR', 'message' => 'No context available'];
-        }
-        
-        return $this->chat($this->chatId())
-            ->messageId($this->findMessageId())
-            ->sendDelete();
-    }
-
-    /**
-     * Edit the current message immediately (Useful for updating Bot's own menus).
-    */
-    public function editCurrent(string $newText): array
-    {
-        if (!$this->chatId() || !$this->findMessageId()) {
-            return ['status' => 'ERROR', 'message' => 'No context available'];
-        }
-
-        return $this->chat($this->chatId())
-            ->messageId($this->findMessageId())
-            ->message($newText)
-            ->editMessage();
+        return (bool) JackPoint::transform('identity.admin.check', $isAdmin, $senderId, $adminGuids, $this);
     }
 
     /**
@@ -4466,11 +4438,22 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function sendMessageToAdmins(string $text): array
     {
-        $adminGuids = config('krubot.drivers.'.$this->resolveTargetDriver().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
+        $configAdminGuids = config('krubot.drivers.'.$this->resolveTargetDriver().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
+
+        $adminGuids    = JackPoint::transform('admin.broadcast.targets', $configAdminGuids, $text, $this);
+        $resolvedText  = JackPoint::transform('admin.broadcast.text', $text, $adminGuids, $this);
+
+        $verdict = JackPoint::fire('admin.broadcast.started', $adminGuids, $resolvedText, $configAdminGuids, $text, $this);
+        if($verdict === false)
+            return [];
+
         $result = [];
         foreach ($adminGuids as $admin_id) {
-            $result []= $this->to($admin_id, $text);
+            $result []= $this->to($admin_id, $resolvedText);
         }
+
+        JackPoint::fire('admin.broadcast.completed', $result, $adminGuids, $resolvedText, $this);
+
         return $result;
     }
 
@@ -4495,6 +4478,12 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function now(string|array|Arrayable|Traversable $stateKey, mixed $value = true): self
     {
+        // ⚡ دروازه‌ی ورود — veto / reroute
+        $verdict = JackPoint::fire('state.now.before', $stateKey, $value, $this->userStorage(), $this);
+        if ($verdict === false) {
+            return $this;
+        }
+
         // Case 1: Batch Operation (The most flexible path)
         // We check if the input is a data structure intended for batch processing.
         if (is_array($stateKey) || $stateKey instanceof Arrayable || $stateKey instanceof Traversable) {
@@ -4518,6 +4507,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 $batchData = iterator_to_array($stateKey);
             }
 
+            // ⚡ پلاگین می‌تواند کل batch را بازنویسی کند
+            $batchData = JackPoint::transform('state.now.batch.put', $batchData, $this);
+
             // --- The Separation Logic ---
             // Now that we have a guaranteed array ($batchData), we can process it.
             // We iterate through the batch data once and separate operations into two groups:
@@ -4534,29 +4526,85 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 }
             }
 
+            // ⚡ پلاگین می‌تواند split را دستکاری کند (مثلاً key جدید اضافه کند)
+            [$dataToSet, $keysToForget] = JackPoint::transform(
+                'state.now.batch.split',
+                [$dataToSet, $keysToForget],
+                $batchData,
+                $this
+            );
+
             // Step 1: Perform the batch update/set operation if there's anything to set.
             // This is efficient as it calls `put` (and subsequently `save`) only once for all updates.
             if (!empty($dataToSet)) {
-                $this->userStorage()->put($dataToSet);
+
+                $dataToSet = JackPoint::transform('state.put.before', $dataToSet, $this);
+
+                // verdict => transformer can clear the array entirely
+                if (!empty($dataToSet)) {
+                    $this->userStorage()->put($dataToSet);
+                    JackPoint::fire('state.put.after', $dataToSet, $this);
+                }
+
             }
 
             // Step 2: Perform deletions.
             // Instead of a loop, we now make a single, efficient, {SRP|SoC}-Based call.
             if (!empty($keysToForget)) {
-                $this->userStorage()->forget($keysToForget);
+                $keysToForget = JackPoint::transform('state.forget.before', $keysToForget, $this);
+
+                // verdict => transformer can clear the array entirely
+                if (!empty($keysToForget)) {
+                    $this->userStorage()->forget($keysToForget);
+                    JackPoint::fire('state.forget.after', $keysToForget, $this);
+                }
             }
 
+            JackPoint::fire('state.now.batch.completed', $dataToSet, $keysToForget, $batchData, $this);
+
         } else {
+
+            // ⚡ کلید و مقدار هر دو قابل transform هستند (single path)
+            $stateKey = JackPoint::transform('resolve.state.key', $stateKey, $value, $this);
+            $value    = JackPoint::transform('resolve.state.value', $value, $stateKey, $this);
+
             // Case 2: Single Key/Value Operation (Original Logic)
             // This path remains for single, direct state modifications.
             if ($value === null) {
-                // e.g., $bot->now('is_registering', null); -> Deletes the state.
-                $this->userStorage()->forget($stateKey);
+
+                $forgetKey = JackPoint::transform('state.forget.before', $stateKey, $this);
+
+                // for example prevent forget system keys
+                if ($forgetKey !== -1) {
+
+                    // e.g., $bot->now('is_registering', null); -> Deletes the state.
+                    $this->userStorage()->forget($forgetKey);
+                    JackPoint::fire('state.forgotten', $forgetKey, $stateKey, $this);
+
+                }
+
             } else {
-                // e.g., $bot->now('is_admin'); or $bot->now('level', 99); -> Sets the state.
-                $this->userStorage()->put($stateKey, $value);
+
+                [$putKey, $putValue] = JackPoint::transform(
+                    'state.now.put.before',
+                    [$stateKey, $value],
+                    $this
+                );
+
+                if ($putKey !== -1) {
+
+                    // e.g., $bot->now('is_admin'); or $bot->now('level', 99); -> Sets the state.
+                    $this->userStorage()->put($putKey, $putValue);
+                    JackPoint::fire('state.put.after', $putKey, $putValue, $this);
+                    JackPoint::fire('state.written', $putKey, $putValue, $stateKey, $value, $this);
+
+                }
+
             }
         }
+
+        // ⚡ دروازه‌ی خروج — trace / metrics
+        JackPoint::fire('state.now.after', $stateKey, $value, $this->userStorage(), $this);
 
         // Always return $this to maintain the beautiful fluent API.
         // e.g., $bot->now('level', 10)->now('class', 'Mage')->reply('You are now a Level 10 Mage!')->send();
@@ -4571,6 +4619,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
     public function matches(string $pattern): bool
     {
         $text = $this->cleanText();
+
+        $pattern = JackPoint::transform('text.match.pattern', $pattern, $text, $this);
 
         // Exact match
         if ($text === $pattern) return true;
@@ -4596,9 +4646,13 @@ class Krubot implements Countable // ⚡️✅️⚡️
      */
     public static function evolve($evolutionaryMatrix, bool $replace = true): void
     {
+        JackPoint::fire('krubot.evolve.before', $evolutionaryMatrix, $replace);
+
         // This method Directly calls the Macroable::mixin() method that is inherited from the injected Macroable trait.
         // The power lies in its expressive and thematic name.
         static::mixin($evolutionaryMatrix, $replace);
+
+        JackPoint::fire('krubot.evolve.after', $evolutionaryMatrix, $replace);
     }
 
     // پیاده‌سازی Krubot::for(): تک‌تیراندازِ خارج از متن
@@ -4621,9 +4675,12 @@ class Krubot implements Countable // ⚡️✅️⚡️
         // Based on the architecture, we might need to expose a way to set these.
         
         // Injecting the target into the context
-        $instance->forceContext($targetGuid); 
+        $instance->forceContext($targetGuid);
 
-        return $instance;
+        // 🔥 EVENT: krubot.spawned — plugins may hydrate extra context for off-cycle bots.
+        JackPoint::fireKrubotSpawned($instance, $targetGuid);
+
+        return JackPoint::transform('krubot.instance.ready', $instance, $targetGuid);
     }
 
     /**
@@ -4632,6 +4689,16 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     protected function forceContext(string $guid): void
     {
+
+        $old_chat_id = $this->chat_id;
+        $old_user_id = $this->user_id;
+
+        $guid = JackPoint::transform('context.force', $guid, $this);
+
+        $verdict = JackPoint::fire('context.forcing', $guid, $old_chat_id, $old_user_id, $this);
+        if($verdict === false)
+            return;
+
         // We set the chat ID as the primary target
         $this->chat_id = $guid;
         
@@ -4639,6 +4706,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
         if (str_starts_with($guid, 'u')) {
             $this->user_id = $guid;
         }
+
+        JackPoint::fire('context.forced', $guid, $this);
     }
 
 }

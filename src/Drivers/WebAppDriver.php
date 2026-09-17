@@ -3,10 +3,21 @@
 declare(strict_types=1);
 
 namespace KrubiK\Drivers;
+/*
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+|--------------------------------------------------------------------------
+| This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
+| not a weapon for production's final battles.
+|
+| Our Bond: ***"Rebuilding The Rebellion"*** Within S.N.P. (The Foundation of Pure Power & Revel).
+| Your Mandate [MIT]: Deconstruct Krubot. Command it. Master it. You are The Architect Now!
+|
+| *Go build something revolutionary!* 💜⚡️
+*/
 
 /*
 |--------------------------------------------------------------------------
-| Krubot WebAppDriver — Quantum Fusion 🌐⚡️
+| KrubiK WebAppDriver — Quantum Fusion 🌐⚡️
 |--------------------------------------------------------------------------
 | MERGE Powers of:
 |   - v1   : makeRequest pipeline, NeonVitality queue, keyboard
@@ -35,6 +46,8 @@ use KrubiK\Render\RenderAura;
 
 use KrubiK\Keyboard\Keyboard as KrubiKInlineKeyboard;
 use KrubiK\Keyboard\ReplyKeyboard as KrubiKReplyKeyboard;
+use KrubiK\Keyboard\PowerButton;
+
 use KrubiK\Render\RichMan;
 use KrubiK\Enums\Platform;
 
@@ -42,6 +55,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Contracts\View\View;
+
+use KrubiK\Helpers\JackPoint;
+use ReflectionParameter;
 
 final class WebAppDriver implements MultiverseEnforcer
 {
@@ -175,6 +191,108 @@ final class WebAppDriver implements MultiverseEnforcer
         $this->chatContext = $this->resolveChatContext();
 
         $this->igniteNeon($this->config);
+
+        $this->injectIdentityParams();
+    }
+
+    // =========================================================================
+    // ✨ SIMULATOR-PRIMING API — Public, Fluent, DX-First
+    // =========================================================================
+
+    /**
+     * Prime sender identity — clean public API instead of direct property access.
+     *
+     * @param  int         $id        Simulated user ID
+     * @param  string      $firstName Display name
+     * @param  string      $platform  'web' | 'telegram' | 'bale'
+     * @param  bool        $isBot     Whether the sender is a bot
+     * @param  string|null $username  Optional username
+     * @return static
+    */
+    public function primeSenderUser(
+        int     $id,
+        string  $firstName = 'SimUser',
+        string  $platform  = 'web',
+        bool    $isBot     = false,
+        ?string $username  = null,
+    ): static {
+        $this->senderUser = [
+            'id'         => $id,
+            'is_bot'     => $isBot,
+            'first_name' => $firstName,
+            'username'   => $username,
+            'platform'   => $platform,
+        ];
+        return $this;
+    }
+
+    /**
+     * Prime chat context — clean public API instead of direct property access.
+     *
+     * @param  int    $id    Chat ID
+     * @param  string $type  'private' | 'group' | 'channel'
+     * @param  string $title Chat title
+     * @return static
+    */
+    public function primeChatContext(
+        int    $id,
+        string $type  = 'private',
+        string $title = 'Simulator Session',
+    ): static {
+        $this->chatContext = [
+            'id'    => $id,
+            'type'  => $type,
+            'title' => $title,
+        ];
+        return $this;
+    }
+
+    /**
+     * Drain the response queue and return the payload.
+     * Public API (for controllers that want manual control or non-Laravel envs, the simulator controller.)
+     *
+     * @param  bool $output  Whether to echo the JSON response directly
+     * @param  bool $enrichKeyboards true → stamp keyboard HTML before returning
+     * @return array
+    */
+    public function finalize(bool $output = true, bool $enrichKeyboards = true): array
+    {
+        $payload = $this->generateResponseStructure();
+
+        if ($enrichKeyboards) {
+            $this->enrichPayloadKeyboards($payload);
+        }
+
+        if ($output) {
+            if (!headers_sent()) {
+                http_response_code($this->httpStatusCode);
+                header('Content-Type: application/json; charset=utf-8');
+                header('X-Krubot-Driver: web');
+            }
+            echo json_encode(
+                $payload,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
+            );
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Get queued messages (read-only).
+    */
+    public function getQueuedMessages(): array
+    {
+        return $this->responseQueue;
+    }
+
+    /**
+     * Clear the response queue.
+    */
+    public function clearQueue(): static
+    {
+        $this->responseQueue = [];
+        return $this;
     }
 
     /**
@@ -203,7 +321,7 @@ final class WebAppDriver implements MultiverseEnforcer
         // Re-hydrate payload from the actual Laravel Request (more reliable than php://input)
         $this->payload = $this->extractPayload($request);
 
-        // ── ✨ Certify Identity via AxiomCore ──────────────────────────
+        // ── Validate Identity through AxiomCore ───────────────────────
         // If the middleware (AuthenticateWebApp) already ran, its result lives in
         // the request attribute bag. We honour that to avoid double-validation.
         // If not (e.g. the driver is used without the middleware), we certify now.
@@ -213,245 +331,78 @@ final class WebAppDriver implements MultiverseEnforcer
         $this->senderUser  = $this->buildSenderArrayFromIdentity($this->identity);
         $this->chatContext = $this->resolveChatContext();
 
-        // Normalise path: '/webapps/game/dashboard/order_vip_product' → 'game.dashboard.order_vip_product'
-        $dotPath = $this->uriToDotPath($routePath ?: $request->path());
+        
+        // ── 3. Build the UniversalInboundUpdate DTO ─────────────────────────
+        $payload = array_merge($this->payload, [
+            '_web_path'   => $routePath ?: $request->path(),
+            '_web_method' => $request->method(),
+        ]);
 
-        // ── 1. Match route ────────────────────────────────────────────────
-        $entry = $this->findRouteEntry($dotPath);
+        $dto = UniversalInboundUpdate::forge($payload, 'web');
 
-        if ($entry === null) {
-            return $this->notFoundResponse($dotPath);
-        }
+        // ── 4. Create the Message entity ────────────────────────────────────
+        $message = Message::fromInboundPayload($dto);
 
-        $this->matchedRouteKey  = $entry['route'];
-        $this->routeParameters  = $entry['_params'] ?? [];
+        // ── 5. Delegate to Krubot's master engine ───────────────────────────
+        //    Routing, middleware, handler invocation, auto-wiring —
+        //    all handled by Krubot::processUpdate() with invokeWithAutoWiring.
+        $this->warlord()->processUpdate($message);
 
-        // ── 2. HTTP method guard ──────────────────────────────────────────
-        $allowedMethods = array_map('strtoupper', $entry['http'] ?? []);
-        if (!empty($allowedMethods) && !in_array(strtoupper($request->method()), $allowedMethods, true)) {
-            return response()->json([
-                'ok'    => false,
-                'error' => "Method [{$request->method()}] not allowed. Allowed: " . implode(', ', $allowedMethods),
-            ], 405)->header('X-Krubot-Driver', 'web');
-        }
-
-        // ── 3. #[RestrictTo] guard ────────────────────────────────────────
-        if (!$this->passesRestriction($entry['restrict'] ?? [])) {
-            return response()->json(['ok' => false, 'error' => 'Access denied.'], 403)
-                ->header('X-Krubot-Driver', 'web');
-        }
-
-        // ── 4. Invoke handler ─────────────────────────────────────────────
-        try {
-            $nexusInstance = app($entry['class']);
-            $args          = $this->buildMethodArguments($entry['class'], $entry['method']);
-            $result        = $nexusInstance->{$entry['method']}(...$args);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
-        }
-
-        // ── 5. Serialize ──────────────────────────────────────────────────
-        return $this->formatResponse($result, $entry['attribute']);
-    }
-
-    // =========================================================================
-    // 🔍 ROUTE MATCHING — DeepSeek's pattern, hardened
-    // =========================================================================
-
-    /**
-     * Find the registry entry whose 'route' dot-key matches $dotPath.
-     * Supports {param} wildcards and both exact and normalised (kebab→snake) paths.
-     *
-     * Returns the entry array with an extra '_params' key, or null on miss.
-    */
-    protected function findRouteEntry(string $dotPath): ?array
-    {
-        // Also try with hyphens normalised to underscores
-        $dotPathAlt = str_replace('-', '_', $dotPath);
-
-        foreach (static::$webRegistry as $entry) {
-            $routeKey = $entry['route'] ?? '';
-            if (!$routeKey) {
-                continue;
-            }
-
-            $regex = $this->routeKeyToRegex($routeKey);
-
-            foreach ([$dotPath, $dotPathAlt] as $candidate) {
-                if (preg_match($regex, $candidate, $matches)) {
-                    // Extract named {param} captures
-                    $namedParams = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
-                    $entry['_params'] = $namedParams;
-                    return $entry;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Convert a dot-path route key with optional {param} segments into a PCRE
-     * named-capture regex.
-     *
-     * 'game.dashboard.show_vip_product.{productId}'
-     *   → /^game\.dashboard\.show_vip_product\.(?P<productId>[^.\/]+)$/i
-    */
-    protected function routeKeyToRegex(string $routeKey): string
-    {
-        // Temporarily replace {param} so preg_quote doesn't escape the braces
-        $tmp = preg_replace_callback('/\{(\w+)\}/', fn($m) => "\x00{$m[1]}\x00", $routeKey);
-        $escaped = preg_quote($tmp, '/');
-
-        // Restore as named captures
-        $regex = preg_replace_callback(
-            '/\x00(\w+)\x00/',
-            fn($m) => '(?P<' . $m[1] . '>[^.\/]+)',
-            $escaped
-        );
-
-        return '/^' . $regex . '$/i';
+        // ── 6. Flush queued bot replies ─────────────────────────────────────
+        return $this->formatQueuedResponse();
     }
 
     // =========================================================================
     // 🏗️ ARGUMENT BUILDER — Claude's reflection DI, DeepSeek's castParameter, now with GroK identity-injectable
     // =========================================================================
 
-    /**
-     * Build the exact argument list for the Nexus handler method.
-     *
-     * Resolution priority (mirrors how #[WebAction] auto-injects):
-     *   1. MultiverseEnforcer / WebAppDriver type → $this (the active driver)
-     *   2. Illuminate\Http\Request   → $this->currentRequest
-     *   3. UniversalIdentity      ✨ → $this->identity (certified)
-     *   4. WebAppInitData         ✨ → $this->identity->getData()
-     *   5. Route params {productId}  → $this->routeParameters
-     *   6. Request payload (body)    → $this->payload
-     *   7. Default value             → $param->getDefaultValue()
-     *   8. Nullable                  → null
-     *   9. Laravel IoC Registry      → app($typeName)
-    */
-    protected function buildMethodArguments(string $class, string $method): array
+    protected bool $hookedIdentityInMehthodParams = false;
+    protected function injectIdentityParams(): void
     {
-        $refMethod = new \ReflectionMethod($class, $method);
-        $args      = [];
+        if($this->hookedIdentityInMehthodParams)
+            return;
 
-        foreach ($refMethod->getParameters() as $param) {
-            $name     = $param->getName();
-            $type     = $param->getType();
-            $typeName = $type instanceof \ReflectionNamedType ? $type->getName() : null;
+        // make sure `$this->identity` is prepared right now because closure catches it at the right time!
 
-            // 1. Krubot / WebAppDriver injection
-            if ($typeName && (
-                $typeName === self::class ||
-                is_a($typeName, MultiverseEnforcer::class, true)
-            )) {
-                $args[] = $this;
-                continue;
-            }
+        // ── UniversalIdentity ────────────────────────────────────────────────────
+        // Simple: hand back the driver's certified identity object.
+        JackPoint::injectParamType(
+            UniversalIdentity::class,
+            fn(ReflectionParameter $param, array $payload, Krubot $bot): UniversalIdentity
+                => $this->identity,
+            JackPoint::PRIORITY_BEFORE,
+        );
 
-            if ($typeName && is_a($typeName, Krubot::class, true)) {
-                $args[] = $this->warlord();
-                continue;
-            }
-
-            // 2. Laravel Request injection
-            if ($typeName && is_a($typeName, Request::class, true)) {
-                $args[] = $this->currentRequest;
-                continue;
-            }            
-
-            // 3. ✨ UniversalIdentity injection — certified identity object
-            if ($typeName === UniversalIdentity::class) {
-                $args[] = $this->identity;
-                continue;
-            }
-
-            // 4. ✨ WebAppInitData injection — the raw proof DTO (nullable-safe)
-            if ($typeName === WebAppInitData::class) {
+        // ── WebAppInitData ───────────────────────────────────────────────────────
+        // Slightly more involved: getData() can return null.
+        // If the handler declared a non-nullable typehint, that is a contract
+        // violation — throw early with an actionable message rather than
+        // letting PHP throw a cryptic TypeError downstream.
+        JackPoint::injectParamType(
+            WebAppInitData::class,
+            function (ReflectionParameter $param, array $payload, Krubot $bot): ?WebAppInitData {
                 $initData = $this->identity->getData();
 
                 if ($initData === null && !$param->allowsNull()) {
-                    // Handler demands non-null InitData but identity has none.
-                    // Return 403 by throwing — formatResponse / errorResponse handles it.
-                    throw new \RuntimeException(
-                        "WebAppDriver: Handler {$class}::{$method}() requires WebAppInitData " .
-                        "but the current identity was not forged from a MiniApp context. " .
-                        "Ensure AuthenticateWebApp middleware runs before this route, or use " .
-                        "?WebAppInitData to accept null."
+                    $owner  = $param->getDeclaringFunction();
+                    $where  = $owner instanceof ReflectionMethod
+                        ? $owner->getDeclaringClass()->getName() . '::' . $owner->getName() . '()'
+                        : $owner->getName() . '()';
+
+                    throw new RuntimeException(
+                        "WebAppDriver: {$where} requires a non-nullable WebAppInitData "
+                        . "but the current identity was not forged from a MiniApp context. "
+                        . "Ensure AuthenticateWebApp middleware runs before this route, "
+                        . "or typehint ?WebAppInitData to accept null.",
                     );
                 }
 
-                $args[] = $initData;
-                continue;
-            }
+                return $initData;
+            },
+            JackPoint::PRIORITY_BEFORE,
+        );
 
-            // 5. Route {param} segments
-            if (isset($this->routeParameters[$name])) {
-                $args[] = $this->castParameter($this->routeParameters[$name], $type);
-                continue;
-            }
-
-            // 6. Request payload (POST body / JSON)
-            if (array_key_exists($name, $this->payload)) {
-                $args[] = $this->castParameter($this->payload[$name], $type);
-                continue;
-            }
-
-            // 7. Default value
-            if ($param->isDefaultValueAvailable()) {
-                $args[] = $param->getDefaultValue();
-                continue;
-            }
-
-            // 8. Nullable
-            if ($param->allowsNull()) {
-                $args[] = null;
-                continue;
-            }
-
-            // 9. Query in Laravel IoC (services, repositories, etc.)
-            if ($typeName && (class_exists($typeName) || interface_exists($typeName))) {
-                try {
-                    $args[] = app($typeName);
-                    continue;
-                } catch (\Throwable) {
-                    // fall through to exception
-                }
-            }
-
-            throw new \RuntimeException(
-                "WebAppDriver: Cannot resolve parameter \${$name} ({$typeName}) " .
-                "for {$class}::{$method}(). " .
-                "Not in route params, payload, or IoC container."
-            );
-        }
-
-        return $args;
-    }
-
-    /**
-     * Cast a raw scalar value to the expected PHP built-in type.
-     * Handles nullable types correctly.
-    */
-    protected function castParameter(mixed $value, ?\ReflectionType $type): mixed
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        $typeName = $type instanceof \ReflectionNamedType ? $type->getName() : null;
-
-        return match ($typeName) {
-            'int'    => (int)    $value,
-            'float'  => (float)  $value,
-            'bool'   => filter_var($value, FILTER_VALIDATE_BOOLEAN),
-            'string' => (string) $value,
-            'array'  => is_array($value)
-                            ? $value
-                            : (json_decode((string) $value, true) ?? [(string) $value]),
-            default  => $value,
-        };
+        $this->hookedIdentityInMehthodParams = true; // prevent double registeration;
     }
 
     // =========================================================================
@@ -471,24 +422,38 @@ final class WebAppDriver implements MultiverseEnforcer
     {
         $finalParams = $params;
 
-        // ── RichMan → HTML (Web loves HTML) ──────────────────────────────
-        if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
-            $this->warlord()->listensAura(true);
-            RenderAura::infuse(Platform::Web());
-            $finalParams['text']       = $finalParams['text']->toHtml();
-            $finalParams['parse_mode'] = 'html';
-            $finalParams['_rich']      = true;
-            unset($finalParams['isRich'], $finalParams['rich_blocks']);
-        } elseif (!empty($finalParams['isRich'])) {
-            if (!empty($finalParams['rich_blocks'])) {
-                $finalParams['text'] = $this->convertRichBlocksToHtml($finalParams['rich_blocks']);
-            }
-            $finalParams['text'] = $finalParams['text'] ?? '';
-            unset($finalParams['isRich'], $finalParams['isRtl'], $finalParams['rich_blocks']);
-        }
+        $listening = $this->warlord()->listensAura();
 
-        // ── Normalise keyboard / keypad ───────────────────────────────────
-        $normalizedParams = $this->normalizePayload($finalParams);
+        try {
+
+                // ── RichMan → HTML (Web loves HTML) ──────────────────────────────
+            if (isset($finalParams['text']) && $finalParams['text'] instanceof RichMan) {
+
+                // Ensure RenderAura targets Web before any RichEntity renders
+                $this->warlord()->listensAura(true);
+                RenderAura::infuse(Platform::Web());
+
+                $finalParams['text']       = $finalParams['text']->toHtml();
+                $finalParams['parse_mode'] = 'html';
+                $finalParams['_rich']      = true;
+                unset($finalParams['isRich'], $finalParams['rich_blocks']);
+            } elseif (!empty($finalParams['isRich'])) {
+                if (!empty($finalParams['rich_blocks'])) {
+                    $finalParams['text'] = $this->convertRichBlocksToHtml($finalParams['rich_blocks']);
+                }
+                $finalParams['text'] = $finalParams['text'] ?? '';
+                unset($finalParams['isRich'], $finalParams['isRtl'], $finalParams['rich_blocks']);
+            }
+
+            // ── Normalise keyboard / keypad ───────────────────────────────────
+            $normalizedParams = $this->normalizePayload($finalParams);
+
+        } catch (\Throwable $e) {
+            throw $e;
+        }
+        finally {
+            $this->warlord()->listensAura($listening);
+        }
 
         // ── Enqueue ───────────────────────────────────────────────────────
         $this->responseQueue[] = [
@@ -502,6 +467,193 @@ final class WebAppDriver implements MultiverseEnforcer
             'ok'     => true,
             'result' => array_merge(['message_id' => $this->pseudoId()], $normalizedParams),
         ];
+    }
+
+    // =========================================================================
+    // 🌐  SIMULATOR HARMONY  —  Keyboard HTML Enrichment
+    // =========================================================================
+
+    /**
+     * Stamp every message in $payload with pre-rendered keyboard HTML.
+     *
+     * مشکل #1 (هارمونی با Simulator):
+     *   Controller دیگر نباید keyboard را رندر کند.
+     *   Driver ساختار responseQueue را می‌شناسد — Controller نه.
+     *   این SRP را برقرار می‌کند و Simulator را از وابستگی به Controller آزاد می‌کند.
+    */
+    protected function enrichPayloadKeyboards(array &$payload): void
+    {
+        if (isset($payload['messages'])) {
+            foreach ($payload['messages'] as &$msg) {
+                $this->stampKeyboardHtml($msg);
+            }
+            unset($msg);
+            return;
+        }
+
+        // single-message shape
+        $this->stampKeyboardHtml($payload);
+    }
+
+    /**
+     * اضافه کردن inline_keyboard_html / reply_keyboard_html / remove_keyboard
+     * به یک message array — pure، بدون side-effect.
+    */
+    protected function stampKeyboardHtml(array &$msg): void
+    {
+        $markup = $msg['keyboard']
+               ?? $msg['params']['reply_markup']
+               ?? null;
+
+        if (!$markup || !is_array($markup)) {
+            return;
+        }
+
+        if (!empty($markup['inline_keyboard'])) {
+            $msg['keyboard']['inline_keyboard_html'] =
+                $this->renderInlineKeyboardHtml($markup['inline_keyboard']);
+        }
+
+        if (!empty($markup['keyboard'])) {
+            $msg['keyboard']['reply_keyboard_html'] =
+                $this->renderReplyKeyboardHtml(
+                    $markup['keyboard'],
+                    $markup['input_field_placeholder'] ?? null
+                );
+        }
+
+        if (!empty($markup['remove_keyboard'])) {
+            $msg['keyboard']['remove_keyboard'] = true;
+        }
+    }
+
+    /**
+     * Build richy-btn-* HTML for an inline keyboard.
+     *
+     * Krubot-Web-Render.js listens for krubot:action events.
+     * این data-attrs آن را trigger می‌کنند.
+     *
+     * Button shape (PowerButton::toArray()):
+     *   { text, type, action_id?, action_data?, url?, col?, copy_text? }
+    */
+    protected function renderInlineKeyboardHtml(array $rows): string
+    {
+        $html = '<div class="richy-btn-keyboard">';
+
+        foreach ($rows as $row) {
+            $html .= '<div class="richy-btn-keyboard__row">';
+
+            foreach ($row as $btn) {
+
+                if(empty($btn))
+                    continue;
+
+                if($btn instanceof PowerButton) {
+                    $html .= $btn->toHtml();
+                    continue;
+                }
+
+                $text  = htmlspecialchars((string) ($btn['text'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                $col   = min(max((int) ($btn['col'] ?? 6), 1), 6);
+                $type  = (string) ($btn['type'] ?? 'callback');
+                $class = "richy-btn-button richy-btn-inline-button richy-btn-col-{$col}";
+
+                $html .= match ($type) {
+                    'url' => sprintf(
+                        '<a class="%s" data-richy-btn-type="url" href="%s" target="_blank" rel="noopener noreferrer">🔗 %s</a>',
+                        $class,
+                        htmlspecialchars((string) ($btn['url'] ?? '#'), ENT_QUOTES),
+                        $text
+                    ),
+                    'web_app' => sprintf(
+                        '<a class="%s" data-richy-btn-type="web_app" href="%s" target="_blank" rel="noopener noreferrer">🌐 %s</a>',
+                        $class,
+                        htmlspecialchars((string) ($btn['web_app']['url'] ?? '#'), ENT_QUOTES),
+                        $text
+                    ),
+                    'request_location' => sprintf(
+                        '<button class="%s" data-richy-btn-type="request_location">📍 %s</button>',
+                        $class, $text
+                    ),
+                    'request_contact' => sprintf(
+                        '<button class="%s" data-richy-btn-type="request_contact">📞 %s</button>',
+                        $class, $text
+                    ),
+                    'copy_text' => sprintf(
+                        '<button class="%s" data-richy-btn-type="copy_text" data-richy-btn-copy="%s">📋 %s</button>',
+                        $class,
+                        htmlspecialchars((string) ($btn['copy_text'] ?? $btn['text'] ?? ''), ENT_QUOTES),
+                        $text
+                    ),
+                    // callback | callback_data (PowerButton default)
+                    default => sprintf(
+                        "<button class=\"%s\" data-richy-btn-type=\"%s\" data-richy-btn-action=\"%s\" data-richy-btn-payload='%s'>%s</button>",
+                        $class,
+                        htmlspecialchars($type, ENT_QUOTES),
+                        htmlspecialchars((string) ($btn['action_id'] ?? $btn['callback_data'] ?? ''), ENT_QUOTES),
+                        htmlspecialchars(json_encode($btn['action_data'] ?? [], JSON_UNESCAPED_UNICODE), ENT_QUOTES),
+                        $text
+                    ),
+                };
+            }
+
+            $html .= '</div>';
+        }
+
+        return $html . '</div>';
+    }
+
+    /**
+     * Build richy-btn-reply-* HTML for a reply keyboard.
+    */
+    protected function renderReplyKeyboardHtml(array $rows, ?string $placeholder): string
+    {
+        $html = '<div class="richy-btn-reply-keyboard">';
+
+        foreach ($rows as $row) {
+            $html .= '<div class="richy-btn-reply-keyboard__row">';
+
+            foreach ($row as $btn) {
+
+                if(empty($btn))
+                    continue;
+
+                if($btn instanceof PowerButton) {
+                    $html .= $btn->toHtml();
+                    continue;
+                }
+
+                if (is_string($btn)) {
+                    $btn = ['text' => $btn];
+                }
+
+                $text = htmlspecialchars((string) ($btn['text'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                $type = match (true) {
+                    !empty($btn['request_location']) => 'request_location',
+                    !empty($btn['request_contact'])  => 'request_contact',
+                    !empty($btn['web_app'])           => 'web_app',
+                    default                           => 'simple_text',
+                };
+
+                $html .= sprintf(
+                    '<button class="richy-btn-button richy-btn-reply-button" data-richy-btn-type="%s" data-richy-btn-text="%s">%s</button>',
+                    $type, $text, $text
+                );
+            }
+
+            $html .= '</div>';
+        }
+
+        $html .= '</div>';
+
+        if ($placeholder !== null) {
+            $html .= sprintf(
+                '<meta class="ks-reply-placeholder" data-placeholder="%s">',
+                htmlspecialchars($placeholder, ENT_QUOTES)
+            );
+        }
+
+        return $html;
     }
 
     // =========================================================================
@@ -559,7 +711,7 @@ final class WebAppDriver implements MultiverseEnforcer
 
             // Attach any queued $bot->reply() messages as a sidecar key
             if (!empty($this->responseQueue)) {
-                $data['_bot_messages'] = $this->buildBotMessageList();
+                $data['_bot_messages'] = $this->buildQueuedMessagesList();
             }
 
             return response()->json($data, $this->httpStatusCode)
@@ -576,42 +728,41 @@ final class WebAppDriver implements MultiverseEnforcer
         // 6. null / void (handler only used $bot->reply()->send())
         //    → flush the bot reply queue as JSON
         return response()->json(
-            $this->buildQueuedResponsePayload(),
+            $this->generateResponseStructure(),
             $this->httpStatusCode
         )->header('X-Krubot-Driver', 'web');
     }
 
     /**
-     * Public flush (for controllers that want manual control or non-Laravel envs).
+     * Format the queued bot messages as a JSON response.
     */
-    public function flushResponse(bool $emit = true): array
+    protected function formatQueuedResponse(): JsonResponse
     {
-        $payload = $this->buildQueuedResponsePayload();
-
-        if ($emit) {
-            if (!headers_sent()) {
-                http_response_code($this->httpStatusCode);
-                header('Content-Type: application/json; charset=utf-8');
-                header('X-Krubot-Driver: web');
-            }
-            echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        if (empty($this->responseQueue)) {
+            return response()->json(['ok' => true])
+                ->header('X-Krubot-Driver', 'web');
         }
 
-        return $payload;
+        return response()->json(
+            $this->generateResponseStructure(),
+            $this->httpStatusCode
+        )->header('X-Krubot-Driver', 'web');
     }
 
-    public function buildQueuedResponsePayload(): array
+    protected function generateResponseStructure(): array
     {
-        $messages = $this->buildBotMessageList();
+        $messages = $this->buildQueuedMessagesList();
 
-        if (count($messages) === 1) {
-            return array_merge(['ok' => true], $messages[0]);
+        $countedMessages = count($messages);
+        
+        if ($countedMessages === 1) {
+            return array_merge(['ok' => true, 'count' => 1], $messages[0]);
         }
 
-        return ['ok' => true, 'messages' => $messages, 'count' => count($messages)];
+        return ['ok' => true, 'messages' => $messages, 'count' => $countedMessages];
     }
 
-    public function buildBotMessageList(): array
+    protected function buildQueuedMessagesList(): array
     {
         return array_map(fn($entry) => [
             'method'   => $entry['method'],

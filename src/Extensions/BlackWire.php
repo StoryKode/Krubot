@@ -1,0 +1,265 @@
+<?php
+
+namespace KrubiK\Extensions;
+/*
+| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+|--------------------------------------------------------------------------
+| This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
+| not a weapon for production's final battles.
+|
+| Our Bond: ***"Rebuilding The Rebellion"*** Within S.N.P. (The Foundation of Pure Power & Revel).
+| Your Mandate [MIT]: Deconstruct Krubot. Command it. Master it. You are The Architect Now!
+|
+| *Go build something revolutionary!* 💜⚡️
+*/
+
+use Illuminate\Support\ServiceProvider;
+use Symfony\Component\Finder\Finder; // Import The Symfony Matrix Scanner
+use KrubiK\Helpers\JackPoint;        // Import "JackPoint" The Tactical EventHook System
+use KrubiK\Helpers\AmethystMatrix;
+
+/**
+ * ⚡️ [ BlackWire: 🕸⚡️🕷 The Neural Ignition Core ] ⚡️
+ * 
+ * A highly-privileged, zero-gravity ServiceProvider executing BEFORE the Krubot lifecycle. 
+ * It systematically scans the `app/Synapses` matrix, wiring JackPoint event-hooks and 
+ * injecting scoped, idempotent architectures directly into the system's veins.
+ *
+ * > "We wire the listeners in darkness; before the system even boots up." 🖤⚡️🕷
+ * 
+ * @author DoKtor K.
+ * @link https://StoryKo.de/Krubot Official website of engine.
+ * @version Krubot: ×RC.8×
+ * @license MIT
+*/
+final class BlackWire extends ServiceProvider
+{
+    // intentionally NOT DeferrableProvider — must always run
+
+    /**
+     * @var array<string, true> Tracks loaded files to ensure idempotency.
+    */
+    private array $wiredSynapseFiles = []; // ← افزوده شد (State Tracker)
+
+    public function register(): void
+    {
+        // error_log('BlackWire Started');
+        // \Illuminate\Support\Facades\Log::info('🚀 [BlackWire] REGISTER method is running!');
+
+        $this->aliasJackPoint();
+        $this->wireSynapses();
+        $this->loadWordPressApiHelpers(); // Conditionally load the WordPress API helpers
+    }
+
+    public function xboot(): void
+    {
+        error_log('✅ [BlackWire] BOOT method is running!');
+        \Illuminate\Support\Facades\Log::info('✅ [BlackWire] BOOT method is running!');
+    }
+
+    public function boot(): void
+    {
+        $ignoring = 0; /// ... void(null);
+    }
+
+    /**
+     * Define Fake-Facades for global namespace access.
+    */
+    private function aliasJackPoint(): void
+    {
+        // define a Fake-Facade, so we can access \JackPoint without importing FQCN.
+        if (!class_exists('JackPoint', false)) {
+            \class_alias(
+                JackPoint::class,           // مستقیم از FQCN استفاده می‌کنیم
+                'JackPoint'
+            );
+        }
+        if (!class_exists('JackSpot', false)) {
+            \class_alias(
+                JackPoint::class,
+                'JackSpot'
+            );
+        }
+    }
+
+    /**
+     * Synapses Ignition Core — Pre-Krubot Intelligent Directory Scanning
+     *
+     * Scans app/Synapses/*.php and require_once's each file.
+     * Files ending in .disabled.php are silently skipped.
+     *
+     * These files are plain PHP scripts (not classes) that call JackPoint::on/once/...
+     * directly. They defined BEFORE Krubot is born, so listeners are already wired
+     * by the time KrubotAwaken fires.
+     *
+     * Discovery is done ONCE at require-time (no re-scan on each request
+     * when OPcache is hot).
+    */
+    private function wireSynapses(): void
+    {
+        // 1. Get raw paths (supports both String and Array)
+        $rawPaths = (array) $this->app['config']->get(
+            'krubot.extensions.path',
+            app_path('Synapses')
+        );
+        
+        // 2. Get exclude suffixes
+        $excludeSuffixes = (array) $this->app['config']->get(
+            'krubot.extensions.exclude_suffixes',
+            ['disabled']         // ← ".disabled.php" را رد می‌کند
+        );
+        
+        // 3. Experimental Feature: Scoped Require (Prevents global variable pollution)
+        $isScoped = $this->app['config']->get('krubot.extensions.scoped-register', false);
+
+        $loadedCount = 0;
+
+        // Stage 0: Absorption Started
+        JackPoint::fire('synapses.absorption.started', $rawPaths, $excludeSuffixes);
+
+        foreach ($rawPaths as $pathDef) {
+            $pathDef = trim($pathDef);
+            
+            // Check if it's a recursive wildcard request (ends with '/*' OR '*')
+            $isRecursive = str_ends_with($pathDef, '/*') || str_ends_with($pathDef, '*');
+
+            // فقط در صورتی که Recursive باشد، الگوهای انتهایی را با Regex بردار
+            $cleanPath = $isRecursive ?
+                preg_replace('/[\/\*]+$/', '', $pathDef) // این Regex دقیقاً به دنبال اسلش یا ستاره در انتهای رشته است
+            :
+                rtrim($pathDef, '/*\\'); // Clean the path for validation
+
+            // با استفاده از realpath، تمام ناخالصی‌های سیستم‌عامل (مثل /./ یا /../) هم پاک می‌شود
+            $realPath = realpath($cleanPath);
+
+            if ((!$realPath) || (!is_dir($realPath))) {
+
+                // لاگ کن که مسیر نامعتبر است و برو مرحله بعد
+                $retriedPath = JackPoint::transform('synapses.absorption.bad.path', $realPath, $cleanPath, $pathDef);
+                if($retriedPath === $realPath) // no filters applied here
+                    continue;
+
+                if ((!$retriedPath) || (!is_string($retriedPath)) || (!is_dir($retriedPath)))
+                    continue;
+                
+                $realPath = $retriedPath;
+
+            }
+
+            // Enter The Matrix: Using Symfony Finder for robust scanning
+            $finder = Finder::create()->files()->name('*.php')->in($realPath);
+
+            // If no /* was provided, lock the scan to the top directory only (depth = 0)
+            if (!$isRecursive) {
+                $finder->depth('== 0');
+            }
+
+            // Apply suffix exclusions dynamically (e.g., excludes *.disabled.php)
+            foreach ($excludeSuffixes as $suffix) {
+                $finder->notName("*.$suffix.php");
+            }
+
+            // Ignite!
+            foreach ($finder as $file) {
+                $realPath = $file->getRealPath();
+        
+                // تمام هندلینگ‌ها، لاگ‌ها و وتوها حالا داخل این متد انجام می‌شود
+                // Execute the file safely
+                if($this->integrate($realPath, $isScoped))
+                    $loadedCount++;
+                else
+                    JackPoint::fire('synapses.file.not.loaded', $realPath);
+            }
+        }
+
+        // Stage 6: Absorption Completed
+        JackPoint::fire('synapses.absorption.completed', $loadedCount, $this->wiredSynapseFiles);
+    }
+
+    /**
+     * Safely require/register the file, respecting JackPoint's scoped execution and idempotency.
+    */
+    private function integrate(string $file, bool $isScoped): bool
+    {
+        // 1. Idempotency Check (Never run the same file twice in one process)
+        if (isset($this->wiredSynapseFiles[$file])) {
+            $allowSkip = JackPoint::fire('synapses.file.skipped', $file, 'already_loaded'); // Useful for debug about file-updates
+            if($allowSkip !== false)
+                return false;
+        }
+
+        // Veto Check via JackPoint
+        // اجازه می‌دهیم سیستم قبل از لود شدن، فایل را بررسی کند. اگر false برگرداند، لغو می‌شود.
+        if (JackPoint::fire('synapses.file.loading', $file) === false) {
+            $finalVerdict = JackPoint::fire('synapses.file.vetoed', $file); // اعلام وتو شدن
+            if($finalVerdict !== false) // `.vetoed` can reject the 'synapses.file.loading's verdict
+                return false;
+        }
+
+        // 2. Mark as loaded BEFORE execution (prevents Re-entrancy loops)
+        $this->wiredSynapseFiles[$file] = true;
+
+        try {
+
+            $requireFileTask = function () use ($file) {
+                // Register JackPoint Event-HookZ
+                return require_once $file;
+
+            };
+
+            // Execution Context Stage
+            if ($isScoped && method_exists(JackPoint::class, 'scopedExecute')) {
+                
+                $allowedScoping = JackPoint::fire('synapses.file.scoping', $file); // اعلام ورود به محیط ایزوله
+
+                if($allowedScoping === false)
+                    $requireFileTask(); // Fallback to standard isolated execution
+                else {
+                    // Delegate to JackPoint's native context manager
+                    // ForNow we use the filename as the scope identifier.
+                    JackPoint::scopedExecute($file, $requireFileTask);
+                }
+            } else {
+                // Fallback to standard isolated execution
+                $requireFileTask();
+            }
+
+            // Stage 4: Mission Accomplished
+            JackPoint::fire('synapses.file.loaded', $file);
+            return true;
+
+        } catch (\Throwable $e) {
+
+            // Catastrophic Failure
+            JackPoint::fire('synapses.file.failed', $file, $e);
+
+            // Graceful Error Handling via AmethystMatrix if available
+            if (class_exists(AmethystMatrix::class)) {
+                AmethystMatrix::error("Synapses Injection: Failed executing file [{$file}]", [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            } else {
+                // Native Laravel fallback
+                report($e);
+            }
+
+            return false;
+        }
+    }
+
+
+    /**
+     * Load WordPress-style helper functions if enabled in config.
+    */
+    protected function loadWordPressApiHelpers(): void
+    {
+        if (config('krubot.extensions.wp_plugin_api', false)) {
+            $helperPath = __DIR__ . '/../Extensions/WP_NeuralRail.php';
+
+            if (file_exists($helperPath)) {
+                require_once $helperPath;
+            }
+        }
+    }
+}

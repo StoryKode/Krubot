@@ -71,7 +71,6 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
     {
         // Merge the default package config with the user's published version.
         $this->mergeConfigFrom(__DIR__ . '/../../config/krubot.php', 'krubot');
-
         $this->registerPlatformConstants(); // internally checks if config('krubot.cache.platform-constants-generation') enabled
 
         // Register the core bindings for the Krubot engine.

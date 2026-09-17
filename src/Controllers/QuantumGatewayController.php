@@ -106,14 +106,14 @@ class QuantumGatewayController extends Controller
      * @param string|mull   $driver The resolved driver.
      * @return JsonResponse A swift, immediate response to the calling platform.
     */
-    public function handleWebhook(Request $request, ?string $bot = null, ?string $driver = null): JsonResponse
+    public function handleWebhook(Request $request, ?string $operative = null, ?string $driver = null): JsonResponse
     {
 
         // -----------------------------------------------------------------
         // PHASE 1: 🧠 IDENTITY RESOLUTION PHASE (The Brain)
         // We ask the master strategist, "Who is at the gate?"
         // The Manager uses its 4-layered logic (SAPI -> Route -> Header → Payload -> Config).
-        // Route params {bot} and {driver} are the strongest signals.
+        // Route params {operative} and {driver} are the strongest signals.
         // -----------------------------------------------------------------
 
         // =================================================================
@@ -222,9 +222,9 @@ class QuantumGatewayController extends Controller
         // We now use our configuration-aware dispatcher.
         //
         // The job carries SCALAR identifiers only:
-        //   - bot name      → worker re-enters Nemesis::operative($regimentName)
-        //   - driver name   → worker re-resolves the instance via Nemesis
-        //   - platform name → for logging + forensic correlation in the job
+        //   - operative name → worker re-enters Nemesis::operative($regimentName)
+        //   - driver name    → worker re-resolves the instance via Nemesis
+        //   - platform name  → for logging + forensic correlation in the job
         //
         // ⚠️ We deliberately do NOT pass the live driver instance, because:
         //   1. It contains a WeakReference to Krubot → not serializable.

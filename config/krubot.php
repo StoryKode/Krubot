@@ -1169,6 +1169,60 @@ return [
                 ],
             ],
         ],
+    ],
+
+    'extensions' => [
+        /*
+        |--------------------------------------------------------------------------
+        | 🧠 Krubot Synapses — Master Gate ;; Toggle Plugins Off
+        |--------------------------------------------------------------------------
+        |
+        | One flag to rule the whole synaptic engine. When `enabled` is FALSE,
+        | every execution surface — fire(), fireAll(), fireMap(), fireScope(),
+        | transform(), injectParam() — short-circuits straight back to its
+        | caller BEFORE touching the registry. Zero walk. Zero sort. Zero
+        | dispatch. Pure passthrough, as if the plugin layer was never linked.
+        |
+        | Note! Registration verbs (on/once/pipe/inject*) stay warm so a runtime
+        | re-enable doesn't require a full Re-Bootstrap. :)
+        |
+        | Runtime toggle (tests, tenancy, incident triage):
+        |     config(['krubot.extensions.enabled' => false]);
+        |     JackPoint::checkOrders();  // drop the memoized verdict
+        |
+        */
+        'enabled' => env('KRUBOT_EXTENSIONS_ENABLED', true),
+
+        // The absolute path to the directory to scan plugins.
+
+        // Example with a single path:
+        // 'path' => app_path('Synapses'),
+        
+        // Example with MULTIPLE paths:
+        'path' => [
+            app_path('Synapses'),
+            app_path('Synapses/Core'),
+            app_path('Synapses/Upgrade'),
+            app_path('Synapses/Patch/*'), // include 'Patch' Files and any nested dir
+        ],
+
+        'exclude_suffixes' => [
+            'disabled',
+            '0',
+            // You can add more suffixes here later, like 'bak' or 'old'
+        ],
+
+        'scoped-register' => false, // disabled, experimental
+
+        /*
+        |--------------------------------------------------------------------------
+        | Bonus: WordPress Plugin API Aliases
+        |--------------------------------------------------------------------------
+        | If true, WordPress-style global functions (add_action, apply_filters, etc.)
+        | will be accesible in the global namespace and mapped to the JackPoint class.
+        |
+        */
+        'wp_plugin_api' => true
     ]
 
 ];

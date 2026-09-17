@@ -22,6 +22,8 @@ use KrubiK\Enums\Platform; // ✨ این خط باید اضافه شود
 use KrubiK\WarLording\WarCouncil;
 use KrubiK\WarLording\PrimeAgent;
 
+use KrubiK\Helpers\JackPoint;
+
 /**
  * "WarLordingToolPack Pro" Trait (Supreme Commander Edition)
  * Manages All Platforms & Drivers
@@ -83,7 +85,7 @@ trait ProfessionalWarLordingToolkit
     */
     public function nemesis(): KrubotManager
     {
-        return app('krubot.manager');
+        return JackPoint::transformNemesisBridge(app('krubot.manager'), $this);
     }
 
     // ---------------------------------------------------------------------
@@ -100,14 +102,19 @@ trait ProfessionalWarLordingToolkit
     */
     public function core(string|Platform|null $alias = null): MultiverseEnforcer
     {
+        // ⚡ JackPoint Pre-Resolve: allow plugins to rewrite the target alias
+        $alias = JackPoint::transform('driver.resolve', $alias, $this);
+
         // Explicit target.
         if ($alias !== null) {
             // If a Platform object is passed, it's already canonical.
             // The __toString magic method ensures it becomes a string.
             $name = $alias instanceof Platform ? (string) $alias : $alias;
             // Otherwise, it's a string alias that maybe needs resolution.
+            $driver = $this->nemesis()->driver($name);
 
-            return $this->nemesis()->driver($name);
+            JackPoint::fire('driver.resolved', $driver, $name, 'explicit', $this);
+            return $driver;
         }
 
         if ($this->onetimeDriverAlias !== null) {
@@ -116,16 +123,23 @@ trait ProfessionalWarLordingToolkit
                 : $this->onetimeDriverAlias;
     
             $this->onetimeDriverAlias = null; // یک‌بار مصرف
-            return $this->nemesis()->driver($target);
+
+            $driver = $this->nemesis()->driver($target);
+            JackPoint::fire('driver.resolved', $driver, $target, 'onetime', $this);
+            return $driver;
         }
 
         // Local fluent override (set via setDefaultDriver).
         if ($this->defaultDriverName !== null) {
-            return $this->nemesis()->driver($this->defaultDriverName);
+            $driver = $this->nemesis()->driver($this->defaultDriverName);
+            JackPoint::fire('driver.resolved', $driver, $this->defaultDriverName, 'local-default', $this);
+            return $driver;
         }
 
         // Contextual default (route/header/payload, per Bot).
-        return $this->nemesis()->driver();
+        $driver = $this->nemesis()->driver();
+        JackPoint::fire('driver.resolved', $driver, null, 'contextual', $this);
+        return $driver;
     }
 
     /**
@@ -156,13 +170,23 @@ trait ProfessionalWarLordingToolkit
     {
         // MODE 1: GETTER (No arguments passed)
         if (func_num_args() === 0) {
-            return $this->driver;
+            return JackPoint::transform('enforcer.target.getter', $this->driver, $name, $regiment, $this);
+        }
+        
+        if(!JackPoint::judge('enforcer.target.changable', [$this->driver, $name, $regiment, $this], JackPoint::VMODE_INFLUENTIAL)) {
+            $newOrder = JackPoint::fire('enforcer.blocked.by.judge', $this->driver, $name, $regiment, $this);
+            if($newOrder !== false) {
+                return JackPoint::transform('enforcer.target.judged', $this->driver, $name, $regiment, $this);
+            }
         }
 
         // Clean up previous driver server binding if it exists
         $cleanupPrevious = function () {
             if ($this->driver) {
+                $previousName = $this->driver->getCodeName();
+
                 $this->driver->serve(null);
+                JackPoint::fire('driver.unbound', $previousName, $this);
             }
         };
 
@@ -173,6 +197,16 @@ trait ProfessionalWarLordingToolkit
             $this->driver = null;
 
             return $this;
+        }
+
+        $resolveResult = JackPoint::transform('enforcer.target.resolve', $name, $regiment, $this);
+        if($resolveResult !== $name) {
+            if(is_array($resolveResult)) { // if anyone has returned an array
+                $name     = $resolveResult[0]; // string|MultiverseEnforcer
+                $regiment = $resolveResult[1]; // string|null
+            }
+            else
+                $name     = $resolveResult; // string|MultiverseEnforcer
         }
 
         // MODE 3: INSTANCE INJECTOR (Passed an existing MultiverseEnforcer instance)
@@ -189,6 +223,8 @@ trait ProfessionalWarLordingToolkit
 
             // if($regiment)
                 // $this->regiment($regiment, true);
+
+            JackPoint::fire('driver.bound', $this->driver, $name, $regiment, $this);
 
             return $this;
         }
@@ -224,6 +260,8 @@ trait ProfessionalWarLordingToolkit
 
             // if($regiment)
                 // $this->regiment($regiment, true);
+
+            JackPoint::fire('driver.bound', $this->driver, $canonicalName, $regiment, $this);
         }
         
 
@@ -260,12 +298,24 @@ trait ProfessionalWarLordingToolkit
     */
     public function findEnforcer(string $name = null, ?string $regiment = null): ?MultiverseEnforcer
     {
+        // ⚡ Pre-Resolve hook
+        $resolveResult = JackPoint::transform('enforcer.lookup', $name, $regiment, $this);        
+        if($resolveResult !== $name) { // if anyone has returned not-null (attempt to modify)
+            if(is_array($resolveResult)) { // if anyone has returned an array
+                $name     = $resolveResult[0]; // string|MultiverseEnforcer
+                $regiment = $resolveResult[1]; // string|null
+            }
+            else
+                $name     = $resolveResult; // string|MultiverseEnforcer
+        }
 
         // 🧠 Nemesis owns alias resolution, Regiment isolation and caching.
         try {
             return $this->nemesis()->driver($name, $regiment ?? $this->defaultRegiment);
-        } catch (InvalidArgumentException $ignoring) {
+            JackPoint::fire('enforcer.found', $driver, $name, $regiment, $this);
+        } catch (InvalidArgumentException $e) {
             // 🛡️ "find" semantics: missing/invalid targets resolve to null.
+            JackPoint::fire('enforcer.not.found', $name, $regiment, $e, $this);
             return null;
         }
     }
@@ -297,7 +347,8 @@ trait ProfessionalWarLordingToolkit
         // MODE 1: GETTER (No arguments passed)
         if (func_num_args() === 0) {
             // Return local current regiment if set, otherwise fallback to Nemesis query.
-            return $this->defaultRegiment ?? $nemesis->currentRegiment();
+            $simResolved = $this->defaultRegiment ?? $nemesis->currentRegiment();
+            return JackPoint::transform('regiment.resolve', $simResolved, $this->defaultRegiment, $nemesis->currentRegiment(), $this);
         }
 
         // MODE 2: EXPLICIT NULL RESET (Setter with explicit null parameter)
@@ -317,6 +368,8 @@ trait ProfessionalWarLordingToolkit
 
         // if ($this->defaultRegiment !== $regiment)
         $this->defaultRegiment = $regiment;
+
+        JackPoint::fire('regiment.updated', $regiment, $currentEnforcer, $this);
 
         // Safe-try to refresh Enforcer
         try {
@@ -355,7 +408,8 @@ trait ProfessionalWarLordingToolkit
     public function resolveDriverName(string $alias): string
     {
         // Delegate to Nemesis for bot-scoped alias resolution.
-        return $this->nemesis()->resolveDriverName($alias);
+        $canonical = $this->nemesis()->resolveDriverName($alias);
+        return JackPoint::transform('driver.alias.resolve', $canonical, $alias, $this);
     }
 
     /**
@@ -367,7 +421,12 @@ trait ProfessionalWarLordingToolkit
     public function setDefaultDriver(string $alias): self
     {
         // Always Canonicalize through Nemesis to resolve and store the bot-scoped aliases as well as canonical names.
-        $this->defaultDriverName = $this->nemesis()->resolveDriverName($alias);
+        $canonical = $this->nemesis()->resolveDriverName($alias);
+        $previous  = $this->defaultDriverName;
+
+        $this->defaultDriverName = $canonical;        
+
+        JackPoint::fire('driver.default.set', $canonical, $previous, $alias, $this);
         return $this;
     }
 
@@ -406,11 +465,14 @@ trait ProfessionalWarLordingToolkit
     {
         // ⚡ Zero-argument form = pure state read.
         if (func_num_args() === 0) {
-            return $this->listensAura;
+            return JackPoint::transform('aura.synced.get', $this->listensAura, $this);
         }
 
         // 🚀 One-argument form = mutate listener state and stay fluent.
+        $previous = $this->listensAura;
         $this->listensAura = $value;
+
+        JackPoint::fire('aura.synced.put', $value, $previous, $this);
 
         return $this;
     }
@@ -461,6 +523,9 @@ trait ProfessionalWarLordingToolkit
     */
     public function via(string|array|Platform $aliases, ?Closure $callback = null): mixed
     {
+        // ⚡ Pre-Resolve: allow plugins to rewrite the target aliases
+        $aliases = JackPoint::transform('captain.targets', $aliases, $callback, $this);
+
         // --- MODE 3: Captain's Strategy (Scoped Block) ---
         if ($callback instanceof Closure) {
             $originalDefault = $this->defaultDriverName;
@@ -471,9 +536,15 @@ trait ProfessionalWarLordingToolkit
                 if ($newDefault instanceof Platform) $newDefault = (string) $newDefault;
 
                 $this->setDefaultDriver($newDefault);
+
+                JackPoint::fire('captain.scoped.enter', $newDefault, $this);
+
                 return $callback($this);
+
             } finally {
                 $this->setDefaultDriver($originalDefault);
+
+                JackPoint::fire('captain.scoped.exit', $originalDefault, $this);
             }
         }
 
@@ -492,6 +563,9 @@ trait ProfessionalWarLordingToolkit
         }
 
         $this->onetimeDriverAlias = $processedAliases;
+
+        JackPoint::fire('captain.armed', $processedAliases, $this);
+
         return $this; // Enable fluent chaining: $bot->via(...)->method()
     }
 
@@ -567,14 +641,22 @@ trait ProfessionalWarLordingToolkit
         string|Platform|MultiverseEnforcer|null $target = null,
         bool $legalMode = true
     ): ?PrimeAgent {
+
+        // ⚡ Pre-Resolve: allow plugins to rewrite the target
+        $target = JackPoint::transform('prime.target', $target, $legalMode, $this);
+
         // Delegate the engagement to PrimeAgent::engage, automatically
         // injecting the current Krubot instance as the supreme commander.
         // This leverages PrimeAgent's internal resolution logic and performance paths.
-        return PrimeAgent::engage(
+        $agent = PrimeAgent::engage(
             target: $target,
             legalMode: $legalMode,
             warlord: $this // The Krubot instance itself provides the context for resolution.
         );
+
+        JackPoint::fire('prime.engaged', $agent, $target, $legalMode, $this);
+
+        return $agent;
     }
 
     // --- The Prime Agent STRATEGY ---
@@ -589,7 +671,7 @@ trait ProfessionalWarLordingToolkit
     public function agent(string|Platform|MultiverseEnforcer|null $target = null, bool $spyMode = false): ?PrimeAgent
     {
         // Get the Loyal Agent Proxy.
-        return PrimeAgent::engage($target, !$spyMode, $this);
+        return $this->prime($target, !$spyMode);
     }
 
     /// ::Professional Warlording Toolkit Methods::
@@ -608,10 +690,15 @@ trait ProfessionalWarLordingToolkit
      * @param string $name The name of the legion (e.g., 'social_media').
      * @param string[] $aliases An array of driver aliases.
      * @return $this
-     */
+    */
     public function formLegion(string $name, array $aliases): self
     {
+        // ⚡ Pre-Resolve: allow plugins to rewrite aliases
+        $aliases = JackPoint::transform('legion.aliases', $aliases, $name, $this);
+
         $this->legions[$name] = $aliases;
+
+        JackPoint::fire('legion.formed', $name, $aliases, $this);
         return $this;
     }
     
@@ -620,10 +707,16 @@ trait ProfessionalWarLordingToolkit
      *
      * @param array $configLegions
      * @return $this
-     */
+    */
     public function formLegionsFromConfig(array $configLegions): self
     {
+        // ⚡ Pre-Resolve: allow plugins to rewrite the entire config
+        $configLegions = JackPoint::transform('legions.config', $configLegions, $this);
+
         $this->legions = array_merge($this->legions, $configLegions);
+
+        JackPoint::fire('legions.loaded.from.config', $configLegions, $this);
+
         return $this;
     }
 
@@ -633,12 +726,23 @@ trait ProfessionalWarLordingToolkit
      * @param string $name The name of the legion to command.
      * @return self
      * @throws \InvalidArgumentException If the legion is not defined.
-     */
+    */
     public function legion(string $name): self
     {
+        $oldName = $name;
+        // ⚡ Pre-Resolve: allow plugins to rewrite or alias the legion name
+        $name = JackPoint::transform('legion.name', $name, $this);
+
         if (!isset($this->legions[$name])) {
+            $veto = JackPoint::fire('legion.missing', $name, $oldName, $this);
+            if ($veto === false) {
+                return $this;
+            }
             throw new \InvalidArgumentException("The legion '{$name}' has not been formed.");
         }
+
+        JackPoint::fire('legion.targeted', $name, $this->legions[$name], $this);
+
         // Delegates to the `via` command center with the legion's aliases.
         return $this->via($this->legions[$name]);
     }
@@ -653,6 +757,13 @@ trait ProfessionalWarLordingToolkit
      */
     public function assembleCouncil(array $aliases): WarCouncil
     {
-        return new WarCouncil($this, $aliases);
+        // ⚡ Pre-Resolve: allow plugins to rewrite council members
+        $aliases = JackPoint::transform('war.council.members', $aliases, $this);
+
+        $council = new WarCouncil($this, $aliases);
+
+        JackPoint::fire('war.council.assembled', $council, $aliases, $this);
+
+        return $council;
     }
 }

@@ -20,6 +20,7 @@ use KrubiK\Keyboard\ReplyKeyboard;  // کلاس کیبورد منو
 use KrubiK\Render\RichMan;
 use KrubiK\Render\RichElements\RichEntity;
 use KrubiK\Drivers\RubikaDriver;
+use KrubiK\Helpers\JackPoint; // Import "JackPoint" - The Tactical EventHook System
 
 /**
  * Trait CanSendFluentMessages
@@ -65,9 +66,10 @@ trait CanSendFluentMessages
      * تنظیم متن پیام.
      * به صورت پیش‌فرض از پارسر MarkdownMode استفاده می‌کند.
     */
-    public function message(string|RichMan $text): static
+    public function message(string|RichMan $content): static
     {
-        $this->fText = $text;
+        if($content)
+            $this->fText = JackPoint::transform('spell.hex.put', $content, 'message', $this);
         $this->fParseMode = 'MarkdownMode';
         return $this;
     }
@@ -75,9 +77,10 @@ trait CanSendFluentMessages
     /**
      * تنظیم متن پیام با فرمت HTML.
     */
-    public function html(string $html): static
+    public function html(?string $html = null): static
     {
-        $this->fText = $html;
+        if($html)
+            $this->fText = JackPoint::transform('spell.hex.put', $html, 'html', $this);
         $this->fParseMode = 'HTML';
         return $this;
     }
@@ -87,7 +90,8 @@ trait CanSendFluentMessages
     */
     public function markdown(string $markdown): static
     {
-        $this->fText = $markdown;
+        if($markdown)
+            $this->fText = JackPoint::transform('spell.hex.put', $markdown, 'markdown', $this);
         $this->fParseMode = 'MarkdownMode';
         return $this;
     }
@@ -98,7 +102,8 @@ trait CanSendFluentMessages
     */
     public function markdownV2(string $markdown): static
     {
-        $this->fText = $markdown;
+        if($markdown)
+            $this->fText = JackPoint::transform('spell.hex.put', $markdown, 'markdownV2', $this);
         $this->fParseMode = 'MarkdownMode'; 
         return $this;
     }
@@ -106,6 +111,52 @@ trait CanSendFluentMessages
     // ========================================================================
     // 2. Modifiers (Reply, Silent, etc.)
     // ========================================================================
+
+    /**
+     * Helper to send message without reply (Say), and without auto-send.
+    */
+    public function say(string|RichMan $text): static
+    {
+        if (!$this->chatId())
+            return $this;
+        $this->chat($this->chatId())->message($text);
+        return $this;
+    }
+
+    /**
+     * Helper to reply to the current message.
+     * Automatically sets replyTo ID if available.
+    */
+    public function reply(string|RichMan $text): static
+    {
+        if (!$this->chatId()) {
+            $this->message($text);
+            return $this;
+        }
+        
+        $builder = $this->chat($this->chatId());
+        
+        if ($msgId = $this->findMessageId()) {
+            $builder->replyTo($msgId);
+        }
+        
+        $builder->message($text);
+        return $this;
+    }
+
+    /**
+     * Helper to edit a specific message.
+    */
+    public function modify(string $messageId, string $newText): static
+    {
+        if (!$this->chatId()) return $this;
+
+        $this->chat($this->chatId())
+             ->messageId($messageId)
+             ->message($newText);
+             
+        return $this;
+    }
 
     /**
      * ریپلای زدن روی یک پیام خاص.
@@ -169,6 +220,14 @@ trait CanSendFluentMessages
             // اگر آرایه خام داده شد
             $this->fInlineKeyboard = $keyboard;
         }
+
+        // ⚡ JackPoint: allow plugins to rewrite the keyboard layout
+        $this->fInlineKeyboard = JackPoint::transform(
+            'spell.keys.flow',
+            $this->fInlineKeyboard,
+            $this
+        );
+
         return $this;
     }
 
@@ -191,6 +250,14 @@ trait CanSendFluentMessages
         } else {
             $this->fReplyKeyboard = $keyboard;
         }
+
+        // ⚡ JackPoint: allow plugins to rewrite the reply keyboard
+        $this->fReplyKeyboard = JackPoint::transform(
+            'spell.keys.dock',
+            $this->fReplyKeyboard,
+            $this
+        );
+
         return $this;
     }
 
@@ -217,8 +284,13 @@ trait CanSendFluentMessages
     */
     public function edit(int $messageId): static
     {
+        $messageId = JackPoint::transform('builder.edit.target', $messageId, $this);
+
         $this->isEditMode = true;
         $this->editMessageId = $messageId;
+
+        JackPoint::fire('builder.edit.updated', $messageId, $this);
+
         return $this;
     }
 
@@ -247,11 +319,22 @@ trait CanSendFluentMessages
     */
     public function forwardMessage(string $fromChatId, int $messageId): static
     {
+        // ⚡ JackPoint: allow plugins to rewrite the source
+        $fromChatId = JackPoint::transform(
+            'dispatcher.forward.target',
+            $fromChatId,
+            $messageId,
+            $this
+        );
+
         $this->forcedMethod = 'forwardMessages';
         $this->forcedParams = [
             'from_chat_id' => $fromChatId,
             'message_ids' => [$messageId] // روبیکا آرایه می‌پذیرد
         ];
+
+        JackPoint::fire('dispatcher.forward.updated', $fromChatId, $messageId, $this);
+
         return $this;
     }
 
@@ -272,11 +355,17 @@ trait CanSendFluentMessages
     */
     public function deleteMessage(int $messageId): array
     {
+        JackPoint::fire('outgoing.delete.before', [$messageId], $chatId, $this);
+
         // استفاده از متد makeRequest والد یا apiRequest
-        return $this->makeRequest('deleteMessages', [
+        $result = $this->makeRequest('deleteMessages', [
             'chat_id' => $this->resolveChatId(null),
             'message_ids' => [$messageId]
         ]);
+
+        JackPoint::fire('outgoing.delete.after', [$messageId], $result, $chatId, $this);
+
+        return $result;
     }
 
     /**
@@ -292,11 +381,17 @@ trait CanSendFluentMessages
                 $flatIds[] = $id;
             }
         }
+
+        JackPoint::fire('outgoing.delete.before', $flatIds, $chatId, $this);
         
-        return $this->makeRequest('deleteMessages', [
+        $result = $this->makeRequest('deleteMessages', [
             'chat_id' => $this->resolveChatId(null),
             'message_ids' => $flatIds
         ]);
+
+        JackPoint::fire('outgoing.delete.after', $flatIds, $result, $chatId, $this);
+
+        return $result;
     }
 
     // ========================================================================
@@ -324,89 +419,144 @@ trait CanSendFluentMessages
         // اولویت: آرگومان متد -> پراپرتی کلاس (کانتکست ربات) -> پراپرتی بیلدر قدیمی
         $targetChatId = $chatId ?? ($this->chat_id ?? null); 
         if (!$targetChatId) {
-            $targetChatId = $this->builder_chat_id ?? throw new InvalidArgumentException("Chat ID is required for send().");
+            $targetChatId = $this->builder_chat_id ?? null;
         }
 
-        // 2. Handle Forced Actions (Forward/Copy) - بالاترین اولویت
-        if ($this->forcedMethod) {
-            $params = array_merge(['chat_id' => $targetChatId], $this->forcedParams);
-            // فوروارد نیازی به پردازش متن و کیبورد معمول ندارد
-            $result = $this->makeRequest($this->forcedMethod, $params);
-            $this->resetFluent();
-            $this->resetAttachments();
-            return $result;
-        }
+        // 2. ⚡ transform یک شانس نجات هم دارد — چون null ورودی قابل پر شدن است
+        $targetChatId = JackPoint::transform(
+            'builder.send.target',
+            $targetChatId,
+            $chatId,
+            $this
+        );
 
-        // 3. Prepare Common {Shared} Parameters
-        // All keys are driver-agnostic internal names.
-        // The driver's normalizeParams() renames, strips, or transforms as needed.
-        $commonParams = $this->buildCommonParams();
+        if (!$targetChatId)
+            throw new InvalidArgumentException("Chat ID is required for send().");
 
-        // ================================================================
-        // 4. 🔥 RICH CONTENT — MUST BE RESOLVED BEFORE ANY TEXT PARSER
-        // ================================================================
+        JackPoint::fire('builder.send.started', $targetChatId, $this);
 
-        $richContent = $this->resolveRichContent($this->fText);
+        try {
 
-        if ($richContent instanceof RichMan) {
+            // 2. Handle Forced Actions (Forward/Copy) - بالاترین اولویت
+            if ($this->forcedMethod) {
 
-            // A RichMan is already a complete document tree.
+                $params = array_merge(['chat_id' => $targetChatId], $this->forcedParams);
 
-            if ($this->hasPendingAttachment()) {
-                // @Todo: auto-handle this problem conditionally
-                throw new InvalidArgumentException(
-                    'Rich content cannot be combined with a pending attachment. '
-                    . 'Compose the media directly inside RichMan instead.'
+                // ⚡ JackPoint: allow plugins to rewrite the forced method + params
+                [$method, $params] = JackPoint::transform(
+                    'builder.resolve.forced',
+                    [$this->forcedMethod, $params],
+                    $targetChatId,
+                    $this
                 );
+
+                // فوروارد نیازی به پردازش متن و کیبورد معمول ندارد
+                $result = $this->makeRequest($this->forcedMethod, $params);
+                $this->resetFluent();
+                $this->resetAttachments();
+
+                JackPoint::fire('builder.send.completed', $result, $targetChatId, null, 'forced', $this);
+
+                return $result;
             }
 
-            $result = $this->makeRequest(
-                'sendMessage',
-                array_merge(
-                    [
-                        'chat_id' => $targetChatId,
+            // 3. Prepare Common {Shared} Parameters
+            // All keys are driver-agnostic internal names.
+            // The driver's normalizeParams() renames, strips, or transforms as needed.
+            $commonParams = $this->buildCommonParams();
 
-                        /*
-                        * Intentionally keep the RichMan OBJECT alive.
-                        *
-                        * TelegramDriver::makeRequest() is responsible for
-                        * recognizing it and converting it to sendRichMessage.
-                        */
-                        'text' => $richContent,
-                    ],
-                    $commonParams
-                )
+            // ================================================================
+            // 4. 🔥 RICH CONTENT — MUST BE RESOLVED BEFORE ANY TEXT PARSER
+            // ================================================================
+
+            $richContent = $this->resolveRichContent($this->fText);
+
+            if ($richContent instanceof RichMan) {
+
+                // A RichMan is already a complete document tree.
+
+                if ($this->hasPendingAttachment()) {
+                    // @Todo: auto-handle this problem conditionally
+                    throw new InvalidArgumentException(
+                        'Rich content cannot be combined with a pending attachment. '
+                        . 'Compose the media directly inside RichMan instead.'
+                    );
+                }
+
+                $result = $this->makeRequest(
+                    'sendMessage',
+                    array_merge(
+                        [
+                            'chat_id' => $targetChatId,
+
+                            /*
+                            * Intentionally keep the RichMan OBJECT alive.
+                            *
+                            * TelegramDriver::makeRequest() is responsible for
+                            * recognizing it and converting it to sendRichMessage.
+                            */
+                            'text' => $richContent,
+                        ],
+                        $commonParams
+                    )
+                );
+
+                $this->resetFluent();
+                $this->resetAttachments();
+
+                JackPoint::fire('builder.send.completed', $result, $targetChatId, $richContent, 'rich', $this);
+
+                return $result;
+            }
+
+            // 5. Handle Attachments (Media) - بررسی وضعیت CanSendMedia Trait
+            if ($this->hasPendingAttachment()) {
+                // --- SCENARIO: SEND MEDIA ---
+                
+                // ── The Unique Media path
+                $result = $this->dispatchMediaMessage($targetChatId, $commonParams);
+                
+                // پاکسازی و بازگشت
+                $this->resetFluent();
+                $this->resetAttachments();
+
+                JackPoint::fire('builder.send.completed', $result, $targetChatId, $commonParams, 'media', $this); // @Todo: expand_data
+
+                return $result;
+            }
+
+            // 6. Handle Text / Edit (No Attachment)
+            // ── send/edit(Text) path
+            // اجرای درخواست متن/ادیت
+            $result = $this->dispatchTextMessage($targetChatId, $commonParams);
+            
+            // پاکسازی وضعیت
+            $this->resetFluent();
+            $this->resetAttachments(); // محض احتیاط
+
+            JackPoint::fire('builder.send.completed', $result, $targetChatId, $commonParams, 'text', $this);
+            
+            return $result;
+        } catch (\Throwable $e) {
+
+            // ⚡ JackPoint: allow plugins to observe / report / recover
+            $allowReport = JackPoint::fire(
+                'builder.send.failed',
+                $e,
+                $targetChatId,
+                $this
             );
 
+            // cleanup state even on failure
             $this->resetFluent();
             $this->resetAttachments();
 
-            return $result;
-        }
+            if ($allowReport === false) {
+                return ['status' => 'ERROR', 'message' => $e->getMessage()];
+            }
 
-        // 5. Handle Attachments (Media) - بررسی وضعیت CanSendMedia Trait
-        if ($this->hasPendingAttachment()) {
-            // --- SCENARIO: SEND MEDIA ---
-            
-            // ── The Unique Media path
-            $result = $this->dispatchMediaMessage($targetChatId, $commonParams);
-            
-            // پاکسازی و بازگشت
-            $this->resetFluent();
-            $this->resetAttachments();
-            return $result;
+            throw $e;
         }
-
-        // 6. Handle Text / Edit (No Attachment)
-        // ── send/edit(Text) path
-        // اجرای درخواست متن/ادیت
-        $result = $this->dispatchTextMessage($targetChatId, $commonParams);
-        
-        // پاکسازی وضعیت
-        $this->resetFluent();
-        $this->resetAttachments(); // محض احتیاط
-        
-        return $result;
     }
 
     private function responsingRubika(): bool
@@ -441,11 +591,25 @@ trait CanSendFluentMessages
                     '[Krubot] edit() requires text. Pass the current text to update keyboard-only.'
                 );
             }
+
+            // ⚡ JackPoint: transform text payload before edit
+            $payload = JackPoint::transform(
+                'outgoing.text.payload',
+                [
+                    'message_id' => $this->editMessageId,
+                    'text'       => (string) $this->fText,
+                ],
+                'edit',
+                $targetChatId,
+                $this
+            );
+
             // ویرایش متن (همراه با کیبورد احتمالی)
-            return $this->makeRequest('editMessageText', array_merge($textParams, [
-                'message_id' => $this->editMessageId,
-                'text'       => (string) $this->fText,
-            ]));
+            $result = $this->makeRequest('editMessageText', array_merge($textParams, $payload));
+
+            JackPoint::fire('outgoing.text.dispatched', $result, 'edit', $targetChatId, $this);
+
+            return $result;
         }
 
         // --- حالت ارسال جدید (NEW MESSAGE) ---
@@ -454,11 +618,23 @@ trait CanSendFluentMessages
             throw new InvalidArgumentException('[Krubot] send() requires text when no attachment is pending.');
         }
 
+        // ⚡ JackPoint: transform text payload before send
+        $payload = JackPoint::transform(
+            'outgoing.text.payload',
+            [
+                'text' => (string) $this->fText,
+            ],
+            'new',
+            $targetChatId,
+            $this
+        );
+
         // اجرای درخواست ارسال
         // Hand off to InteractsWithApi::makeRequest which calls driver()->apiRequest() &+ AmethystMatrix debug
-        return $this->makeRequest('sendMessage', array_merge($textParams, [
-            'text' => (string) $this->fText,
-        ]));
+        $result = $this->makeRequest('sendMessage', array_merge($textParams, $payload));
+
+        JackPoint::fire('outgoing.text.dispatched', $result, 'new', $targetChatId, $this);
+        return $result;
     }
 
     /**
@@ -488,19 +664,46 @@ trait CanSendFluentMessages
         ], $common);
 
         if ($this->attachmentType === 'Contact') {
-            return $this->makeRequest($method, array_merge($params, [
-                'phone_number' => $this->extraPayload['phone_number'],
-                'first_name'   => $this->extraPayload['first_name'],
-                'last_name'    => $this->extraPayload['last_name'] ?? '',
-            ]));
+
+            $payload = JackPoint::transform(
+                'outgoing.media.payload.contact',
+                [
+                    'phone_number' => $this->extraPayload['phone_number'],
+                    'first_name'   => $this->extraPayload['first_name'],
+                    'last_name'    => $this->extraPayload['last_name'] ?? '',
+                ],
+                'Contact',
+                $chatId,
+                $this
+            );
+
+            $result = $this->makeRequest($method, array_merge($params, $payload));
+
+            JackPoint::fire('outgoing.media.dispatched', $result, 'Contact', $chatId, $this);
+
+            return $result;
         }
 
         if ($this->attachmentType === 'Location') {
+
             $coords = json_decode($this->attachmentContent, true);
-            return $this->makeRequest($method, array_merge($params, [
-                'latitude'  => $coords['lat'],
-                'longitude' => $coords['long'],
-            ]));
+
+            $payload = JackPoint::transform(
+                'outgoing.media.payload.location',
+                [
+                    'latitude'  => $coords['lat'],
+                    'longitude' => $coords['long'],
+                ],
+                'Location',
+                $chatId,
+                $this
+            );
+
+            $result = $this->makeRequest($method, array_merge($params, $payload));
+
+            JackPoint::fire('outgoing.media.dispatched', $result, 'Location', $chatId, $this);
+
+            return $result;
         }
 
         // File-based media — raw path/id; driver resolves to FileObject
@@ -526,9 +729,79 @@ trait CanSendFluentMessages
             $params['thumb_inline'] = $this->thumbnailPath;
         }
 
+        // ⚡ JackPoint: full payload transform for file media
+        $params = JackPoint::transform(
+            'outgoing.media.payload.media',
+            $params,
+            $this->attachmentType,
+            $chatId,
+            $this
+        );
+
         // اجرای درخواست مدیا
         // InteractsWithApi متد makeRequest را دارد
-        return $this->makeRequest($method, $params);
+        $result = $this->makeRequest($method, $params);
+
+        JackPoint::fire('outgoing.media.dispatched', $result, $this->attachmentType, $chatId, $this);
+
+        return $result;
+    }
+
+    
+
+    /**
+     * Send a message to a SPECIFIC target (User/Group GUID) directly.
+    */
+    public function to(string $targetChatId, string|RichMan $text): array
+    {
+
+        $targetChatId = JackPoint::transform('outgoing.to.target', $targetChatId, $text, $this);
+        $text         = JackPoint::transform('outgoing.to.text', $text, $targetChatId, $this);
+
+        return $this->chat($targetChatId)
+            ->message($text)
+            ->send();
+    }
+
+    /**
+     * Delete the current message immediately.
+    */
+    public function deleteCurrent(): array
+    {
+
+        $verdict = JackPoint::fire('outgoing.delete.current.before', $this);
+        if ($verdict === false) {
+            return ['status' => 'ERROR', 'message' => 'vetoed_by_plugin'];
+        }
+
+        if (!$this->chatId() || !$this->findMessageId()) {
+            return ['status' => 'ERROR', 'message' => 'No context available'];
+        }
+        
+        $result = $this->chat($this->chatId())
+            ->messageId($this->findMessageId())
+            ->sendDelete();
+
+        JackPoint::fire('outgoing.delete.current.after', $result, $this);
+
+        return $result;
+    }
+
+    /**
+     * Edit the current message immediately (Useful for updating Bot's own menus).
+    */
+    public function editCurrent(string $newText): array
+    {
+        if (!$this->chatId() || !$this->findMessageId()) {
+            return ['status' => 'ERROR', 'message' => 'No context available'];
+        }
+
+        $newText = JackPoint::transform('outgoing.edit.current.text', $newText, $this);
+
+        return $this->chat($this->chatId())
+            ->messageId($this->findMessageId())
+            ->message($newText)
+            ->editMessage();
     }
 
     /**
@@ -541,12 +814,12 @@ trait CanSendFluentMessages
     {
         // Already the canonical container.
         if ($content instanceof RichMan) {
-            return $content;
+            return JackPoint::transform('rich.resolve.richman', $content, $this);
         }
 
         // A single RichEntity.
         if ($content instanceof RichEntity) {
-            return RichMan::summon()->add($content);
+            return JackPoint::transform('rich.resolve.entity', RichMan::summon()->add($content), $content, $this);
         }
 
         // An array containing Rich entities.
@@ -558,7 +831,7 @@ trait CanSendFluentMessages
                     $item instanceof RichEntity
                     || $this->containsRichEntity($item)
                 ) {
-                    return RichMan::summon()->add($content);
+                    return JackPoint::transform('rich.resolve.entity', RichMan::summon()->add($content), $content, $this);
                 }
             }
         }
@@ -629,7 +902,13 @@ trait CanSendFluentMessages
             $commonParams['chat_keypad'] = $this->fReplyKeyboard;
             // $commonParams['chat_keypad_type'] = 'New'; // responsibility /Moved to RubikaDriver
         }
-        return $commonParams;
+
+        // ⚡ JackPoint: final param bag transform (escape hatch)
+        return JackPoint::transform(
+            'outgoing.params.build',
+            $commonParams,
+            $this
+        );
     }
 
     /**
@@ -656,6 +935,8 @@ trait CanSendFluentMessages
         if (method_exists($this, 'resetBuilder')) {
             $this->resetBuilder();
         }
+
+        JackPoint::fire('outgoing.fluent.reset', $this);
     }
 
     /**
@@ -666,8 +947,15 @@ trait CanSendFluentMessages
     {
         $id = $chatId ?? ($this->chat_id ?? null);
         if (!$id) {
-             $id = $this->builder_chat_id ?? throw new InvalidArgumentException("Chat ID is required.");
+             $id = $this->builder_chat_id ?? null;
         }
+
+        // ⚡ transform فرصت rescue هم دارد — روی null هم اجرا می‌شود
+        $id = JackPoint::transform('resolve.chat.id', $id, $chatId, $this);
+
+        if (!$id)
+            throw new InvalidArgumentException("Chat ID is required.");
+
         return $id;
     }
 }

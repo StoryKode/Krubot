@@ -16,6 +16,7 @@ namespace KrubiK\Arcane;
 use KrubiK\Helpers\AmethystMatrix; // ⚡ Import the Sorceress
 use KrubiK\Drivers\Strategies\DeferredResponse;
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
+use KrubiK\Helpers\JackPoint; // Import "JackPoint" - The Tactical EventHook System
 
 trait InteractsWithApi
 {
@@ -27,8 +28,17 @@ trait InteractsWithApi
 
     public function pulseApi(string $method, array $params = [], ?MultiverseEnforcer $driver = null): array|DeferredResponse
     {
+        // ⚡ Veto / Mock gate
+        $verdict = JackPoint::fire('api.dispatch.before', $method, $params, $driver, $this);
+        if ($verdict === false) {
+            return ['ok' => false, 'error' => 'vetoed_by_plugin'];
+        }
+        if ($verdict instanceof DeferredResponse || is_array($verdict)) {
+            return $verdict;
+        }
 
         $driver ??= $this->core();
+        $driver = JackPoint::transform('api.dispatch.driver', $driver, $method, $params, $this);
 
         /*if(!$driver) {
             throw new \Exception('pulseApi Error: Driver not Booted Up Yet!');
@@ -49,17 +59,28 @@ trait InteractsWithApi
             }
         }
 
+        $baseUrl = JackPoint::transform('api.dispatch.base_url', $baseUrl, $driver, $method, $this);
+
         if(!$baseUrl) {
             throw new \Exception('pulseApi Error: $baseUrl can\'t be determined');
         }
 
         $url = $baseUrl . $method;
-        $retry = 0;
+        $url = JackPoint::transform('api.dispatch.url', $url, $method, $params, $this);
 
+        $retry = 0;
         $max_retries = config('krubot.http.max_retries', 3);
         while ($retry < $max_retries) {
             $ch = curl_init($url);
             try {
+
+                $verdict = JackPoint::fire('api.dispatch.attempt', $retry, $url, $method, $params, $this);
+                if ($verdict === false) {
+                    return ['ok' => false, 'error' => 'vetoed_by_plugin'];
+                }
+                if ($verdict instanceof DeferredResponse || is_array($verdict)) {
+                    return $verdict;
+                }
 
                 $paramsStr = json_encode($params);
                 if($paramsStr == '[]')
@@ -72,13 +93,19 @@ trait InteractsWithApi
                     'Expires: 0'
                 ];
 
-                curl_setopt_array($ch, [
+                $headersArr = JackPoint::transform('api.dispatch.headers', $headersArr, $url, $method, $params, $this);
+
+                $curlOptions = [
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_POST => true,
                     CURLOPT_HTTPHEADER => $headersArr,
                     CURLOPT_POSTFIELDS => $paramsStr,
                     CURLOPT_TIMEOUT => 15,
-                ]);
+                ];
+
+                $curlOptions = JackPoint::transform('api.dispatch.curl.options', $curlOptions, $url, $method, $params, $this);
+
+                curl_setopt_array($ch, $curlOptions);
 
                 // --- Advanced Options for Ultimate Freshness ---
 
@@ -101,19 +128,33 @@ trait InteractsWithApi
 
                 if ($httpCode >= 200 && $httpCode < 300) {
                     curl_close($ch);
-                    return json_decode($response, true) ?? [];
+
+                    $decoded = json_decode($response, true) ?? [];
+                    $decoded = JackPoint::transform('api.resolve.response', $decoded, $response, $httpCode, $url, $method, $params, $this);
+
+                    JackPoint::fire('api.dispatch.success', $decoded, $httpCode, $method, $this);
+
+                    return $decoded;
                 }
 
                 throw new \Exception("API Error: HTTP {$httpCode} - " . ($response ?: 'No response'));
             } catch (\Exception $e) {
                 curl_close($ch);
                 $retry++;
-                if ($retry === $max_retries) {
-                    throw $e;
+
+                $shouldRetry = ($retry < $max_retries);
+
+                $verdict = JackPoint::fire('api.dispatch.error', $e, $retry, $shouldRetry, $url, $method, $params, $this);
+
+                if (!$shouldRetry) {
+                    if($verdict !== false)
+                        throw $e;
                 }
                 usleep(767_767);
             }
         }
+
+        JackPoint::fire('api.dispatch.failed', $method, $params, $this);
 
         return ['ok' => false, 'error' => 'Request failed'];
     }
@@ -131,6 +172,16 @@ trait InteractsWithApi
     */
     protected function makeRequest(string $method, array $params = []): array|DeferredResponse
     {
+
+        // ⚡ Veto / Mock gate
+        $verdict = JackPoint::fire('api.request.before', $method, $params, $this);
+        if ($verdict === false) {
+            return ['ok' => false, 'error' => 'vetoed_by_plugin'];
+        }
+        if ($verdict instanceof DeferredResponse || is_array($verdict)) {
+            return $verdict;
+        }
+
         // [Original Logic Explanation]:
         // چون Krubot از Bot ارث‌بری کرده، متد private در کلاس پدر (RubikaBot\Bot) تعریف شده است.
         // ما باید دقیقاً روی کلاس پدر Reflection بزنیم.
