@@ -47,6 +47,7 @@ final class BlackWire extends ServiceProvider
         // \Illuminate\Support\Facades\Log::info('🚀 [BlackWire] REGISTER method is running!');
 
         $this->aliasJackPoint();
+        $this->bindTheObserver();   // Bind the Eternal Witness 👁️
         $this->wireSynapses();
         $this->loadWordPressApiHelpers(); // Conditionally load the WordPress API helpers
     }
@@ -80,6 +81,21 @@ final class BlackWire extends ServiceProvider
                 'JackSpot'
             );
         }
+    }
+
+    /**
+     * 👁️ Binding The Observer (Pre-heating the Telemetry)
+     * 
+     * Summons the Recording Angel and permanently binds its gaze to `JackPoint`.
+     * By pre-morphing the Observer BEFORE the `wireSynapses` matrix scans the files, 
+     * we guarantee that when thousands of `on()` hooks fire, the Origin Locator 
+     * operates at pure $O(1)$ velocity without ever triggering a redundant filesystem scan.
+    */
+    private function bindTheObserver(): void
+    {
+        // Morph the Detective to strictly watch the JackPoint DNA.
+        // It locks the Singleton instance in RAM, ready to testify at a moment's notice.
+        KarAgah::morph(JackPoint::class);
     }
 
     /**
@@ -201,7 +217,7 @@ final class BlackWire extends ServiceProvider
 
         try {
 
-            $requireFileTask = function () use ($file) {
+            $registerSynapse = function () use ($file) {
                 // Register JackPoint Event-HookZ
                 return require_once $file;
 
@@ -213,15 +229,15 @@ final class BlackWire extends ServiceProvider
                 $allowedScoping = JackPoint::fire('synapses.file.scoping', $file); // اعلام ورود به محیط ایزوله
 
                 if($allowedScoping === false)
-                    $requireFileTask(); // Fallback to standard isolated execution
+                    $registerSynapse(); // Fallback to standard isolated execution
                 else {
                     // Delegate to JackPoint's native context manager
                     // ForNow we use the filename as the scope identifier.
-                    JackPoint::scopedExecute($file, $requireFileTask);
+                    JackPoint::scopedExecute($file, $registerSynapse);
                 }
             } else {
                 // Fallback to standard isolated execution
-                $requireFileTask();
+                $registerSynapse();
             }
 
             // Stage 4: Mission Accomplished

@@ -1222,7 +1222,42 @@ return [
         | will be accesible in the global namespace and mapped to the JackPoint class.
         |
         */
-        'wp_plugin_api' => true
+        'wp_plugin_api' => true,
+
+        /*
+        |--------------------------------------------------------------------------
+        | KarAgah Telemetry Matrix 🕵️‍♂️🛰💻 The Cyber-Writer-Angel of KrubiK
+        |--------------------------------------------------------------------------
+        | An O(1) stack-intelligence layer hardwired into BlackWire: Zero I/O,
+        | zero RAM leakage, zero-noise origin telemetry at runtime.
+        | Arm the probe. Control the Abyss.
+        */
+        'inspect-hook-origins' => [
+
+            // ⚡ MASTER BREAKER — Origin Intelligence
+            // ON: inject exact file:{method}:line attribution into the JackPoint Report.
+            // OFF: less Ram Usage, collapses Inspector into a zero-allocation production sentinel.
+            'enabled' => false,
+
+            // 🕳️ RABBIT HOLE — Stack Penetration
+            // 24 frames punches through Stack Penetration
+            // 24 frames punches through a CPU incident.
+            'backtrace-depth' => 24,
+
+            // 🛑 RAM SHIELD — Trace Payload Governor
+            // Retain 8 high-signal user-land frames per hook.
+            // Full causal context. No heap detonation.
+            'chain-limit' => 8,
+
+            // 🥷 PHANTOM PROTOCOL — Namespace Cloaking
+            // Vaporize vendor noise before ingestion; Illuminate is hardwired.
+            // Cloak KrubiK to expose nothing but pure application DNA.
+            'stealth-namespaces' => [
+                'KrubiK',  // Blackout the Krubot traces.
+                // 'Symfony', // Cast another vendor into the void.
+            ],
+
+        ]
     ]
 
 ];

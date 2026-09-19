@@ -37,6 +37,7 @@ namespace KrubiK\Helpers;
 
 use KrubiK\Extensions\CoreSynapse;
 use KrubiK\Extensions\NeonWarp;
+use KrubiK\Extensions\KarAgah;
 use BadMethodCallException;
 
 /**
@@ -228,18 +229,18 @@ class JackPoint
      *   Dot `.` is NEVER a scope separator — it is always part of the event path.
      *
      * Examples:
-     *   'KrubotAwaken'          → [null,    'nemesis.failure']
-     *   'KrubotAwaken_Admin'    → ['admin', 'nemesis.failure']
-     *   '.krubot.awaken'        → [null,    'nemesis.failure']
-     *   '.admin:krubot.awaken'  → ['admin', 'nemesis.failure']
-     *   '.krubot.awaken:admin'  → ['admin', 'nemesis.failure']
+     *   'KrubotAwaken'          → [null,    'krubot.awaken']
+     *   'KrubotAwaken_Admin'    → ['admin', 'krubot.awaken']
+     *   '.krubot.awaken'        → [null,    'krubot.awaken']
+     *   '.admin:krubot.awaken'  → ['admin', 'krubot.awaken']
+     *   '.krubot.awaken:admin'  → ['admin', 'krubot.awaken']
      *
      * @param  string $raw  Raw segment following the action prefix (on/off/fire)
      * @return array{0: string|null, 1: string}  [scope|null, normalized-event]
     */
     protected static function parseMagicRoute(string $raw): array
     {
-        // Strip decorative leading dot (e.g. ".krubot.awaken" → "nemesis.failure")
+        // Strip decorative leading dot (e.g. ".krubot.awaken" → "krubot.awaken")
         $raw = ltrim($raw, '.');
 
         $scope     = null;
@@ -260,12 +261,12 @@ class JackPoint
                 $leftIsScope  = !str_contains($left,  '.') && preg_match('/^\w+$/u', $left);
 
                 if ($rightIsScope) {
-                    // "nemesis.failure:admin"  → scope=admin,  event=nemesis.failure
+                    // "krubot.awaken:admin"  → scope=admin,  event=krubot.awaken
                     // "KrubotAwaken:admin"   → scope=admin,  event=KrubotAwaken
                     $scope     = strtolower($right);
                     $eventPart = $left;
                 } elseif ($leftIsScope) {
-                    // ".admin:krubot.awaken" → scope=admin,  event=nemesis.failure
+                    // ".admin:krubot.awaken" → scope=admin,  event=krubot.awaken
                     $scope     = strtolower($left);
                     $eventPart = $right;
                 }
@@ -300,7 +301,7 @@ class JackPoint
     /**
      * Convert PascalCase / dot-separated / mixed segments to lowercase dot.notation.
      *
-     * 'KrubotAwaken'     → 'nemesis.failure'
+     * 'KrubotAwaken'     → 'krubot.awaken'
      * 'content.render'     → 'content.render'   (already normalised)
      * 'ContentRender'      → 'content.render'
     */
@@ -319,7 +320,7 @@ class JackPoint
                     return $seg;
                 }
                 // PascalCase/camelCase → dot.notation
-                // "KrubotAwaken" → "nemesis.failure"
+                // "KrubotAwaken" → "krubot.awaken"
                 // "renderSidebar"  → "render.sidebar"
                 return strtolower(
                     ltrim(preg_replace('/(?<!^)([A-Z])/u', '.$1', $seg), '.')
@@ -332,22 +333,93 @@ class JackPoint
     }
 
     /**
-     * 📸 FULL ENGINE SNAPSHOT — read-only, serialisation-safe, debug-ready.
-     * 
-     * Return a read-only snapshot of the entire engine state.
-     * Useful for debugging, serialization, or test assertions.
+     * THE QUANTUM PROJECTION MATRIX 🌌 (JackPoint'z Data Extrapolation Chip)
      *
-     * Flushes the lazy-sort pass across every registry (events, pipes,
-     * injectors) so the materialised lists reflect the exact order the
-     * engine will use at dispatch time. Callables are dropped from the
-     * result; only priority + id survive — enough for deterministic test
-     * assertions and JSON-friendly debugging.
+     * This is the optical lens of the JackPoint engine. It takes the dark, multidimensional
+     * chaos of the $quantumBuffer and forcefully condenses it into a crystallized, human-readable 
+     * holographic state along the specified $compileAxis.
+     * 
+     * Zero-Closure Bloodline 🩸: There are no redundant loops here. We use array_combine() over 
+     * parallel projections. It reads like a declarative blueprint written in pure logic, 
+     * executing infinitely faster than imperative, mutating foreach-chores.
+     * 
+     * Depending on the timeline, it either routes raw data to the Detective via O(1) teleportation, 
+     * or triggers a high-speed match-routing sequence using pure, naked PHP 8.1 callables.
      *
      * Uses array_combine() over parallel array_map() projections, which
      * is measurably faster than a foreach-with-mutation loop for the sizes
      * this registry typically reaches — and reads like a declarative
      * blueprint instead of an imperative chore.
+    */
+    protected static function extrapolate(array $quantumBuffer, string $compileAxis, ?bool $hasOrigins = null): array
+    {
+        // Null-coalescing assignment (PHP 7.4+) is ⚡ Lightning-fast.
+        // ⚡️ Timeline Split: Lazy-evaluate the Inspector's gaze if not explicitly ordered.
+        $hasOrigins ??= config('krubot.extensions.inspect-hook-origins.enabled', false) !== false;
+
+        return array_combine(
+            // 🏷️ Crystallize the exact synapse keys via pure static pointer routing...
+            array_map(static::prettyKey(...), array_keys($quantumBuffer)),
+            
+            // 👁️ Merge the Matrix: Are we interrogating the origins, or just slicing the surface?
+            $hasOrigins ?
+                static::consultKA($quantumBuffer) // 🕴️ Ask the Detective (Deep Matrix Decryption)
+            :
+                match ($compileAxis) {            //O(1) ⚡️ Fast-Path Routing (Zero Memory Tax/Zero F***ing Callbacks)
+
+                    'entries'   => array_map(
+                        static fn(array $entries): array => array_map(
+                            static fn(array $e): array => ['priority' => $e[0] ?? null, 'id' => $e[1] ?? null],
+                            $entries,
+                        ),
+                        $quantumBuffer
+                    ),
+
+                    // مسیر سریع: فقط کلیدها (آیدی‌ها) را برمی‌گرداند
+                    'once'      => array_map(array_keys(...), $quantumBuffer), // First-Class Callable Magic ✨
+
+                    // مسیر سریع: فقط ستون اول (priority) را برمی‌گرداند
+                    'injectors' => array_map(static fn(array $entries): array => array_column($entries, 0), $quantumBuffer),
+                }
+        );
+    }
+
+    /**
+     * Consult the Eternal Inspector 👁️ (Symbiotic Decryption Core)
      *
+     * Hardwires JackPoint's quantum buffer directly into KarAgah's exegesis engine.
+     * The Detective reads the radioactive origin tags left on the synapses,
+     * unmasking the exact coordinates of every registered hook.
+     *
+     * Pure Naked Execution ⚡: Powered by First-Class Callable magic. No closures,
+     * no memory leakage. Just raw pointers hunting down the truth in the matrix.
+    */
+    public static function consultKA(array $challenges): array
+    {
+        // 🔗 The Cortex is open. Piping data directly to the Detective.
+        return array_map(KarAgah::exegesis(...), $challenges);
+    }
+
+    /**
+     * 📸 FULL ENGINE SNAPSHOT — read-only, serialisation-safe, debug-ready.
+     * 
+     * Return a read-only snapshot of the entire engine state.
+     * THE HOLOGRAPHIC CORTEX REPORT 📸 (Absolute Zero-Allocation Snapshot)
+     * Useful for debugging, serialization, or test assertions.
+     * 
+     * Time freezes. JackPoint forcefully flushes the lazy-sort pass across every neural 
+     * registry (events, pipes, injectors) aligning them into perfect, lethal precision. 
+     * 
+     * Flushes the lazy-sort pass across every registry (events, pipes,
+     * injectors) so the materialised lists reflect the exact order the
+     * engine will use at dispatch time. Callables are dropped from the
+     * result; only priority + id survive — enough for deterministic test
+     * assertions and JSON-friendly debugging.
+     * 
+     * This is not just a debug state—it is a 3D, read-only snapshot of the entire engine's 
+     * subconscious exactly as it will execute at dispatch time. Ghost closures are dropped; 
+     * only the raw, radioactive coordinates (priority + id) survive the projection.
+     * 
      * @return array{
      *   session_scope:    string|null,
      *   events:           array<"scope:event", list<array{priority:int, id:string|int}>>,
@@ -356,64 +428,26 @@ class JackPoint
      *   once_pipes:       array<"scope:event", list<string|int>>,
      *   type_injectors:   array<"scope:PType", list<int>>,
      *   name_injectors:   array<"scope:PName", list<int>>,
+     *   internal_links:   array
      * }
     */
     public static function snapshot(): array
     {
+        // Force the alignment ⚖️ Let no synapse appear out of order.
         static::ensureSynapsesSorted();
 
-        // ── Projection helpers ────
+        // ⚡️ Bleed zero extra CPU ticks: Evaluate the Symbiote's presence EXACTLY ONCE per cycle.
+        $hasOrigins = config('krubot.extensions.inspect-hook-origins.enabled', false) !== false;
 
-        /** Materialise [priority, id, callable] triplets → readable maps. */
-        $projectEntries = static fn(array $registry): array => array_combine(
-            array_map(
-                static fn(string $k): string => static::prettyKey($k),
-                array_keys($registry),
-            ),
-            array_map(
-                static fn(array $entries): array => array_map(
-                    static fn(array $e): array => [
-                        'priority' => $e[0],
-                        'id'       => $e[1],
-                    ],
-                    $entries,
-                ),
-                $registry,
-            ),
-        );
-
-        /** Once-maps (id → {wrapper, original}) → id-only summaries. */
-        $projectOnceIds = static fn(array $onceMap): array => array_combine(
-            array_map(
-                static fn(string $k): string => static::prettyKey($k),
-                array_keys($onceMap),
-            ),
-            array_map(
-                static fn(array $ids): array => array_keys($ids),
-                $onceMap,
-            ),
-        );
-
-        /** Injector registries [priority, resolver] → priority-only lists. */
-        $projectInjectorPriorities = static fn(array $registry): array => array_combine(
-            array_map(
-                static fn(string $k): string => static::prettyKey($k),
-                array_keys($registry),
-            ),
-            array_map(
-                static fn(array $entries): array => array_column($entries, 0),
-                $registry,
-            ),
-        );
-
+        // Fire the projection matrix across all 🌌 Neural pathways simultaneously.
         return [
             'session_scope'  => static::$sessionScope,
-            'events'         => $projectEntries(static::$eventSynapses),
-            'pipes'          => $projectEntries(static::$pipes),
-            'once_listeners' => $projectOnceIds(static::$onceListenerMap),
-            'once_pipes'     => $projectOnceIds(static::$oncePipeMap),
-            'type_injectors' => $projectInjectorPriorities(static::$paramTypeInjectors),
-            'name_injectors' => $projectInjectorPriorities(static::$paramNameInjectors),
+            'events'         => static::extrapolate(static::$eventSynapses, 'entries', $hasOrigins),
+            'pipes'          => static::extrapolate(static::$pipes, 'entries', $hasOrigins),
+            'once_listeners' => static::extrapolate(static::$onceListenerMap, 'once', $hasOrigins),
+            'once_pipes'     => static::extrapolate(static::$oncePipeMap, 'once', $hasOrigins),
+            'type_injectors' => static::extrapolate(static::$paramTypeInjectors, 'injectors', $hasOrigins),
+            'name_injectors' => static::extrapolate(static::$paramNameInjectors, 'injectors', $hasOrigins),
             'internal_links' => method_exists(static::class, 'allLinks') ? static::allLinks() : []
         ];
     }

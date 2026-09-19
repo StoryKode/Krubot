@@ -453,7 +453,7 @@ trait CoreSynapse
         
         $id ??= static::generateListenerId($listener); // fallback unique id
         $key = static::resolveEventKey($event);
-        static::$eventSynapses[$key][] = [$priority, $id, $listener];
+        static::$eventSynapses[$key][] = [$priority, $id, $listener, KarAgah::koj()];
         static::$synapsesDirty[$key] = true;
 
         return $id;
@@ -517,6 +517,7 @@ trait CoreSynapse
         static::$onceListenerMap[$resolvedKey][$id] = [
             'wrapper'  => $onceWrapper,
             'original' => $listener,
+            'origin'   => KarAgah::koj(),
         ];
 
         return static::on($event, $onceWrapper, $priority, $id);
@@ -1290,7 +1291,7 @@ trait CoreSynapse
         int $priority = self::PRIORITY_NORMAL
     ): void {
         $key = static::resolveInjectorKey($typeKey);
-        static::$paramTypeInjectors[$key][] = [$priority, $resolver];
+        static::$paramTypeInjectors[$key][] = [$priority, $resolver, KarAgah::koj()];
         // Per-key flag
         static::$injectorsDirty[$key] = true;
     }
@@ -1305,7 +1306,7 @@ trait CoreSynapse
         int $priority = self::PRIORITY_NORMAL
     ): void {
         $key = static::resolveInjectorKey($nameKey);
-        static::$paramNameInjectors[$key][] = [$priority, $resolver];
+        static::$paramNameInjectors[$key][] = [$priority, $resolver, KarAgah::koj()];
         // Per-key flag
         static::$injectorsDirty[$key] = true;
     }
@@ -1592,7 +1593,7 @@ trait CoreSynapse
         $id ??= static::generateListenerId($transformer);
 
         $key = static::resolveEventKey($event);
-        static::$pipes[$key][] = [$priority, $id, $transformer];
+        static::$pipes[$key][] = [$priority, $id, $transformer, KarAgah::koj()];
         static::$pipesDirty[$key] = true;   // ← per-key, not global
 
         return $id;
@@ -2355,7 +2356,7 @@ trait CoreSynapse
         $id  ??= static::generateListenerId($juror);
         $key   = static::resolveEventKey($event);
 
-        static::$conclaves[$key][]    = [$priority, $id, $juror];
+        static::$conclaves[$key][]    = [$priority, $id, $juror, KarAgah::koj()];
         static::$conclavesDirty[$key] = true;
 
         return $id;
