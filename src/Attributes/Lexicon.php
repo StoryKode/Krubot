@@ -1,0 +1,30 @@
+<?php
+
+namespace KrubiK\Attributes;
+/*
+| Krubot BotEngine: The Architect's Lexicon [×vRC.9×] 🚀📜
+|--------------------------------------------------------------------------
+| This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
+| not a weapon for production's final battles.
+|
+| Our Bond: ***"Rebuilding The Rebellion"*** Within S.N.P. (The Foundation of Pure Power & Revel).
+| Your Mandate [MIT]: Deconstruct Krubot. Command it. Master it. You are The Architect Now!
+|
+| *Go build something revolutionary!* 💜⚡️
+*/
+
+use Attribute;
+
+/*
+* @author DoKtor K.
+* @link https://StoryKo.de
+* @version Krubot: ×RC.9×
+* @license MIT
+*/
+#[Attribute(Attribute::TARGET_PROPERTY | Attribute::TARGET_CLASS_CONSTANT)]
+class Lexicon
+{
+    public function __construct(
+        public string $entry
+    ) {}
+}

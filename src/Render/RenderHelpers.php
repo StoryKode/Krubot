@@ -931,3 +931,57 @@ function renderAsText(mixed $content, ?RichEntity $host = null, bool $preserveKe
 
     return '[Cannot render type to text: ' . gettype($content) . ' without providing $host]';
 }
+
+/**
+ * Converts an associative array of attributes into a string for an HTML tag.
+ * This method centrally handles escaping of all attribute values, enhancing security.
+ * It intelligently ignores null, false, or empty string values.
+ *
+ * Example: ['class' => 'map', 'data-id' => 123, 'disabled' => false]
+ * becomes: class="map" data-id="123"
+ *
+ * @param array<string, mixed> $attributes The attributes to convert.
+ * @return string The generated HTML attribute string.
+*/
+function attributesToString(array $attributes): string
+{
+    $htmlParts = [];
+    foreach ($attributes as $key => $value) {
+        // Skip attributes that are null, false, or empty strings.
+        // This is useful for boolean attributes where their absence means 'false'.
+        if ($value === null || $value === false || $value === '') {
+            continue;
+        }
+
+        // For true boolean attributes, just output the key (e.g., 'disabled').
+        if ($value === true) {
+            $htmlParts[] = \KrubiK\Render\Helpers\global_esc($key);
+        } else {
+            // For all other attributes, create a "key="value"" pair, ensuring the value is escaped.
+            $htmlParts[] = \KrubiK\Render\Helpers\global_esc($key) . '="' . \KrubiK\Render\Helpers\global_esc((string)$value) . '"';
+        }
+    }
+    return implode(' ', $htmlParts);
+}
+
+/**
+ * Centralized HTML escaping function.
+ * All HTML output of string content should pass through this method to ensure security
+ * and allow for global changes to escaping strategy (e.g., switching libraries, at once).
+ *
+ * @param string|null $value The string to escape.
+ * @return string The escaped string.
+*/
+function global_esc(?string $value): string
+{
+    // PHP's built-in htmlspecialchars is a fast robust default forus.
+
+    // PHP 8.0+ Named Arguments for better readability
+    return htmlspecialchars(
+        string: (string) ($value ?? ''),
+        flags: ENT_QUOTES | ENT_SUBSTITUTE,   // ENT_QUOTES ensures both single and double quotes are escaped.
+        encoding: 'UTF-8',
+        double_encode: false     // false for $double_encode prevents double-escaping entities.
+    );
+
+}

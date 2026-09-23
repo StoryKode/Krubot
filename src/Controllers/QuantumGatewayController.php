@@ -2,7 +2,7 @@
 
 namespace KrubiK\Controllers;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.9×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -16,6 +16,9 @@ namespace KrubiK\Controllers;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\JsonResponse;
+
+use Throwable;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 // Krubot Core Engine & Helpers
 use KrubiK\Krubot;
@@ -56,7 +59,7 @@ use KrubiK\WebApps\DTOs\WebRequest; // ⚡ Our Sacred WebRequest HyperDTO, for W
  * 
  * @author DoKtor K.
  * @link https://StoryKo.de/Krubot Official website of engine.
- * @version Krubot: ×RC.8×
+ * @version Krubot: ×RC.9×
  * @license MIT
 */
 class QuantumGatewayController extends Controller
@@ -184,7 +187,7 @@ class QuantumGatewayController extends Controller
         // -----------------------------------------------------------------
         try {
             $dto = UniversalInboundUpdate::forge($payload);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error("QuantumGateway Forge Error [{$driver}]: " . $e->getMessage());
             // Return 200 to prevent platform retries on malformed data
             return response()->json(['status' => 'error_structure'], 200);
@@ -337,8 +340,20 @@ class QuantumGatewayController extends Controller
                 'X-Krubik-Gateway' => 'Axiom-Synchronous',
                 'X-Identity-Resolved' => 'True'
             ]);
-    
-        } catch (\Throwable $e) {
+
+        // FIX: Detect HttpException specifically and forward its status code + message.
+        // True internal errors (DB down, null dereference, etc.) still return 500.
+        } catch (HttpException $e) {
+            // Intentional HTTP abort (e.g. abort(404) from middleware, Gate::authorize(), etc.)
+            // Pass the status code through — don't mask a 401/403 as a 500.
+            return response()->json([
+                'status'  => 'error',
+                'code'    => 'http_exception',
+                'message' => $e->getMessage() ?: 'Request denied.',
+            ], $e->getStatusCode());
+
+        } catch (Throwable $e) {
+            // True unexpected error
             // We report the error to the global handler (Sentry, Log, etc.)
             // while maintaining the user experience with a clean, localized error response.
             report($e);

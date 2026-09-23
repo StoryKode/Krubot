@@ -13,8 +13,8 @@ namespace KrubiK\Console;
 | *Go build something revolutionary!* 💜⚡️
 */
 
-use KrubiK\Console\Utils\NeonLex;
-use KrubiK\Console\Utils\OmegaGate;
+use KrubiK\Antimatter\NeonLex;
+use KrubiK\Antimatter\OmegaGate;
 
 /**
  * The Guardian of the Pact.

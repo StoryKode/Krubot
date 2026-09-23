@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace KrubiK\Console\Utils;
+namespace KrubiK\Antimatter;
 
 use KrubiK\Arcane\InspectsAppLocale;
 use Illuminate\Http\Request;

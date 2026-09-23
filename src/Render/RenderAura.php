@@ -22,6 +22,8 @@ use KrubiK\WebApps\UniversalIdentity;
 use KrubiK\Arcane\InspectsAppLocale;
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 
+use KrubiK\Helpers\JackPoint; // Import "JackPoint" The Tactical EventHook System
+
 /**
  * ✨ [Laravel Scoped Service] RenderAura (The HyperDX Context Layer)
  * The Receptive Context Vessel & Contextual Tagging Engine for Rendering in Multi-Verse ⚡️🎨🪄
@@ -97,54 +99,117 @@ final readonly class RenderAura
      * @return self
     */
     public static function fromCurrentRequest(Application $app): self
-    {        
+    {
+        JackPoint::fire('aura.awaken.before', $app);
+
         /** @var \KrubiK\Drivers\Nemesis $nemesis */
-        $nemesis = $app->make(Nemesis::class);
+        $nemesis = JackPoint::transform('aura.spawn.nemesis', $app->make(Nemesis::class));
 
         // Console fast-path: deterministic and isolated from web resolution.
         if ($app->runningInConsole()) {
-            $platform = Platform::CLI();
+
+            $platform = JackPoint::transform(
+                'aura.resolve.cli',
+                Platform::CLI(),
+                $app, $nemesis
+            );
+
+            $lang = JackPoint::transform(
+                'aura.resolve.lang',
+                (self::extractLocaleFromConfig($platform) ?? $app->getLocale()),
+                $app, null, $platform, null, 'console'
+            );
+
+            $operative = JackPoint::transform(
+                'aura.resolve.operative',
+                $nemesis->currentOperative(),
+                $app, $nemesis, 'console'
+            );
         
             // For console commands, the context is simple and predictable.
-            return new self(
+            $aura = new self(
                 $platform,
-                self::extractLocaleFromConfig($platform) ?? $app->getLocale(),
-                $nemesis->currentOperative(), // ✅ preserve bot context even in console
+                $lang,
+                $operative, // ✅ preserve bot context even in console
             );
-        }
-        
-        // 1. Determine Platform: Direct Ask from Nemesis [Manager of KrubiK Citadel].
-        $driver    = $nemesis->enforcer(); // The active driver dictates the platform.
-        $platform  = $nemesis->where() ?? Platform::Web(); // Fallback to Web if active Platform can't be found
-        $operative = $nemesis->currentOperative();
+            return JackPoint::transform('aura.awakening', $aura, $app, $platform, $operative, $lang, 'console');
+        }      
+
+        // 1. get Current Request 
+        /** @var \Illuminate\Http\Request $request */
+        $request = $app->make(Request::class);
+
+        // 2. Determine Platform: Direct Ask from Nemesis [Manager of KrubiK Citadel].
+        $injectedDriver = JackPoint::transform(
+            'aura.resolve.driver',
+            null,
+            $app, $nemesis, $request
+        );
+        $driver   = $injectedDriver ??
+            $nemesis->enforcer();// The active driver dictates the platform.
+
+        $injectedPlatform = JackPoint::transform(
+            'aura.resolve.platform',
+            null,
+            $driver, $app, $nemesis, $request
+        );
+        $platform = $injectedPlatform ??
+            $nemesis->where() ?? Platform::Web(); // Fallback to Web if active Platform can't be found
+
+        $operative = JackPoint::transform(
+            'aura.resolve.operative',
+            $nemesis->currentOperative(),
+            $app, $nemesis, $driver
+        );
     
         // Inform the Warlord of the active driver (platform-agnostic side effect).
         $warlord = warlord();
         if($warlord && $warlord->listensAura()) {
 
-            $oldOperative = $warlord->operative();   // string|null
-            $oldNemesisOperative = $nemesis->forcedOperative();   // string|null
+            JackPoint::fire('aura.warlord.sync.before', $warlord, $nemesis, $driver, $operative);
 
-            $nemesis->operative($operative);
-            $warlord->operative($operative);
+            if(JackPoint::judge(
+                'aura.warlord.sync.allow',
+                [
+                    $warlord,
+                    $nemesis,
+                    $operative,
+                    $driver
+                ]
+            ) === true) {
 
-            $warlord->enforcer($driver, $operative);
+                $oldOperative = $warlord->operative();   // string|null
+                $oldNemesisOperative = $nemesis->forcedOperative();   // string|null
+                $oldEnforcer = $warlord->enforcer();
 
-            $warlord->operative($oldOperative);         // string|null
-            $nemesis->operative($oldNemesisOperative);  // string|null
+                $nemesis->operative($operative);
+                $warlord->operative($operative);
+
+                $warlord->enforcer($driver, $operative);
+
+                $warlord->operative($oldOperative);         // string|null
+                $nemesis->operative($oldNemesisOperative);  // string|null
+
+                JackPoint::fire('aura.warlord.sync.after', $warlord, $nemesis, $driver, $operative, $oldOperative, $oldNemesisOperative, $oldEnforcer);
+
+            }
+
         }
-
-        // 2. get Current Request 
-        /** @var \Illuminate\Http\Request $request */
-        $request = $app->make(Request::class);
 
         // 3. Determine Locale: This is the most intelligent part.
         // We temporarily resolve the user to find their preferred locale,
         // but we DO NOT store the user in this class.
-        $lang = self::extractLocaleFromRequest($app, $request, $platform, $driver);
+        $lang = JackPoint::transform(
+            'aura.resolve.lang',
+            self::extractLocaleFromRequest($app, $request, $platform, $driver),
+            $app, $request, $platform, $driver
+        );
+
 
         // It calls the private constructor internally.
-        return new self($platform, $lang, $operative);
+        $aura = new self($platform, $lang, $operative);
+
+        return JackPoint::transform('aura.awakening', $aura, $app, $platform, $operative, $lang, 'quantum');
     }
 
     // --- STATE #1: THE AWAKENING (From Earthly Request) ---
@@ -248,8 +313,9 @@ final readonly class RenderAura
     */
     public function withLang(string $newLang): self
     {
+        $newLang = JackPoint::transform('aura.with_lang', $newLang, $this);
         // Return a new instance, cloning the other properties.
-        return new self($this->platform, $newLang, $this->bot);
+        return new self($this->platform, $newLang, $this->operative);
     }
     /*
      * @param string $newLang The locale to use for the new context instance.
@@ -269,8 +335,9 @@ final readonly class RenderAura
     */
     public function withPlatform(Platform $newPlatform): self
     {
+        $newPlatform = JackPoint::transform('aura.with_platform', $newPlatform, $this);
         // Return a new instance, cloning the other properties.
-        return new self($newPlatform, $this->lang, $this->bot);
+        return new self($newPlatform, $this->lang, $this->operative);
     }
     /*
      * @param Platform $newPlatform The platform to use for the new context instance.
@@ -293,6 +360,7 @@ final readonly class RenderAura
     */
     public function withOperative(?string $newOperative): self
     {
+        $newOperative = JackPoint::transform('aura.with_operative', $newOperative, $this);
         return new self($this->platform, $this->lang, $newOperative);
     }
     /*
@@ -320,12 +388,14 @@ final readonly class RenderAura
     */
     public static function invalidate(): void
     {
+        JackPoint::fire('aura.invalidate.before');
         // We access the application's heart - its IoC container - Then, we command the container
         // to forget the current incarnation of our Aura.
         //
         // The next `app(self::class)` will re-trigger the `scoped` closure defined in the service provider.
         // This makes the class self-aware of how to reset its state in the container.
         App::forgetInstance(self::class); /// app()->forget(self::class);
+        JackPoint::fire('aura.invalidate.after');
     }
     /*
      * @return void
@@ -410,16 +480,37 @@ final readonly class RenderAura
     public static function impose(RenderAura|Platform $source, ?string $lang = null, ?string $regiment = null): self
     {
         $infusedInstance = null;
+
+        JackPoint::fire('aura.infuse.before', $source, $lang, $regiment);
+
+        $source = JackPoint::transform('aura.resolve.' . ($source instanceof Platform ? 'platform' : 'source'), $source, $lang, $regiment);
+        $lang = JackPoint::transform('aura.resolve.lang', $lang, $source, $regiment);
+
         // Resolve the concrete Aura instance from the provided source union type.
         if ($source instanceof Platform) {
             // Case A: A Platform SuperEnum is provided. We invoke the 'init|dream' factory
             // to manifest a transient instance on the fly before infusion.
-            $effectiveOperative = $regiment ?? (app()->bound('nemesis') ? app('nemesis')->currentOperative() : null);
+            $resolvedOperative = $regiment ?? (app()->bound('nemesis') ? app('nemesis')->currentOperative() : null);
+
+            $effectiveOperative = JackPoint::transform(
+                'aura.resolve.operative',
+                $resolvedOperative,
+                $source, $lang, $regiment
+            );
+
             $infusedInstance = self::init($source, $lang, $effectiveOperative);
+
         } else {
+
             // Case A: The developer has provided a fully-realized Aura.
             // We respect this existing vessel of truth and prepare to register it directly.
-            $effectiveOperative = $regiment ?? $source->operative;
+            $resolvedOperative = $regiment ?? $source->operative;
+
+            $effectiveOperative = JackPoint::transform(
+                'aura.resolve.operative',
+                $resolvedOperative,
+                $source, $lang, $regiment
+            );
 
             // The source is already an Aura. If a new locale is requested and differs 
             // from the source's current locale, we dream a new instance to ensure immutability.
@@ -436,26 +527,45 @@ final readonly class RenderAura
         // Command Laravel's IoC container to perform the $O(1)$ hot-swap. By using `instance()`,
         // we bind the concrete object directly, bypassing any factory closures for all
         // subsequent resolutions in this request lifecycle.
-        App::instance(self::class, $infusedInstance); /// app()->instance(self::class, $infusedInstance);
+        App::instance(self::class, JackPoint::transform('aura.infusing', $infusedInstance, $source, $lang, $regiment)); /// app()->instance(self::class, $infusedInstance);
 
         $warlord = warlord();
         if($warlord && $warlord->listensAura()) {
 
-            $oldRegiment = $warlord->operative(); // string|null
-            $oldNemesisOperative = $warlord->nemesis()->forcedOperative();
-            
-            $warlord->nemesis()->operative($regiment);
-            
-            $newRegiment = $regimentUpdated ? $regiment : null;
-            if($regimentUpdated)
-                $warlord->operative($regiment);
+            /** @var \KrubiK\Drivers\Nemesis $nemesis */
+            $nemesis = JackPoint::transform('aura.spawn.nemesis', $warlord->nemesis());
 
-            $warlord->enforcer((string) $infusedInstance->platform, $newRegiment); // $newRegiment if sent null, regimentName will be resolved from warlord or nemesis or default config
+            JackPoint::fire('aura.warlord.sync.before', $warlord, $nemesis, null, $regiment);
 
-            if($regimentUpdated && ($oldRegiment !== $newRegiment))
-                $warlord->operative($oldRegiment); // string|null
+            if(JackPoint::judge(
+                'aura.warlord.sync.allow',
+                [
+                    $warlord,
+                    $nemesis,
+                    $regiment,
+                    null
+                ]
+            ) === true) {
 
-            $warlord->nemesis()->operative($oldNemesisOperative);
+                $oldRegiment = $warlord->operative(); // string|null
+                $oldNemesisOperative = $nemesis->forcedOperative();
+                $oldEnforcer = $warlord->enforcer();
+                
+                $nemesis->operative($regiment);
+                
+                $newRegiment = $regimentUpdated ? $regiment : null;
+                if($regimentUpdated)
+                    $warlord->operative($regiment);
+
+                $warlord->enforcer((string) $infusedInstance->platform, $newRegiment); // $newRegiment if sent null, regimentName will be resolved from warlord or nemesis or default config
+
+                if($regimentUpdated && ($oldRegiment !== $newRegiment))
+                    $warlord->operative($oldRegiment); // string|null
+
+                    $nemesis->operative($oldNemesisOperative);
+
+                JackPoint::fire('aura.warlord.sync.after', $warlord, $nemesis, null, $regiment, $oldRegiment, $oldNemesisOperative, $oldEnforcer);
+            }
         }
 
         // Return the active instance, enabling fluent method chaining.

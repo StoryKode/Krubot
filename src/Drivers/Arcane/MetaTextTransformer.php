@@ -183,7 +183,7 @@ trait MetaTextTransformer
             return;
         }
 
-        // The main dispatcher: determine action based on the entity's type, now upgraded with new logic.
+        // The main: determine action based on the entity's type, now upgraded with new logic.
         // This is where we map our SSoT to the Rubika metadata types.
         match (get_class($entity)) {
             // --- BLOCK LEVEL ENTITIES ---
@@ -192,10 +192,10 @@ trait MetaTextTransformer
                 $this->walkAndRenderMetadata($entity->text, $text, $parts, $offset),
 
             // --- INLINE (FORMATTING) ENTITIES ---
-            RichTextPlain::class => (function() use ($entity, &$text, &$offset) {
+            RichTextPlain::class => value(function() use ($entity, &$text, &$offset) {
                 $text .= $entity->text;
                 $offset += $this->utf16Len($entity->text);
-            })(),
+            }),
 
             // --- Standard formatting entities using the helper ---
             RichTextBold::class => $this->applyMetadata('Bold', $entity->text, $text, $parts, $offset),
@@ -206,17 +206,17 @@ trait MetaTextTransformer
             RichTextCode::class => $this->applyMetadata('Mono', $entity->text, $text, $parts, $offset),
 
             // --- UPGRADED: Handling for Preformatted code blocks ---
-            RichTextPre::class => (function() use ($entity, $text, &$parts, $offset) {
+            RichTextPre::class => value(function() use ($entity, $text, &$parts, $offset) {
                 $part = $this->applyMetadata('Pre', $entity->text, $text, $parts, $offset, true);
                 if ($part && !empty($entity->language)) {
                     // Augment the metadata part with the language information.
                     $part['language'] = $entity->language;
                     $parts[] = $part; // Add the augmented part to the list.
                 }
-            })(),
+            }),
 
             // --- UPGRADED: Intelligent handling for URLs (Link vs MentionText) ---
-            RichTextUrl::class => (function() use ($entity, &$text, &$parts, &$offset) {
+            RichTextUrl::class => value(function() use ($entity, &$text, &$parts, &$offset) {
                 $url = $entity->url;
                 $urlPrefix = substr($url, 0, 1);
 
@@ -244,16 +244,17 @@ trait MetaTextTransformer
                         ];
                     }
                 }
-            })(),
+            }),
 
             // --- DEFAULT CATCH-ALL ---
             // For any unsupported entity type, we try to render its children if possible,
             // so we don't lose the text content.
-            default => (function() use ($entity, &$text, &$parts, &$offset) {
+            default => value(function() use ($entity, &$text, &$parts, &$offset) {
                 if (property_exists($entity, 'text')) $this->walkAndRenderMetadata($entity->text, $text, $parts, $offset);
                 elseif (property_exists($entity, 'blocks')) $this->walkAndRenderMetadata($entity->blocks, $text, $parts, $offset);
-            })(),
+            }),
         };
+
     }
 
     /**

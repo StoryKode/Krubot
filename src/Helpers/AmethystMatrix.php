@@ -828,7 +828,7 @@ final class AmethystMatrix
             if ($options['message_text'] ?? false) $meta['text'] = Str::limit($workingMessage->text, ($options['message_text_limit'] ?? 150));
         }
         
-        $resolvedRoute = $bot->currentResolvedHandler();
+        $resolvedRoute = $bot->currentAction();
         if ($resolvedRoute) {
             if (($options['route_name'] ?? false) && $resolvedRoute->getName()) {
                 $meta['route_name'] = $resolvedRoute->getName();

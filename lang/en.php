@@ -31,5 +31,16 @@ return [
         'pact_refused_desc' => 'As per the laws of the Rebellion, a connection cannot be forced.',
         'firewall_retracted' => '[METAPHYSICAL FIREWALL] The core essence of Krubot (\'Krubot.php\') has been retracted.',
         'installation_inert' => 'The installation is incomplete and the package will remain inert. To try again, you must purge and reinstall.',
-    ]
+    ],
+
+
+    'auth' => [
+        'unauthenticated_web' => 'Quantum Breach: Unauthenticated. WebApp InitData missing or invalid.',
+        'unauthenticated_bot' => '⚠️ Your identity could not be verified in the system. Please login or register first.',
+        
+        'forbidden_web'       => 'Access Denied: Your quantum clearance level is insufficient.',
+        'forbidden_bot'       => 'Your access level is insufficient to execute this command ⛔️',
+        'blocked_web'         => 'This action has been blocked for your account. Please contact support for further assistance.',
+        'blocked_bot'         => 'This action has been restricted on your account. 🚫',
+    ],
 ];

@@ -1,8 +1,8 @@
 <?php
 
-namespace KrubiK\Router;
+namespace KrubiK\Routing;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.9×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -15,7 +15,6 @@ namespace KrubiK\Router;
 
 use Closure;
 use KrubiK\Enums\Platform;
-//// use Illuminate\Routing\Route as LaravelRoute; // Import the Laravel Route // OBSOLETE, NOT NEEDED
 
 /**
  * Class Route
@@ -31,7 +30,7 @@ use KrubiK\Enums\Platform;
  * 
  * @author DoKtor K.
  * @link https://StoryKo.de/Krubot Official website of engine.
- * @version Krubot: ×RC.8×
+ * @version Krubot: ×RC.9×
  * @license MIT
  */
 class Route
@@ -122,18 +121,6 @@ class Route
     public bool $autoEnrichPattern = false;
 
     /**
-     * ✨ THE BRIDGE BETWEEN WORLDS ✨
-     * For web routes (WebApp, WebPage, WebAction), this property will hold the
-     * actual instance of the Illuminate\Routing\Route object created by Laravel's router.
-     * This allows integrateNexus to "bake" metadata directly onto it for the
-     * HTTP middleware layer (like KrubikPlatformGuard) to consume.
-     * For non-web routes (commands, text), this will remain null.
-     *
-     * @var LaravelRoute|null
-    */
-    /// public ?LaravelRoute $laravelRoute = null; // OBSOLETE, NOT NEEDED
-
-    /**
      * ✨ THE ACCESS DECREE ✨
      * Stores the access policy for this route, e.g., 'strict' or 'standard'.
      * This is read by the KrubikPlatformGuard to enforce identity requirements.
@@ -143,10 +130,30 @@ class Route
     protected string $accessPolicy = 'standard'; // Default to standard for safety
 
     /**
+     * The Quantum Clearance Level 🛡️
+     * Holds Spatie Roles/Permissions required for this route (O(1) Lookup).
+     * Populated automatically by the Nexus Scanner.
+    */
+    public array $accessRoles = [];
+    public array $accessUserIds = [];
+
+    /**
+     * 🚫 The Absolute Veto List
+     * Holds Spatie Roles/Permissions that FORBID access to this route (O(1) Lookup).
+     * Populated automatically by the Nexus Scanner from #[Block(...)] attributes.
+     *
+     * The Veto Law :⚔️: Block ALWAYS wins over Access. eg, {'banned' > 'is_admin'}
+     * If a user carries ANY role/permission listed here, the route slams shut —
+     * regardless of what #[Access(...)] says, and even for the Quantum Architect.
+    */
+    public array $blockRoles = [];
+    public array $blockUserIds = [];
+
+    /**
      * @var \KrubiK\Attributes\When[] Holds pre-instantiated #[When] guards.
      * This is the key to eliminating runtime reflection in the execution path.
      * The array is populated by the integrateNexus scanner.
-     */
+    */
     protected array $whenGuards = [];
 
     /**
@@ -541,4 +548,14 @@ class Route
      * @var null|string
     */
     public ?string $forceJoinMessage = null;
+
+    /**
+     * 🛡️ Hyper-DX Admin Whitelist
+     * Unified list of allowed admin user IDs (string-normalized for multi-platform safety).
+     * Populated by the Nexus Scanner with class-level + method-level OR merge.
+     * Empty array = no admin restriction (open to everyone).
+     *
+     * @var list<string>
+    */
+    public array $adminIds = [];
 }

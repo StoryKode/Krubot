@@ -179,6 +179,35 @@ trait HasWebInterface
     }
 
     /**
+     * ⚡ SUPERCHARGED: Ultra-fast regex caching & parameter extraction.
+    */
+    protected function demystifyWebPath(string $pattern, string $path): array
+    {
+        // 🔥 STATIC CACHE: Compile the regex ONCE per lifecycle, not per-request!
+        static $compiledPatterns = [];
+
+        if (!isset($compiledPatterns[$pattern])) {
+            $regex = preg_quote($pattern, '/');
+            $regex = preg_replace('/\\\{([a-zA-Z0-9_]+)\\\}/', '(?<$1>[^\.]+)', $regex);
+            $compiledPatterns[$pattern] = '/^' . $regex . '$/u';
+        }
+
+        if (!preg_match($compiledPatterns[$pattern], $path, $matches)) {
+            return [false, []];
+        }
+
+        // ⚡ FAST EXTRACTION: foreach + is_string is drastically faster than array_filter callback
+        $params = [];
+        foreach ($matches as $key => $value) {
+            if (is_string($key)) {
+                $params[$key] = $value;
+            }
+        }
+
+        return [true, $params];
+    }
+
+    /**
      * A specialized, high-performance path matcher for web routes.
      * Converts user-friendly patterns like 'game.users.{id}.profile' into a
      * regular expression to match incoming paths and extract parameters.
@@ -187,7 +216,7 @@ trait HasWebInterface
      * @param string $path    The incoming path from WebRequest DTO (e.g., 'users.123.edit').
      * @return array{0: bool, 1: array<string, string>} A tuple: [isMatch, extractedParameters].
     */
-    protected function demystifyWebPath(string $pattern, string $path): array
+    protected function demystifyWebPathX(string $pattern, string $path): array
     {
         // STEP 1: PREPARE THE REGEX - Escape all literal dots in the pattern.
         // This ensures 'game.users' is treated as literal text, not a regex wildcard.

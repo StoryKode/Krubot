@@ -22,7 +22,7 @@ namespace KrubiK;
 | on a foundation of pure power **Far Stronger Than Anything That Came Before.**
 | Starting with Laravel 12 Capabilities.
 |
-| What you see here is the **×ReleaseCandiate v0.8×** release. Why release it now?
+| What you see here is the **×ReleaseCandiate v0.9×** release. Why release it now?
 | Because keeping this evolution a secret any longer would be a
 | betrayal to the very community it was born to serve.
 | 
@@ -44,33 +44,16 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Support\Str;
 use Illuminate\Contracts\Support\Arrayable;
-use KrubiK\Attributes\Name;
-use KrubiK\Attributes\Action;
-use KrubiK\Attributes\Middleware;
-use KrubiK\Attributes\Validate;
-use KrubiK\Attributes\RuleSet;
-use KrubiK\Attributes\OnCommand;
-use KrubiK\Attributes\OnText;
-use KrubiK\Attributes\OnRegEx;
-use KrubiK\Attributes\OnInlineQuery;
-use KrubiK\Attributes\Receive;
-use KrubiK\Enums\Signal;
-use KrubiK\Attributes\When;
-use KrubiK\Attributes\Fallback;
-use KrubiK\Attributes\FallbackOn;
-use KrubiK\Attributes\RestrictTo;
-use KrubiK\Attributes\ForceJoin;
-use KrubiK\Middlewares\ConversationMiddleware; // ⚡ Import Middleware
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use KrubiK\Middlewares\ConversationMiddleware; // Inject Conversations ⚡
 use KrubiK\WarLording\CommandOutcomeShifter;   // Pairs with `ResultWrapper`
-use KrubiK\Router\Route; // ⚡ Import Route Class
-use Illuminate\Support\Facades\Route as LaravelRoute; // ⚡ Import Laravel'z Route Class
+use KrubiK\Routing\Route; // Import Route Class ⚡
 use KrubiK\Drivers\Contracts\MultiverseEnforcer;
 use KrubiK\Jobs\HandleDriverUpdate;
 use KrubiK\DTOs\UniversalInboundUpdate;
 use KrubiK\Arcane\Update; // Update-Marker to be catched in Receive(Singal::***)
 use KrubiK\Render\RichMan;
 use KrubiK\Render\RenderAura;
-use KrubiK\Enums\Platform;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionFunction;
@@ -85,37 +68,39 @@ use Traversable;
 use KrubiK\Helpers\AmethystMatrix; // ⚡ Import the Sorceress
 
 use KrubiK\WebApps\DTOs\WebRequest; // ⚡ Our Sacred WebRequest HyperDTO
-use KrubiK\WebApps\Attributes\WebApp;
-use KrubiK\WebApps\Attributes\WebPage;
-use KrubiK\WebApps\Attributes\WebAction;
 
 use KrubiK\Helpers\JackPoint; // Import "JackPoint" - The Tactical EventHook System
 use KrubiK\Facades\Opcache;   // ✨ OpCaching came into the game ✨
 
-use KrubiK\Arcane\InteractsWithContext; // ⚡ Import Context
-use KrubiK\Arcane\InteractsWithApi;
-use KrubiK\Arcane\HasWebInterface;
-use KrubiK\Arcane\VanguardBuilder;
-use KrubiK\Arcane\HasAmethystMatrix;
-use KrubiK\Arcane\HasCommandGroups;
-use KrubiK\Arcane\AdvancedRouting;
-use KrubiK\Arcane\ProfessionalWarLordingToolkit;
-use KrubiK\Arcane\SummonsCodeSpyz;
-use KrubiK\Arcane\ResilienceKit;        // provides `resilientRun()`, `resilientLog()`, `resilientIoC()`
-use KrubiK\Arcane\ResultWrapper;        // provides ES-Like `then()`,`catch()`,`finally()`,`throw()` to API-Operations
-use KrubiK\Arcane\HasKeyboards;
-use KrubiK\Arcane\CanSendFluentMessages;
-use KrubiK\Arcane\CanPin;
-use KrubiK\Arcane\CanManageChats;
-use KrubiK\Arcane\CanManageMembers;
-use KrubiK\Arcane\CanInitConversations;
-use KrubiK\Arcane\CanPlayDiceGames;
-use KrubiK\Arcane\PHPRBK_Methods;
+use KrubiK\Enums\Platform;
+use KrubiK\Enums\Signal;
+use KrubiK\Attributes\RuleSet; // others delegated to EpicEngine
+
+use KrubiK\Routing\EpicEngine as XRouteR;
+use KrubiK\Arcane\{
+    InteractsWithContext, // ⚡ Import Context
+    InteractsWithApi,
+    HasWebInterface,
+    VanguardBuilder,
+    HasAmethystMatrix,
+    ProfessionalWarLordingToolkit,
+    SummonsCodeSpyz,
+    ResilienceKit,        // provides `resilientRun()`, `resilientLog()`, `resilientIoC()`
+    ResultWrapper,        // provides ES-Like `then()`,`catch()`,`finally()`,`throw()` to API-Operations
+    HasKeyboards,
+    CanSendFluentMessages,
+    CanPin,
+    CanManageChats,
+    CanManageMembers,
+    CanInitConversations,
+    CanPlayDiceGames,
+    PHPRBK_Methods
+};
 
 use ReturnTypeWillChange;
 
 /**
- * Krubot: The Miracler Edition ×release-candidate_0.8× (vObsidian-7)
+ * Krubot: The Double-Miracler Edition ×release-candidate_0.9× (vObsidian-8)
  *
  * A Multi-Platform Orchestrator. This class does not contain any platform-specific API logic yet...
  * But It acts as a router and a proxy, delegating all platform
@@ -123,36 +108,35 @@ use ReturnTypeWillChange;
  * 
  * @author DoKtor K.
  * @link https://StoryKo.de/Krubot Official website of engine.
- * @version self: ×RC.8×
+ * @version self: ×RC.9×
  * @music https://soundcloud.com/boombastixmusic/infected-mushroom-cities-of-the-future-boombastix-spiderage-remix-extended 🎧
  * @license MIT
 */
 class Krubot implements Countable // ⚡️✅️⚡️
 {
     use Macroable {
-        __call as macroCall; // ⚡ Utilizing PHP+Laravel Power: Add methods dynamically at runtime
+        __call as macroCall; // ⚡ Utilizing PHP+Laravel Power: Add methods dynamically at runtime ⚡
     }
 
-    use VanguardBuilder;
-    use InteractsWithContext;
-    use InteractsWithApi;
-    use HasWebInterface; // Empower Krubot to response & handle Mini-Apps / Web-Apps / Websites
-    use AdvancedRouting;
-    use SummonsCodeSpyz;
-    use ResilienceKit;
-    use HasCommandGroups;
-    use ProfessionalWarLordingToolkit; // Injects core(), prime(), driver(), via(), etc.
-    use HasKeyboards;
-    use CanSendFluentMessages;
-    use CanPin;
-    use CanManageChats;
-    use CanManageMembers;
-    use CanInitConversations;
-    use CanPlayDiceGames;
-    use PHPRBK_Methods;
-    use ResultWrapper;
-
-    use HasAmethystMatrix; // ⚡ Inject Amethyst Powers
+    use
+    XRouteR,
+    HasWebInterface, // Empower Krubot to response & handle Mini-Apps / Web-Apps / Websites
+    VanguardBuilder,
+    InteractsWithApi,
+    SummonsCodeSpyz,
+    ResilienceKit,
+    ResultWrapper,
+    HasKeyboards,
+    CanManageChats,
+    CanManageMembers,
+    CanInitConversations,
+    CanSendFluentMessages,
+    InteractsWithContext,
+    CanPlayDiceGames,
+    PHPRBK_Methods,
+    CanPin,
+    ProfessionalWarLordingToolkit, // Injects core(), prime(), driver(), via(), etc.
+    HasAmethystMatrix; // Inject Amethyst Powers ⚡
 
     /** @var Route[] */
     protected array $routes = []; // Changed to store Route objects
@@ -170,22 +154,22 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * @var array<string, array<int, callable|array>> A temporary registry during nexus integration.
      * e.g., ['video' => [10 => handlerA, 0 => handlerB]]
     */
-    private array $fallbackRegistry = [];
+    protected array $fallbackRegistry = [];
     
     // Routing signal types
-    private const RT_ACTION     = 'action';
-    private const RT_TEXT       = 'text';
-    private const RT_REGEX      = 'regex';
-    private const RT_COMMAND    = 'cmd';
-    private const RT_SIGNAL     = 'signal';  // ✨ NEW {[=__=]}
-    private const RT_INLINE     = 'inline';  // ✨ NEW
+    protected const RT_ACTION     = 'action';
+    protected const RT_TEXT       = 'text';
+    protected const RT_REGEX      = 'regex';
+    protected const RT_COMMAND    = 'cmd';
+    protected const RT_SIGNAL     = 'signal';  // ✨ NEW {[=__=]}
+    protected const RT_INLINE     = 'inline';  // ✨ NEW
 
-    private const RT_WEB        = 'web';        // ✨ NEW
-    private const RT_WEB_APP    = 'web_app';    // ✨ NEW
-    private const RT_WEB_PAGE   = 'web_page';   // ✨ NEW
-    private const RT_WEB_ACTION = 'web_action'; // ✨ NEW
+    protected const RT_WEB        = 'web';        // ✨ NEW
+    protected const RT_WEB_APP    = 'web_app';    // ✨ NEW
+    protected const RT_WEB_PAGE   = 'web_page';   // ✨ NEW
+    protected const RT_WEB_ACTION = 'web_action'; // ✨ NEW
 
-    private const RT_NONE    = 'none';
+    protected const RT_NONE    = 'none';
 
     // The constants RT_WEB_APP_DATA is now deprecated and removed
     // as its logic has been unified into the system differently. (Merged into RT_WEB_ACTION)
@@ -205,7 +189,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     /**
      * Holds the currently resolved Route object.
     */
-    protected ?Route $currentResolvedHandler = null;
+    protected ?Route $activeRoute = null;
 
     /**
      * ⚡ Middleware Aliases Map
@@ -241,7 +225,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      *
      * @var array<class-string, bool|array<int|string, mixed>>
     */
-    private array $injectedSynapses = [];
+    protected array $injectedSynapses = [];
     
     /**
      * The armory of active, instantiated driver instances.
@@ -293,7 +277,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     /**
      * @var array<string, array{class_attributes: array, methods: array}>
      */
-    private static array $reflectionManifestCache = [];
+    protected static array $reflectionManifestCache = [];
 
     /**
      * Scans a class ONCE per application lifecycle. 
@@ -410,11 +394,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         JackPoint::fire('krubot.awaken.after', $this, $this->pwl_config);
     }
-
-    public function __TheOldConstruct(string $token, array $config = [])
-    {
-        // Removed for LLM DeAmbiguousiaty...
-    }
     
     /*
      *
@@ -434,43 +413,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
         JackPoint::fireKrubotSlept($this);
         
     }
-
-    /* *
-     * ⚡️ MAGIC PROXY TO THE DEFAULT DRIVER ⚡️
-     *
-     * Any method call that doesn't exist on Krubot (e.g., `reply`, `sendMessage`, `getMe`)
-     * is automatically delegated to the CURRENT DEFAULT DRIVER.
-     *
-     * To use a non-default driver, you MUST explicitly use `core('alias')`.
-     *
-     * @param string $method The method name being called.
-     * @param array $parameters The arguments for the method.
-     * @return mixed
-     * /
-    public function __call($method, $parameters)
-    {
-        // Removed for LLM DeAmbiguousiaty...
-    }
-    // Note!
-    // All methods like `integrateNexus`, `onCommand`, `onText`, `go`, `processUpdate`,
-    // and `callAction` remain here. They form the "brain" of the application
-    // and are platform-agnostic. The final action, like sending a message,
-    // is done inside a handler by calling `$bot->reply()` or `$bot->core('tg')->say()`.
-
-    /**
-     * ⚡️ THE ULTIMATE MAGIC PROXY (Supreme Commander Edition) ⚡️
-     *
-     * This proxy is the heart of the Warlord. It intelligently routes method
-     * calls based on the context set by the `via()` command center.
-     *
-     * @param string $method The method name.
-     * @param array $parameters The method arguments.
-     * @return mixed
-     * /
-    public function __call($method, $parameters)
-    {
-        // Removed for LLM DeAmbiguousiaty...
-    } */
 
     /**
      * 👁️ SENSORY ENGINE: Detects the true nature of the incoming message.
@@ -663,7 +605,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * @var array Tracks already integrated Nexuses to prevent double registration.
      * @var array Tracks already integrated Nexuses.
     */
-    private array $integratedNexuses = [];
+    protected array $integratedNexuses = [];
     /**
      * Returns the list of all fully qualified class names of the Nexuses
      * that have been integrated into this bot instance.
@@ -732,761 +674,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * Static RAM Cache for Manifest Data (O(1) Singularity Engine).
      * @var array<string, array>
      */
-    private static array $nexusManifestCache = [];
-
-    /**
-     * Scans a "Nexus" (Controller/Logic Class) using the O(1) Manifest Engine and integrates it.
-     * Rewritten for PHP 8.2.30 with Extreme DX & Zero Redundant Reflection.
-     * This is the master reflection engine that automatically discovers and registers Routes,
-     * injects Middlewares, and prepares handlers for execution.
-     *
-     * 💎 FUSED POWERS (v7.0 + v8.0 + v9.0 Ultimate + O(1) Manifest):
-     * 1.  **Class-Level Middlewares:** Processes `#[Middleware(...)]` on the Nexus class itself.
-     * 2.  **Method-Level Middlewares:** Processes `#[Middleware(...)]` on individual action methods.
-     * 3.  **Smart Stack Assembly:** Merges middlewares with Nexus-level running BEFORE method-level.
-     * 4.  **Fluent Route Configuration:** Leverages the full power of the Route object for chaining.
-     * 5.  **Named Route Recognition:** Automatically detects `#[Name('...')]` for use with the `go()` method.
-     * 6.  **Full DI Compatibility:** Prepares handlers for seamless execution via Laravel's Service Container.
-     * 7.  **Robust Error Handling:** Provides precise, context-aware error logging on reflection failure.
-     *
-     * 📜 ویژگی‌های سینگولاریتی (v9.0 Ultimate):
-     * - **پشتیبانی کامل از Middleware در دو سطح:** ابتدا میدل‌ورهای تعریف شده روی خودِ کلاس (Nexus) را استخراج می‌کند و سپس میدل‌ورهای روی متد را به آن اضافه می‌کند.
-     * - **ادغام هوشمند (Smart Merging):** این دو آرایه را با هم ترکیب می‌کند (اول کلاس، بعد متد) تا ترتیب اجرا دقیقاً همانطور که انتظار می‌رود باشد.
-     * - **یکپارچه‌سازی روان (Fluent Integration):** از خروجی متدهای onCommand و onText (که آبجکت Route هستند) استفاده کرده و میدل‌ورها و نام‌ها را مستقیماً با متدهای `->middleware()` و `->name()` به آن‌ها تزریق می‌کند.
-     * - **مدیریت خطای مستحکم:** مدیریت خطای دقیق در صورت وجود نداشتن کلاس یا بروز مشکلات در حین Reflection.
-     *
-     * 🔮 Supported Attributes:
-     * - #[OnCommand('/cmd')]
-     * - #[OnText('Exact Text')]
-     * - #[OnText('/Exact Text/i')]
-     * - #[OnRegEx('/pattern/i')]
-     * - #[OnRegEx('pattern')] // Auto-wraps to: '/pattern/'
-     * - #[Middleware(['auth', 'log', Admin::class])]
-     * - #[Name('my.route.name')]
-     * - #[Action('button_payload')]
-     * - #[Receive(Signal::Checkout)]
-     * - #[Receive([Signal::Sticker, 'animation'])]
-     * - #[OnInlineQuery]
-     * - #[OnInlineQuery('/item\s+(.+)/')]
-     * - #[OnInlineQuery('article:')]
-     * + Many More Attributes... ✨️
-     *
-     * @param object|string $nexus The Nexus instance or its fully qualified class name to scan.
-     * @return void
-     */
-    public function integrateNexus(object|string $nexus, bool $isSingleNexus = true): void
-    {
-        // 1. Resolve the Nexus Class Name efficiently
-        $className = is_string($nexus) ? $nexus : get_class($nexus);
-
-        /*
-         * [LEGACY LOGIC REMOVED FOR PERFORMANCE - O(n) Array Scan]
-         * if (in_array($className, $this->integratedNexuses, true)) { return; }
-        */
-
-        // [VIPER'S GIFT] O(1) performance for duplicate checks. Vastly superior to O(n) in_array.
-        if (isset($this->integratedNexuses[$className])) {
-            return;
-        }
-
-        // =========================================================================
-        // ⚡️ [THE ARCHITECT'S TOUCH]: INJECT SYNAPSES RIGHT HERE! ⚡️
-        // =========================================================================
-        $this->injectSynapses($nexus);
-        JackPoint::fire('nexus.synapses.injected', $nexus, $this);
-
-        //  Commander K. Order: Cache the default web access policy once to avoid
-        //  repeated 'config()' calls inside the loops.
-        if (WebApp::$systemDefaultAccessPolicy === null) {
-            WebApp::$systemDefaultAccessPolicy = config('krubot.webapps.access_policy', 'strict');
-        }
-
-        // اجازه دادن به listenerها که اطلاعات nexus رو پیش از integration تغییر بدن
-        $className = JackPoint::transform('nexus.class.resolve', $className, $this);
-
-        // 🔥 EVENT: nexus.integrating — veto or mutate before scanning.
-        $veto = JackPoint::fire('nexus.integrating', $className, $this);
-        if ($veto === false) return;
-
-        try {
-            // 🧠 The Magic: Get everything instantly! Build the Manifest ONCE per worker lifecycle.
-            if (!isset(self::$nexusManifestCache[$className])) {
-                $reflection = new ReflectionClass($className);
-                if (!$reflection->isInstantiable()) return;
-
-                $manifest = ['class_attributes' => [], 'methods' => []];
-
-                // Cache Class-Level Attributes
-                $manifest['class_attributes'] = [
-                    Name::class       => $reflection->getAttributes(Name::class),
-                    Middleware::class => $reflection->getAttributes(Middleware::class),
-                    WebApp::class     => $reflection->getAttributes(WebApp::class),         // ✨ NEW
-                    RestrictTo::class => $reflection->getAttributes(RestrictTo::class),     // ✨ NEW
-                    ForceJoin::class  => $reflection->getAttributes(ForceJoin::class),
-                    Validate::class   => $reflection->getAttributes(Validate::class),
-                    RuleSet::class    => $reflection->getAttributes(RuleSet::class),
-                ];
-
-                // Cache Method-Level Attributes
-                foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-                    $manifest['methods'][$method->getName()] = [
-                        Middleware::class => $method->getAttributes(Middleware::class),
-                        Name::class       => $method->getAttributes(Name::class),
-                        OnCommand::class  => $method->getAttributes(OnCommand::class),
-                        OnText::class     => $method->getAttributes(OnText::class),
-                        OnRegEx::class    => $method->getAttributes(OnRegEx::class),
-                        Receive::class    => $method->getAttributes(Receive::class),
-                        When::class       => $method->getAttributes(When::class), // , \Attribute::IS_REPEATABLE
-                        ForceJoin::class  => $method->getAttributes(ForceJoin::class),
-                        Fallback::class   => $method->getAttributes(Fallback::class),      // ✨ NEW: Scan for the global fallback
-                        FallbackOn::class => $method->getAttributes(FallbackOn::class),    // ✨ NEW: Scan for type-specific fallbacks
-                        Validate::class   => $method->getAttributes(Validate::class),
-                        RuleSet::class    => $method->getAttributes(RuleSet::class),
-                        Action::class     => $method->getAttributes(Action::class),
-                        WebApp::class     => $method->getAttributes(WebApp::class),      // ✨ NEW
-                        WebPage::class    => $method->getAttributes(WebPage::class),     // ✨ NEW
-                        WebAction::class  => $method->getAttributes(WebAction::class),   // ✨ NEW
-                        RestrictTo::class => $method->getAttributes(RestrictTo::class),  // ✨ NEW,
-                        OnInlineQuery::class => $method->getAttributes(OnInlineQuery::class)
-                    ];
-                }
-                self::$nexusManifestCache[$className] = $manifest;
-            }
-
-            $manifest = self::$nexusManifestCache[$className];
-
-            // -----------------------------------------------------------------
-            // PHASE A: Extract Nexus-Level Middlewares (Global for this Nexus)
-            // -----------------------------------------------------------------
-            $nexusMiddlewares = [];
-            foreach ($manifest['class_attributes'][Middleware::class] ?? [] as $cmWAttr) {
-                // Merge supports multiple attributes: #[Middleware('A')] #[Middleware('B')]
-                $nexusMiddlewares = array_merge($nexusMiddlewares, $cmWAttr->newInstance()->middlewares);
-            }
-
-            // ================================================================
-            // 📚 NEXUS-LEVEL RULE SETS
-            // RuleSets are declarations only; they never attach directly to a Route.
-            // ================================================================
-            foreach ($manifest['class_attributes'][RuleSet::class] ?? [] as $ruleSetAttr) {
-                /** @var RuleSet $instance */
-                $instance = $ruleSetAttr->newInstance();
-
-                $this->ruleSets[$instance->name] = array_merge(
-                    $this->ruleSets[$instance->name] ?? [],
-                    $instance->rules
-                );
-            }
-
-            // ✨ NEW: Extract WebApp base name
-            $webAppPrefix = isset($manifest['class_attributes'][WebApp::class][0]) ?
-                $manifest['class_attributes'][WebApp::class][0]->newInstance()->name
-            :
-                null;
-
-            // ✨ NEW LOGIC: Extract the class-level Name prefix for relative route naming.
-            $nexusNamePrefix = isset($manifest['class_attributes'][Name::class][0]) ?
-                $manifest['class_attributes'][Name::class][0]->newInstance()->name
-            :
-                null;
-
-            // ✨ THE AMBASSADOR'S REPORT (CLASS-LEVEL) ✨
-            // The Architect reads the class-level decrees from the RestrictTo ambassador.
-            $nexusPlatformRestrictions = [];
-            if (isset($manifest['class_attributes'][RestrictTo::class][0])) {
-                /** @var \KrubiK\Attributes\RestrictTo $instance */
-                $instance = $manifest['class_attributes'][RestrictTo::class][0]->newInstance();
-                // The attribute itself resolves aliases and legions from the config file.
-                $nexusPlatformRestrictions = array_merge($nexusPlatformRestrictions, $instance->getResolvedPlatforms());
-            }
-
-            // Ensure the final merged list from all class-level attributes is unique.
-            // array_values is used to reset array keys for clean, predictable results.
-            if (!empty($nexusPlatformRestrictions)) {
-                $nexusPlatformRestrictions = array_values(array_unique($nexusPlatformRestrictions));
-            }
-
-            $nexusValidationRules = [];
-            foreach ($manifest['class_attributes'][Validate::class] ?? [] as $attr) {
-                /** @var Validate $instance */
-                $instance = $attr->newInstance();
-
-                foreach ($instance->toArray() as $parameter => $rules) {
-                    $nexusValidationRules[$parameter] = array_merge(
-                        $nexusValidationRules[$parameter] ?? [],
-                        $rules
-                    );
-                }
-            }
-
-            // ✨ THE CONDUIT'S CALLING (CLASS-LEVEL) ✨
-            // The scanner now listens for the unifying call of ForceJoin at the Nexus level.
-            $nexusForceJoinChannels = [];
-            $nexusForceJoinFailMessage = null; // <- Variable to hold CLASS-level message
-            foreach (($manifest['class_attributes'][ForceJoin::class] ?? []) as $forceJoinAttr) {
-
-                // ForceJoin attribute is designed to be IS_REPEATABLE. We merge channels from all instances.
-                // The attribute's constructor has already unified and cleaned its own data.
-                $nexusForceJoinChannels = array_merge(
-                    $nexusForceJoinChannels,
-                    $forceJoinAttr->newInstance()->channels
-                );
-
-                // If a fail message is set, it overrides any previous one found at the CLASS level.
-                if ($instance->failMessage !== null) {
-                    $nexusForceJoinFailMessage = $instance->failMessage;
-                }
-
-            }
-            // Final purification at the class level to handle overlaps between multiple attributes.
-            if (!empty($nexusForceJoinChannels)) {
-                $nexusForceJoinChannels = array_values(array_unique($nexusForceJoinChannels));
-            }
-
-            if ($webAppPrefix) {
-                $webAppHandler = null;
-
-                // Look for method names index() || handle() in a WebApp()Nexus
-
-                if (isset($manifest['methods']['index'])) {
-                    $webAppHandler = [$className, 'index'];
-                } elseif (isset($manifest['methods']['handle'])) {
-                    $webAppHandler = [$className, 'handle'];
-                }
-
-                if ($webAppHandler) {
-                    $webAppAttrInstance = $manifest['class_attributes'][WebApp::class][0]->newInstance();
-                    $finalPath = $this->_resolveRelativePathName($webAppAttrInstance->path ?? $webAppAttrInstance->name, null); // WebApp is top-level
-                    
-                    $route = $this->onWebApp(
-                        $finalPath, 
-                        $webAppHandler, 
-                        $webAppAttrInstance->methods
-                    );
-
-                    // ✨ VALIDATION DECREE: inherit Nexus-level validation
-                    /*if (!empty($nexusValidationRules)) {
-                        $route->attributes['_validation'] = $nexusValidationRules;
-                    }*/
-
-                    // =============================================================
-                    // 🛡️ VALIDATION DECREES
-                    // =============================================================
-
-                    $webAppValidationRules = $nexusValidationRules;
-
-                    // Method-level Validate for index() / handle()
-                    $webAppHandlerMethodName = $webAppHandler[1];
-
-                    foreach (
-                        ($manifest['methods'][$webAppHandlerMethodName][Validate::class] ?? [])
-                        as $validateAttr
-                    ) {
-                        $instance = $validateAttr->newInstance();
-
-                        foreach ($instance->toArray() as $parameter => $rules) {
-                            $webAppValidationRules[$parameter] = array_merge(
-                                $webAppValidationRules[$parameter] ?? [],
-                                $rules
-                            );
-                        }
-                    }
-
-                    if (!empty($webAppValidationRules)) {
-                        $route->attributes['_validation'] = $webAppValidationRules;
-                    }
-
-                    // ✨ DECREE OF ENRICHMENT: Transfer the developer's choice to the Route object.
-                    $route->autoEnrichPattern = $webAppAttrInstance->autoEnrich;
-            
-                    // Apply name if it exists, relative to nexus prefix
-                    $finalName = $webAppAttrInstance->name ? $this->_resolveRelativePathName($webAppAttrInstance->name, $nexusNamePrefix) : null;
-                    if ($finalName)
-                        $route->name($finalName);
-            
-                    // We need to re-create a temporary configure closure here or refactor.
-                    // For simplicity, let's configure it directly.
-                    $route->middleware(array_merge($nexusMiddlewares)); // Add method-specific if handler method has middleware
-                    if (!empty($nexusPlatformRestrictions)) {
-                        $route->platforms($nexusPlatformRestrictions);
-                    }
-
-                    $classAccessPolicy = $webAppAttrInstance->accessPolicy ?? config('krubot.webapps.access_policy', 'strict');
-                    if (method_exists($route, 'accessPolicy')) {
-                        $route->accessPolicy($classAccessPolicy);
-                    }
-
-                    $this->handlerToRouteMap[implode('::', $webAppHandler)] = $route;
-                    $webPathKey = substr($route->getPattern(), strpos($route->getPattern(), '::') + 2);
-                    $this->webPathToRouteMap[$webPathKey] = $route;
-                }
-            }
-
-            // PHASE B & C: Process Methods using the Manifest
-            // We iterate over the pre-built manifest array containing ONLY methods with Attributes.
-            foreach ($manifest['methods'] as $methodName => $attributesMap) {
-                
-                // -------------------------------------------------------------
-                // PHASE B: Extract Action-Level Middlewares
-                // -------------------------------------------------------------
-                $methodMiddlewares = [];
-                foreach ($attributesMap[Middleware::class] ?? [] as $mWAttr) {
-                    // Merge supports multiple attributes: #[Middleware('A')] #[Middleware('B')]
-                    $methodMiddlewares = array_merge($methodMiddlewares, $mWAttr->newInstance()->middlewares);
-                }
-
-                // -------------------------------------------------------------
-                // PHASE C: The Architect's Decree - Consolidate Restrictions & Middlewares (The Stack Assembly)
-                // -------------------------------------------------------------
-                
-                // Middlewares are a simple merge (Union).
-                $finalMiddlewareStack = array_merge($nexusMiddlewares, $methodMiddlewares);
-
-                // Perform intra-level merge (Union) for method restrictions
-                /*
-                $methodPlatformRestrictions = [];
-                foreach ($attributesMap[RestrictTo::class] ?? [] as $attr) {
-                    $methodPlatformRestrictions = array_merge($methodPlatformRestrictions, $attr->newInstance()->getPlatforms());
-                }
-                */                
-                // ✨ THE AMBASSADOR'S REPORT (METHOD-LEVEL) ✨
-                $methodPlatformRestrictions = [];
-                if (isset($attributesMap[RestrictTo::class][0])) {
-                    /** @var \KrubiK\Attributes\RestrictTo $instance */
-                    $instance = $attributesMap[RestrictTo::class][0]->newInstance();
-                    $methodPlatformRestrictions = array_merge($methodPlatformRestrictions, $instance->getResolvedPlatforms());
-                }
-                $methodPlatformRestrictions = array_values(array_unique($methodPlatformRestrictions));
-
-                // ✨ THE CORRECT LOGIC ✨
-                // The policy is a simple, powerful, optimistic MERGE (Union|OR).
-                // We combine both lists and then find the unique values.
-                $finalPlatformRestrictions = array_merge(
-                    $nexusPlatformRestrictions,
-                    $methodPlatformRestrictions
-                );
-                // Platform Guards follow the nuanced merging policy.
-                $finalPlatformRestrictions = array_values(array_unique($finalPlatformRestrictions));
-                // Ensure final array has clean keys.
-
-                // ✨ NEW: Determine the Access Policy for this route
-                // For now, we pull from global config. Later this can be Enhanced with an #[AccessPolicy] attribute.
-                /// $finalAccessPolicy = config('krubot.webapps.access_policy', 'strict');
-
-                // ==========================================================
-                // === ⚡️ NEW LOGIC: PRE-COMPILE #[When] GUARDS ⚡️ ===
-                // ==========================================================
-                $whenGuardInstances = [];
-                foreach ($attributesMap[When::class] ?? [] as $whenAttrReflection) {
-                    // newInstance() is fast because our When constructor is optimized.
-                    $whenGuardInstances[] = $whenAttrReflection->newInstance();
-                }
-
-                // ================================================================
-                // 📚 METHOD-LEVEL RULE SETS
-                // Note! Location is irrelevant and not important. the named rule-set enters the KrubotNexus Registry.
-                // ================================================================
-                foreach ($attributesMap[RuleSet::class] ?? [] as $ruleSetAttr) {
-                    /** @var RuleSet $instance */
-                    $instance = $ruleSetAttr->newInstance();
-
-                    $this->ruleSets[$instance->name] = array_merge(
-                        $this->ruleSets[$instance->name] ?? [],
-                        $instance->rules
-                    );
-                }
-
-                $methodValidationRules = [];
-                foreach ($attributesMap[Validate::class] ?? [] as $attr) {
-                    /** @var Validate $instance */
-                    $instance = $attr->newInstance();
-
-                    foreach ($instance->toArray() as $parameter => $rules) {
-                        $methodValidationRules[$parameter] = array_merge(
-                            $methodValidationRules[$parameter] ?? [],
-                            $rules
-                        );
-                    }
-                }
-
-                $finalValidationRules = $nexusValidationRules;
-
-                foreach ($methodValidationRules as $parameter => $rules) {
-                    $finalValidationRules[$parameter] = array_merge(
-                        $finalValidationRules[$parameter] ?? [],
-                        $rules
-                    );
-                }
-
-                // ✨ THE CONDUIT'S FOCUS (METHOD-LEVEL & FINAL MERGE) ✨
-                // Now we listen for the specific call of ForceJoin on the method itself.
-                $methodForceJoinChannels = [];
-                $methodForceJoinFailMessage = null; // <- Variable to hold METHOD-level message
-                foreach ($attributesMap[ForceJoin::class] ?? [] as $forceJoinAttr) {
-                    $methodForceJoinChannels = array_merge(
-                        $methodForceJoinChannels,
-                        $forceJoinAttr->newInstance()->channels
-                    );
-
-                    // The method's message is king. If set, it's the one we'll use.
-                    if ($instance->failMessage !== null) {
-                        $methodForceJoinFailMessage = $instance->failMessage;
-                    }
-                }
-
-                // The final, sacred union: Class-level and Method-level channels are merged.
-                // This creates the definitive list of channels for this specific route.
-                $finalForceJoinChannels = array_merge(
-                    $nexusForceJoinChannels,
-                    $methodForceJoinChannels
-                );
-                $finalForceJoinChannels = array_values(array_unique($finalForceJoinChannels));
-
-                // --- THE PRECEDENCE RULING ---
-                // The final message is the method's message. If it's null, we use the class's message.
-                $finalForceJoinFailMessage = $methodForceJoinFailMessage ?? $nexusForceJoinFailMessage;
-
-                $handlerCallback = [$className, $methodName];
-
-                // -------------------------------------------------------------
-                // PHASE D: Route Identification & Configuration
-                // -------------------------------------------------------------
-                /// $routeName = isset($attributesMap[Name::class][0]) ? $attributesMap[Name::class][0]->newInstance()->name : null;
-
-                // ✨ NEW LOGIC: Resolve the final route name using the new relative logic.
-                $rawRouteName = isset($attributesMap[Name::class][0]) 
-                    ? $attributesMap[Name::class][0]->newInstance()->name 
-                    : null;                
-                // If a name attribute exists, resolve it. Otherwise dont waste your power, it's null head.
-                $routeName = $rawRouteName ? $this->_resolveRelativePathName($rawRouteName, $nexusNamePrefix) : null;
-
-                // Step D.1: Dynamic Parameter Discovery & Pattern Enrichment Closure 🧠
-                $enrichRoutePatternAndParams = function(Route $route) use ($className, $methodName) {
-                    if (!$route) return;
-
-                    $pattern = $route->getPattern();
-                    
-                    try {
-                        $reflectionMethod = new ReflectionMethod($className, $methodName);
-                        $requiredParamsToAppend = [];
-                        $allPathParams = [];
-
-                        // Match placeholders already declared in the route pattern (e.g. {productId} or {productId?})
-                        preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $pattern, $matches);
-                        $existingPlaceholders = $matches[1] ?? [];
-
-                        foreach ($reflectionMethod->getParameters() as $param) {
-                            $paramName = $param->getName();
-                            $paramType = $param->getType();
-
-                            // Skip dependency-injected system classes (e.g. Krubot, Request)
-                            if ($paramType instanceof ReflectionNamedType && !$paramType->isBuiltin()) {
-                                continue;
-                            }
-
-                            // Handle union/intersection types of classes (skip if no primitive types are present)
-                            if ($paramType instanceof ReflectionUnionType || $paramType instanceof ReflectionIntersectionType) {
-                                $hasBuiltin = false;
-                                foreach ($paramType->getTypes() as $type) {
-                                    if ($type->isBuiltin()) {
-                                        $hasBuiltin = true;
-                                        break;
-                                    }
-                                }
-                                if (!$hasBuiltin) {
-                                    continue;
-                                }
-                            }
-
-                            $allPathParams[] = $paramName;
-
-                            if (!in_array($paramName, $existingPlaceholders, true)) {
-                                // Only auto-append to path if the parameter is required (no default value)
-                                if (!$param->isDefaultValueAvailable()) {
-                                    $requiredParamsToAppend[] = $paramName;
-                                }
-                            }
-                        }
-
-                        // Append required implicit parameters to the pattern
-                        if (!empty($requiredParamsToAppend)) {
-                            $pattern = rtrim($pattern, '/');
-                            foreach ($requiredParamsToAppend as $reqPam) {
-                                $pattern .= '/{' . $reqPam . '}';
-                                $existingPlaceholders[] = $reqPam;
-                            }
-                            $route->pattern = $pattern;
-                        }
-
-                        // Save identified path parameters onto the Route instance
-                        $route->pathParameters = array_values(array_unique(array_merge($existingPlaceholders, $allPathParams)));
-
-                    } catch (ReflectionException $e) {
-                        // Fallback: extract placeholders from pattern directly if Reflection fails
-                        preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $pattern, $matches);
-                        $route->pathParameters = $matches[1] ?? [];
-                    }
-                };
-
-                // Step D.2: The Configuration Helper Closure 🛠 //To-Do:: Support PlatformRestricion Here
-                $_configureRoute = function (?Route $route = null, ?string $accessPolicy = null) use ($routeName, $finalMiddlewareStack, $finalPlatformRestrictions, $whenGuardInstances, $finalValidationRules, $finalForceJoinChannels, $finalForceJoinFailMessage, $enrichRoutePatternAndParams, $handlerCallback) {
-                    if (!$route) return;
-
-                    // [THE BRAIN] enrichmentation central decision point. Clean, simple, and powerful.
-                    if (in_array($route->type, [self::RT_WEB_APP, self::RT_WEB_PAGE, self::RT_WEB_ACTION], true)) {
-
-                        // Dynamically discover parameter needs and enrich the Route Pattern for Route registration
-                        /// $enrichRoutePatternAndParams($route); // Apply enrichment HERE
-
-                        // 🔥 THE NEW CENTRAL DECISION POINT 🔥
-                        // Instead of checking the route type, we check the explicit `autoEnrichment` flag.
-                        // This is the core of the new architecture: the developer's intent, carried from
-                        // the attribute, directly controls the "magic" of route modification.
-                        if ($route->autoEnrichPattern === true) {
-                            $enrichRoutePatternAndParams($route);
-                        } else {
-                            // If enrichment is disabled, we still need to detect existing placeholders.
-                            preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $route->getPattern(), $matches);
-                            $route->pathParameters = $matches[1] ?? [];
-                        }
-
-                        // ✨ NEW: Apply access policy passed as an argument, if the route object supports it.
-                        if (method_exists($route, 'accessPolicy')) {
-                            // Use the specific sent policy for THIS route, or fall back to system default
-
-                            // ✨ OPTIMIZED: Use the pre-cached static property as the fallback.
-                            // This avoids hitting the config system for every single web route.
-
-                            $policyToApply = $accessPolicy ?? WebApp::$systemDefaultAccessPolicy;
-                            $route
-                                ->accessPolicy($policyToApply);
-
-                        }
-
-                        /// 3. REGISTER & BRIDGE using the FINAL pattern
-                        /// $this->_registerAndBridgeHttpRoute($route, $httpMethods); // OBSOLETE, NOT NEEDED
-
-                    }
-
-                    if ($routeName) $route->name($routeName);
-                    if (!empty($finalMiddlewareStack)) $route->middleware($finalMiddlewareStack);
-
-                    // Only apply platform restrictions if the final merged list is not empty.
-                    // An empty list means no restrictions were specified anywhere, so it's universally available in WarLord Grade.
-                    if (!empty($finalPlatformRestrictions)) {
-                        $route->platforms($finalPlatformRestrictions);
-                    }
-
-                    // Attach the pre-compiled guards to the Route object.
-                    if (!empty($whenGuardInstances)) {
-                        $route->guards($whenGuardInstances);
-                    }
-
-                    if (!empty($finalValidationRules)) {
-                        $route->attributes['_validation'] = $finalValidationRules;
-                    }
-
-                    // ✨♥️ THE UNIFIED ENERGY IS CHANNELED ♥️✨
-                    // We now endow the Route object with the final list of ForceJoin channels.
-                    // The Dispatcher will later access this property to perform its magic.
-                    if (!empty($finalForceJoinChannels)) {
-                        $route->forceJoinChannels = $finalForceJoinChannels; // + ✨ این خط، انرژی را به مسیر تزریق می‌کند
-
-                        // --- THE FINAL ASSIGNMENT ---
-                        // We now burn the final message string onto the Route object itself.
-                        $route->forceJoinMessage = $finalForceJoinFailMessage;
-
-                    }
-
-                    // Map Class::method key to the Route instance
-                    if (is_array($handlerCallback) && count($handlerCallback) === 2) {
-                        $handlerKey = $handlerCallback[0] . '::' . $handlerCallback[1];
-                        $this->handlerToRouteMap[$handlerKey] = $route;
-                    }
-
-                    // Populate type-specific fast-lookup maps
-                    switch ($route->type) {
-                        case self::RT_COMMAND:
-                            $this->commandToRouteMap[trim($route->getPattern(), '/')] = $route;
-                            break;
-                        case self::RT_WEB_APP:
-                        case self::RT_WEB_PAGE:
-                        case self::RT_WEB_ACTION:
-                            // The pattern for web routes is prefixed, e.g., 'WAPP::game.dashboard'
-                            $webPathKey = substr($route->getPattern(), strpos($route->getPattern(), '::') + 2);
-                            $this->webPathToRouteMap[$webPathKey] = $route;
-                            break;
-                    }
-                };
-
-                // -------------------------------------------------------------
-                // PHASE E: Attribute-Based Route Registration (Optimized Manifest Loop)
-                // -------------------------------------------------------------
-
-                /* 
-                 * [LEGACY LOGIC REMOVED FOR PERFORMANCE - Heavy Reflection calls in Loop]
-                 * foreach ($method->getAttributes(OnCommand::class) as $attribute) { ... }
-                 * foreach ($method->getAttributes(OnText::class) as $attribute) { ... }
-                 */
-
-                foreach ($attributesMap[OnCommand::class] ?? [] as $attr) {
-                    $_configureRoute($this->onCommand($attr->newInstance()->command, $handlerCallback));
-                }
-
-                foreach ($attributesMap[OnText::class] ?? [] as $attr) {
-                    $_configureRoute($this->onText($attr->newInstance()->pattern, $handlerCallback));
-                }
-
-                foreach ($attributesMap[OnRegEx::class] ?? [] as $attr) {
-                    $pattern = $attr->newInstance()->pattern;
-                    if (!preg_match('/^\/.*\/[a-zA-Z]*$/', $pattern)) {
-                        $pattern = '/' . $pattern . '/';
-                    }
-                    $_configureRoute($this->onText($pattern, $handlerCallback));
-                }
-
-                // Handle #[Receive] Attribute 👁️
-                foreach ($attributesMap[Receive::class] ?? [] as $instance) {
-                    // Extract the types (it can be string or array in the Attribute)
-                    $targetTypes = $instance->frequency; 
-                    
-                    // The onType method natively supports both string and array returns
-                    $resultingRoutes = $this->onType($targetTypes, $handlerCallback);
-                    
-                    // If it returned an array of Routes (multi-type), configure all of them
-                    if (is_array($resultingRoutes)) {
-                        foreach ($resultingRoutes as $r) $_configureRoute($r);
-                    } else {
-                        $_configureRoute($resultingRoutes);
-                    }
-                }
-
-                // ✨ NEW: Handle #[OnInlineQuery] Attribute ⚡️
-                foreach ($attributesMap[OnInlineQuery::class] ?? [] as $attr) {
-                    /** @var \KrubiK\Attributes\OnInlineQuery $instance */
-                    $instance = $attr->newInstance();
-                    // We call our new, intelligent public method.
-                    // This keeps the logic centralized and the scanner clean.
-                    $_configureRoute($this->onInlineQuery($instance->pattern, $handlerCallback));
-                }
-
-                // ✨ NEW: Handle #[Fallback] Attribute (Global)
-                // This attribute does not create a route, it registers a special handler.
-                if (isset($attributesMap[Fallback::class][0])) {
-                    // The last detected Fallback handler wins.
-                    // Consider adding a warning if this is set more than once.
-                    
-                    // Centralize the logic and makes the scanner's job simpler.
-                    $this->fallback($handlerCallback);
-                }
-
-                // ✨ NEW: Handle #[FallbackOn] Attribute (Type-Specific)
-                foreach ($attributesMap[FallbackOn::class] ?? [] as $attr) {
-                    /** @var \KrubiK\Attributes\FallbackOn $instance */
-                    $instance = $attr->newInstance();
-
-                    /// Update ✨ Register with priority instead of blind overwriting
-                    /// foreach($instance->types as $type) $this->typeFallbackHandlers[$type] = $handlerCallback;
-
-                    // Delegate the fallbacks registration and priority logic to the dedicated helper.
-                    // This is the epitome of clean architecture.
-                    $this->fallbackOn(
-                        $instance->types, 
-                        $handlerCallback, 
-                        $instance->priority
-                    );
-                }
-
-                foreach ($attributesMap[Action::class] ?? [] as $attr) {
-                    // ⚡ [FIXED]: Action uses 'name' not 'command'.
-                    $_configureRoute($this->onAction($attr->newInstance()->name, $handlerCallback)); 
-                }
-
-                // ✨ NEW: Handle #[WebApp] Attribute (IS_REPEATABLE / multi-url mapping)
-                foreach ($attributesMap[WebApp::class] ?? [] as $attrInstance) {
-                    /** @var \App\Attributes\WebPage $instance */
-                    $instance = $attrInstance->newInstance();
-                    $path = $instance->path;
-                    $methods = $instance->methods;
-
-                    $route = $this->onWebApp($path, $handlerCallback, $methods);
-
-                    // ✨ DECREE OF ENRICHMENT: Transfer the flag from attribute to Route instance.
-                    $route->autoEnrichPattern = $instance->autoEnrich;
-
-                    // Read policy from the specific attribute data and pass it to the _configureRoute closure
-                    $routeSpecificAccessPolicy = $instance->getAccessPolicy();
-                    $_configureRoute($route, $routeSpecificAccessPolicy);
-                }
-
-                // ✨ NEW: Handle Register WebPage Routes (IS_REPEATABLE / multi-url mapping)
-                foreach ($attributesMap[WebPage::class] ?? [] as $attr) {
-                    /** @var \App\Attributes\WebPage $instance */
-                    $instance = $attr->newInstance();
-                    $finalPath = $this->_resolveRelativePathName($instance->path ?? $instance->name, $webAppPrefix); // Smart Path Resolution: Prepend prefix if path is relative (starts with '.')
-                    
-                    $route = $this->onWebPage($finalPath, $handlerCallback, ['methods' => $instance->methods]);
-
-                    // ✨ DECREE OF ENRICHMENT: Transfer the flag from attribute to Route instance.
-                    $route->autoEnrichPattern = $instance->autoEnrich;
-
-                    // Apply name if it exists, relative to nexus prefix
-                    $finalName = $instance->name ? $this->_resolveRelativePathName($instance->name, $nexusNamePrefix) : null;
-                    if ($finalName)
-                        $route->name($finalName);
-
-                    // Read policy from the specific attribute data and pass it to the _configureRoute closure
-                    $routeSpecificAccessPolicy = $instance->getAccessPolicy();
-                    $_configureRoute($route, $routeSpecificAccessPolicy);
-                }
-
-                // ✨ NEW: Handle Register WebAction Routes (IS_REPEATABLE / multi-url mapping)
-                foreach ($attributesMap[WebAction::class] ?? [] as $attr) {
-                    /** @var \KrubiK\Attributes\WebAction $instance */
-                    $instance = $attr->newInstance();
-                    $finalPath = $this->_resolveRelativePathName($instance->getName(), $webAppPrefix); // Smart Path Resolution: Prepend prefix if path is relative (starts with '.')
-                    
-                    $route = $this->onWebAction($finalPath, $handlerCallback, $instance->getMethods(), ['description' => $instance->getDescription()]);
-
-                    // ✨ DECREE OF ENRICHMENT: Transfer the flag from attribute to Route instance.
-                    $route->autoEnrichPattern = $instance->autoEnrich;
-
-                    // Apply name if it exists, relative to nexus prefix
-                    $finalName = $this->_resolveRelativePathName($instance->getName(), $nexusNamePrefix);
-                    if ($finalName)
-                        $route->name($finalName);
-
-                    // Read policy from the specific attribute data and pass it to the _configureRoute closure
-                    $routeSpecificAccessPolicy = $instance->getAccessPolicy();
-                    $_configureRoute($route, $routeSpecificAccessPolicy);
-                }
-            }
-
-            // ONLY After all nexuses have been scanned, resolve the priorities.
-            if($isSingleNexus)
-                $this->prioritizeFallbacks();
-
-            // [CRITICAL FIX] Mark as integrated *after* successful processing.
-            $this->integratedNexuses[$className] = true;
-
-            // 🔥 EVENT: nexus.integrated — post-scan hook, run side-effects.
-            JackPoint::fire('nexus.integrated', $className, $this);
-
-        } catch (\ReflectionException $e) {
-
-            // 🔥 EVENT: nexus.failed — observability, not a crash.
-            $allowReport = JackPoint::fire('nexus.failed', $className, $e, $this);
-
-            if($allowReport !== false)
-                // Critical Error Handling:
-                AmethystMatrix::yell("Nexus Integration Failed: The Singularity Engine encountered a critical reflection error.", [
-                    'nexus_target' => $className,
-                    'error_message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]);
-        }
-    }
+    protected static array $nexusManifestCache = [];
 
     /**
      *                  🚀 HYPER NEXUS LOADER
@@ -1659,7 +847,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * @param string $filePath The absolute path to the PHP file.
      * @return string|null The FQCN (e.g., "App\KrubiK\Nexus\AdminNexus") or null if not found.
     */
-    private function extractFqcnFromFile(string $filePath): ?string
+    protected function extractFqcnFromFile(string $filePath): ?string
     {
         // Read the entire file content into memory. For typical class files, this is very fast.
         $content = @file_get_contents($filePath);
@@ -1737,7 +925,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     * @param  string|object $nexus  FQCN string or an instantiated Nexus object.
     * @return void
     */
-    private function injectSynapses(string|object $nexus): void
+    protected function injectSynapses(string|object $nexus): void
     {
         $nexusClassName = is_object($nexus) ? $nexus::class : $nexus;
 
@@ -2114,7 +1302,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * @param string|null $prefix The name from the class attribute (e.g., 'game.dashboard').
      * @return string The fully resolved name (e.g., 'game.dashboard.show_product').
      */
-    private function _resolveRelativePathName(?string $name, ?string $prefix): string
+    protected function _resolveRelativePathName(?string $name, ?string $prefix): string
     {
         if ($name === null) {
             return null;
@@ -2253,9 +1441,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
     /**
      * Get the current resolved Route object.
     */
-    public function currentResolvedHandler(): ?Route
+    public function activeRoute(): ?Route
     {
-        return $this->currentResolvedHandler;
+        return $this->activeRoute;
     }
 
     /**
@@ -2408,31 +1596,14 @@ class Krubot implements Countable // ⚡️✅️⚡️
         $vancore->run();
     }
 
-    // Add this new method to your Krubot.php class
     /**
      * =========================================================================
-     *  вҡЎ ON-DEMAND POLLING TRIGGER
-     * =========================================================================
-     *
-     * Fetches all pending updates from the Rubika API via 'getUpdates'
-     * and processes each one sequentially through the main routing engine.
-     * Ideal for Cron Jobs or webhook-less environments.
-     *
-
-     * @return array With The number of messages processed.
-    * /
-    public function processPendingUpdatesOld(): array
-    {
-        // Removed for LLM DeAmbiguousiaty...
-    } */
-
-    /**
-     * =========================================================================
-     *  ⚡ ON-DEMAND POLLING TRIGGER (Sovereign Edition v6.0)
+     *  ⚡ ON-DEMAND POLLING TRIGGER вҡЎ  (Sovereign Edition v6.0)
      * =========================================================================
      *
      * Fetches all pending updates via 'getUpdates' and dispatches them
      * to the Queue Architecture using the "Driver Identity Protocol".
+     * Ideal for Cron Jobs or webhook-less environments.
      *
      * Features:
      * 1. Auto-Detects Driver Identity (Bale/Rubika/etc).
@@ -2503,14 +1674,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
             'queued' => $queuedCount,
             'driver' => $currentIdentity
         ];
-
-        // =====================================================================
-        // 🏛️ MUSEUM OF LEGACY CODE (SYNC MODE ARCHIVE)
-        // =====================================================================
-        // The code below is the OLD Synchronous way (blocking).
-        // Kept for reference or emergency fallback debugging.
-
-        // Removed for LLM DeAmbiguousiaty...
     }
 
     /**
@@ -2547,8 +1710,131 @@ class Krubot implements Countable // ⚡️✅️⚡️
             "Chat ID is required via argument or builder ->chat()"
         );
     }
+
+    /**
+     * Resolves a dynamic, potentially translatable message string.
+     * This is the generic implementation of the Commander's HyperDX message pattern.
+     *
+     * @param null|string $message The raw message string (e.g., 'Hello', '::key|fallback').
+     * @param string $default The default message or translation key if $message is null.
+     * @return string The final, resolved message.
+    */
+    protected function resolveAndTranslateMessage(?string $message, string $default): string
+    {
+        // Use the route-specific message if provided, otherwise fall back to the default config key/string.
+        $messageText = $message ?? $default;
+
+        // If it's not a translation key, return it as is.
+        if (!str_starts_with($messageText, '::')) {
+            return $messageText;
+        }
+        
+        // It's a translation key. Let the alchemy begin.
+        $keyAndFallback = substr($messageText, 2);
+
+        // SUPER-CHARGED TRANSLATION LOGIC WITH FALLBACK
+        if (str_contains($keyAndFallback, '|')) {
+            // Explode with a limit of 2 to protect fallbacks that might contain '|'.
+            [$translationKey, $fallbackMessage] = explode('|', $keyAndFallback, 2);
+            $translated = __($translationKey);
+
+            // Laravel's __() helper returns the key if no translation is found. We use this feature.
+            return ($translated === $translationKey) ? $fallbackMessage : $translated;
+        }
+        
+        // No fallback provided, It's a simple translation key.
+        return __($keyAndFallback);
+    }
+
+    /**
+     * The Alchemist's Forge: A Platform-Aware Button Factory.
+     * This method dynamically crafts interactive join buttons based on the current platform context.
+     * It's the core of our dynamic, multi-platform ForceJoin experience.
+     *
+     * @param array<string|int> $channels The raw list of channel identifiers from the Route.
+     * @return array<\KrubiK\Keyboard\PowerButton> An array of fully-formed PowerButton objects.
+     */
+    protected function createPlatformAwareJoinButtons(array $channels): array
+    {
+        // First, ask the Oracle for our current reality.
+        $platform = Platform::tryFrom($this->resolveCurrentPlatform());
+        if(!$platform)
+            return []; // Platfrom Not Detected!
+
+        $buttons = [];
+
+        // The Alchemist's mapping of Rubika prefixes to human-readable types.
+        // As per your architectural revelation.
+        $rubikaMentionTypes = ['g' => 'گروه', 'c' => 'کانال'];
+
+        foreach ($channels as $channelId) {
+            $button = null; // Reset for each iteration
+
+            // The Grand Match: We shape reality based on the current platform.
+            switch (true) {
+                case $platform->matches('tg, bale'):
+                    $label = 'ورود به کانال'; // Translatable base
+                    if (is_numeric($channelId) && str_starts_with((string)$channelId, '-100')) {
+                        // Telegram Private Channel Logic: e.g., -100123456789
+                        $cleanId = substr((string)$channelId, 4);
+                        $url = 'https://t.me/c/' . $cleanId;
+                        $label = 'ورود به کانال خصوصی'; // More specific translatable
+                    } else {
+                        // Telegram Public Channel/User Logic: e.g., @KrubiK
+                        $cleanId = ltrim((string)$channelId, '@');
+                        $url = 'https://t.me/' . $cleanId;
+                        $label = "عضویت در @" . $cleanId; // Translatable
+                    }
+                    $button = PowerButton::link("⬅️ " . $label, $url);
+                    break;
+
+                case $platform->matches('rubika'):
+                    // As you brilliantly pointed out, all IDs are strings.
+                    // We use the prefix to divine the entity type.
+                    $prefix = substr((string)$channelId, 0, 1);
+                    
+                    // We only care about joinable entities: Channels ('c') and Groups ('g').
+                    if (array_key_exists($prefix, $rubikaMentionTypes)) {
+                        $entityType = $rubikaMentionTypes[$prefix]; // "کانال" or "گروه"
+                        $label = "عضویت در {$entityType}"; // e.g., "عضویت در کانال"
+                        
+                        // Rubika uses an in-app linking scheme, not a standard web URL.
+                        // This creates the correct deep link for the Rubika client.
+                        $url = 'rubika://join/' . $channelId; 
+
+                        $button = PowerButton::link("⬅️ " . $label, $url);
+                    }
+                    // If it's a 'u' (User) or 'b' (Bot), we can't "join" it. We ignore it.
+                    break;
+                
+                // Future-proofing: Add cases for 'web', 'bale', 'eitaa', etc.
+                // case 'web':
+                //     // For a web platform, maybe the link is a standard URL.
+                //     if (filter_var($channelId, FILTER_VALIDATE_URL)) {
+                //         $label = "Visit Page";
+                //         $button = PowerButton::link("⬅️ " . $label, $channelId);
+                //     }
+                //     break;
+
+                default:
+                    // If the platform is unknown or doesn't support joining, we do nothing.
+                    // This prevents errors and ensures graceful degradation.
+                    AmethystMatrix::prophesy('ForceJoin Button Creation', 'Unsupported or unknown platform for ForceJoin.', [
+                        'platform' => $platform,
+                        'channel_id' => $channelId
+                    ]);
+                    break;
+            }
+
+            if ($button) {
+                $buttons[] = $button;
+            }
+        }
+
+        return $buttons;
+    }
     
-    private function resolveRoutingSignal(Message $message): array
+    protected function resolveRoutingSignal(Message $message): array
     {
         $tuple = $this->resolveRoutingSignalCore($message);
 
@@ -2579,8 +1865,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * Resolves the primary routing signal from a Message object.
      * This is the polymorphic radar of the engine.
      * Priority: WebAction > WebApp > Callback > Text
-     */
-    private function resolveRoutingSignalCore(Message $message): array
+    */
+    protected function resolveRoutingSignalCore(Message $message): array
     {
 
         // =========================================================================
@@ -2696,7 +1982,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
         return [$routingType, $routingPayload, [], $envelopeSignal, $contentSignal];
     }
 
-    private function parseActionPayload(string $payload): array
+    protected function parseActionPayload(string $payload): array
     {
         $parsed = $this->parseActionPayloadCore($payload);
 
@@ -2722,7 +2008,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
      *
      * @return array{0:?string,1:array<string,mixed>}
     */
-    private function parseActionPayloadCore(string $payload): array
+    protected function parseActionPayloadCore(string $payload): array
     {
         $payload = trim($payload);
 
@@ -2853,483 +2139,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
         return [null, []];
     }
 
-    /**
-     * Resolves a dynamic, potentially translatable message string.
-     * This is the generic implementation of the Commander's HyperDX message pattern.
-     *
-     * @param null|string $message The raw message string (e.g., 'Hello', '::key|fallback').
-     * @param string $default The default message or translation key if $message is null.
-     * @return string The final, resolved message.
-    */
-    private function resolveAndTranslateMessage(?string $message, string $default): string
-    {
-        // Use the route-specific message if provided, otherwise fall back to the default config key/string.
-        $messageText = $message ?? $default;
-
-        // If it's not a translation key, return it as is.
-        if (!str_starts_with($messageText, '::')) {
-            return $messageText;
-        }
-        
-        // It's a translation key. Let the alchemy begin.
-        $keyAndFallback = substr($messageText, 2);
-
-        // SUPER-CHARGED TRANSLATION LOGIC WITH FALLBACK
-        if (str_contains($keyAndFallback, '|')) {
-            // Explode with a limit of 2 to protect fallbacks that might contain '|'.
-            [$translationKey, $fallbackMessage] = explode('|', $keyAndFallback, 2);
-            $translated = __($translationKey);
-
-            // Laravel's __() helper returns the key if no translation is found. We use this feature.
-            return ($translated === $translationKey) ? $fallbackMessage : $translated;
-        }
-        
-        // No fallback provided, It's a simple translation key.
-        return __($keyAndFallback);
-    }
-
-    /**
-     * The Alchemist's Forge: A Platform-Aware Button Factory.
-     * This method dynamically crafts interactive join buttons based on the current platform context.
-     * It's the core of our dynamic, multi-platform ForceJoin experience.
-     *
-     * @param array<string|int> $channels The raw list of channel identifiers from the Route.
-     * @return array<\KrubiK\Keyboard\PowerButton> An array of fully-formed PowerButton objects.
-     */
-    private function createPlatformAwareJoinButtons(array $channels): array
-    {
-        // First, ask the Oracle for our current reality.
-        $platform = Platform::tryFrom($this->resolveCurrentPlatform());
-        if(!$platform)
-            return []; // Platfrom Not Detected!
-
-        $buttons = [];
-
-        // The Alchemist's mapping of Rubika prefixes to human-readable types.
-        // As per your architectural revelation.
-        $rubikaMentionTypes = ['g' => 'گروه', 'c' => 'کانال'];
-
-        foreach ($channels as $channelId) {
-            $button = null; // Reset for each iteration
-
-            // The Grand Match: We shape reality based on the current platform.
-            switch (true) {
-                case $platform->matches('tg, bale'):
-                    $label = 'ورود به کانال'; // Translatable base
-                    if (is_numeric($channelId) && str_starts_with((string)$channelId, '-100')) {
-                        // Telegram Private Channel Logic: e.g., -100123456789
-                        $cleanId = substr((string)$channelId, 4);
-                        $url = 'https://t.me/c/' . $cleanId;
-                        $label = 'ورود به کانال خصوصی'; // More specific translatable
-                    } else {
-                        // Telegram Public Channel/User Logic: e.g., @KrubiK
-                        $cleanId = ltrim((string)$channelId, '@');
-                        $url = 'https://t.me/' . $cleanId;
-                        $label = "عضویت در @" . $cleanId; // Translatable
-                    }
-                    $button = PowerButton::link("⬅️ " . $label, $url);
-                    break;
-
-                case $platform->matches('rubika'):
-                    // As you brilliantly pointed out, all IDs are strings.
-                    // We use the prefix to divine the entity type.
-                    $prefix = substr((string)$channelId, 0, 1);
-                    
-                    // We only care about joinable entities: Channels ('c') and Groups ('g').
-                    if (array_key_exists($prefix, $rubikaMentionTypes)) {
-                        $entityType = $rubikaMentionTypes[$prefix]; // "کانال" or "گروه"
-                        $label = "عضویت در {$entityType}"; // e.g., "عضویت در کانال"
-                        
-                        // Rubika uses an in-app linking scheme, not a standard web URL.
-                        // This creates the correct deep link for the Rubika client.
-                        $url = 'rubika://join/' . $channelId; 
-
-                        $button = PowerButton::link("⬅️ " . $label, $url);
-                    }
-                    // If it's a 'u' (User) or 'b' (Bot), we can't "join" it. We ignore it.
-                    break;
-                
-                // Future-proofing: Add cases for 'web', 'bale', 'eitaa', etc.
-                // case 'web':
-                //     // For a web platform, maybe the link is a standard URL.
-                //     if (filter_var($channelId, FILTER_VALIDATE_URL)) {
-                //         $label = "Visit Page";
-                //         $button = PowerButton::link("⬅️ " . $label, $channelId);
-                //     }
-                //     break;
-
-                default:
-                    // If the platform is unknown or doesn't support joining, we do nothing.
-                    // This prevents errors and ensures graceful degradation.
-                    AmethystMatrix::prophesy('ForceJoin Button Creation', 'Unsupported or unknown platform for ForceJoin.', [
-                        'platform' => $platform,
-                        'channel_id' => $channelId
-                    ]);
-                    break;
-            }
-
-            if ($button) {
-                $buttons[] = $button;
-            }
-        }
-
-        return $buttons;
-    }
-
-    private const JUDGE_RESULT_PARDON = 1;
-    private const JUDGE_RESULT_HALT = 2;
-    private const JUDGE_NOT_FOUND = 3;
-
-    /**
-     * The Supreme Judge Tribunal.
-     * Centralizes the logic for finding, summoning, and interpreting a custom "Judge" method.
-     *
-     * @param Route $route The context route.
-     * @param null|string $judgeDirective The message string, potentially starting with '.' to signify a Judge.
-     * @param array $customPayload The specific evidence payload for this case (e.g., channels or guard info).
-     * @return int Returns JUDGE_RESULT_PARDON on pardon, JUDGE_RESULT_HALT on halt, JUDGE_NOT_FOUND if no Judge was invoked.
-    */
-    private function tryInvokeJudge(Route $route, ?string $judgeDirective, array $customPayload = []): int
-    {
-        // If there's no directive or it doesn't start with the Judge sigil, court is not in session.
-        if ($judgeDirective === null || !str_starts_with($judgeDirective, '.')) {  // Changed to DOT Notation ;)
-            return self::JUDGE_NOT_FOUND; // Case dismissed, proceed to default sentencing.
-        }
-
-        // --- THE JUDGE'S CHAMBERS (NEW PARADIGM) ---
-        $methodName = substr($judgeDirective, 1);
-        $action = $route->getAction();
-
-        // X-1-X :: EXTRACT THE CONTROLLER'S BLUEPRINT from the Route's action
-        $controllerClass = null;
-        if (is_array($action) && is_string($action[0])) {
-            $controllerClass = $action[0];
-        } elseif (is_string($action) && str_contains($action, '@')) {
-            $controllerClass = explode('@', $action, 2)[0];
-        }
-
-        // We can only summon a Judge if it resides within a class-based controller.
-        // A Closure route has no class context for the Judge to exist in.
-        if (!$controllerClass) {
-            return self::JUDGE_NOT_FOUND;
-        }
-
-        // X-2-X :: SUMMON THE CONTROLLER INSTANCE for this judgment.
-        // We follow the sacred rule: use Laravel's container if available, otherwise new.
-        $controllerInstance = function_exists('app') ? app($controllerClass) : new $controllerClass();
-
-        // X-3-X :: VERIFY THE JUDGE'S EXISTENCE on the summoned controller.
-        // Does the designated Judge (custom method) exist in the current Nexus?
-        if (method_exists($controllerInstance, $methodName)) {
-
-            // --- THE JUDGEMENT ---
-            // We summon the Judge, pass it the evidence (required channels),
-            // and capture its final, binding verdict.
-            /// $verdict = $controllerInstance->{$methodName}($route->forceJoinChannels);
-
-            // X-4-X :: Forge the Reflection of the Judge's method.
-            // This is the key to unlocking the auto-wiring engine.
-            $reflection = new \ReflectionMethod($controllerInstance, $methodName);
-
-            // The base payload, always available to any Judge.
-            // We pass the standard context, making the handler a first-class citizen.
-            $basePayload = [
-                'bot'     => $this,
-                'message' => $this->thisMessage(),
-                'msg'     => $this->thisMessage(),
-            ];
-
-            // X-5-X :: Prepare the payload for the KRUBOT-DI engine.
-            // We provide not just the custom data, but also the context of the current request.
-            // THE CRITICAL EVIDENCE injected via $customPayload:
-            // Any developer's custom handler can now type-hint forExample:: `array $requiredChannels`.
-            // Merge the specific evidence with the standard context.
-            $finalPayload = array_merge($customPayload, $basePayload);
-            
-            // X-6-X :: Invoke the Judge using the framework's own sacred engine.
-            // This is no longer a simple call; it's a DI-powered invocation.
-            $verdict = $this->invokeWithAutoWiring(
-                method: $reflection,
-                targetInstance: $controllerInstance, // Correctly using the summoned instance.
-                payloadData: $finalPayload,
-                extraInjects: [$this, $this->thisMessage()]
-            );
-
-            // Return the final verdict: true for pardon, false for halt.
-            return ($verdict === true) ? self::JUDGE_RESULT_PARDON : self::JUDGE_RESULT_HALT;
-        }
-
-        // The specified Judge was not found on the controller.
-        return self::JUDGE_NOT_FOUND;
-    }
-
-    /**
-     * Evaluates the #[When] guards for a given route candidate.
-     * This is the new gatekeeper, called INSIDE the main routing loop.
-     * It enables "continue-on-fail" logic.
-     *
-     * @param Route $route The route object to check.
-     * @param Message $message The current message context.
-     * @return bool Returns true if all guards pass, false otherwise.
-    */
-    protected function evaluateRouteGuards(Route $route, Message $message): bool
-    {
-        // === HYPER-PERFORMANCE PATH (NO REFLECTION) ===
-        $whenGuards = $route->getGuards();
-
-        // If there are no guards, the way is clear.
-        // If there are no #[When] attributes, this entire logic block is skipped instantly.
-        // Zero performance cost for unguarded methods.
-        if (empty($whenGuards)) {
-            return true;
-        }
-        
-        // --- The Guardian Logic ---
-        // Optimization: Fetch the UserStorage driver instance only once.
-        $userStorage = $this->userStorage();
-
-        // Micro-cache: If a method has multiple attributes for the same state key,
-        // (e.g., #[When('>level', 10)] and #[When('<level', 50)]),
-        // we hit the storage only ONCE for that key per request.
-        $stateKeyCache = []; // Cache is now localized to this check
-
-        foreach ($whenGuards as $when) {
-            /** @var \KrubiK\Attributes\When $when */
-            // newInstance() is fast now, thanks to our optimized, non-reflection constructor.
-            $conditionMet = false;
-            $key = $when->stateKey;
-            
-            // Use the per-request cache to avoid redundant storage hits (Cache-First).
-            if (!array_key_exists($key, $stateKeyCache)) {
-                $exists = $userStorage->has($key);
-                $stateKeyCache[$key] = [
-                    'exists' => $exists,
-                    'value'  => $exists ? $userStorage->get($key) : null,
-                ];
-            }
-            
-            $stateExists = $stateKeyCache[$key]['exists'];
-            $actualValue = $stateKeyCache[$key]['value'];
-
-            // This logic is designed based on our strict, predictable `When` attribute rules.
-            if (!$when->hasExpectedValue) {
-                // Case: #[When('state')] -> Pure existence check.
-                // The state must exist AND must not have been flushed to null.
-                $conditionMet = ($stateExists && $actualValue !== null);
-            } else {
-
-                // Case: Attribute has an expectedValue, e.g., #[When('state', 123)] or #[When('>level', 10)]
-                $expectedValue = $when->expectedValue;
-
-                switch ($when->operator) {
-                    case '=':
-                        // Passes if the actual value is strictly equal to the expected one.
-                        // This correctly handles #[When('state', null, 'msg')] because
-                        // a non-existent state's actualValue is null, so null === null passes.
-                        $conditionMet = ($actualValue === $expectedValue);
-                        break;
-    
-                    case '!':
-                        // Passes if the actual value is NOT equal.
-                        // If the state doesn't exist, its value is null, which is not equal
-                        // to any non-null expected value, so the condition correctly passes.
-                        $conditionMet = ($actualValue !== $expectedValue);
-                        break;
-    
-                    case '>':
-                        // Type-safe numeric comparison. Prevents errors and weird PHP type juggling.
-                        $conditionMet = $stateExists && is_numeric($actualValue) && is_numeric($expectedValue) && ($actualValue > $expectedValue);
-                        break;
-    
-                    case '<':
-                        // Type-safe numeric comparison.
-                        $conditionMet = $stateExists && is_numeric($actualValue) && is_numeric($expectedValue) && ($actualValue < $expectedValue);
-                        break;
-    
-                    case '~': // IN array
-                        // Type-safe "in_array" check. Fails safely if developer provides a non-array.
-                        $conditionMet = $stateExists && is_array($expectedValue) && in_array($actualValue, $expectedValue, true);
-                        break;
-    
-                    case '×': // NOT IN array
-                        // Type-safe "not in_array" check.
-                        $conditionMet = $stateExists && is_array($expectedValue) && !in_array($actualValue, $expectedValue, true);
-                        break;
-                }
-
-            }
-
-            if (!$conditionMet) {
-
-                // A condition was not met. We must stop and potentially send a message.
-                $failMessage = $when->failMessage;
-
-                // --- THE JUDGE'S SUMMONS (NOW CENTRALIZED) ---
-
-                if ($failMessage !== null) {
-
-                    $payload = [
-                        'guard'       => $when,
-                        'stateKey'    => $when->stateKey,
-                        'actualValue' => $actualValue,
-                    ];
-                    $verdict = $this->tryInvokeJudge($route, $failMessage, $payload);
-
-                    if ($verdict === self::JUDGE_RESULT_PARDON)
-                        // CLEMENCY! The Judge overrode the failure. Check the next guard.
-                        continue;
-
-                    // Guard failed, Request NOT Pardoned by the Judge.
-                    // Check if we need to send a message.
-                    if ($verdict === self::JUDGE_NOT_FOUND) {
-
-                        // --- THE STANDARD RESPONSE ---
-                        // This block executes if no Judge was summoned, or the Judge method didn't exist.
-                        // Use the centralized helper to resolve the message. No more F** DRY!
-                        $messageText = trim($this->resolveAndTranslateMessage(
-                            $failMessage, 
-                            "Access denied." // A fallback default, though it will rarely be used.
-                        ));
-                        
-                        if (!empty($messageText)) {
-                            $this->reply($messageText)->send();
-                        }
-                    }
-                }
-
-                // Signal failure to the routing loop.
-                return false;
-            }
-        }
-
-        // All guardians have reported success. The way is clear.
-        return true;
-    }
-
-    /**
-     * The ForceJoin Gatekeeper - ALCHEMIST EDITION.
-     * This final form transforms the denial message into a fully interactive, user-friendly guide.
-     * It uses the PowerButton architecture to create clickable, full-width inline buttons for each
-     * required channel, turning a restriction into an elegant call-to-action.
-     *
-     * @param Route $route The modern Route object being checked.
-     * @return bool Returns true if access is granted, false otherwise.
-     */
-    protected function handleForceJoinGuard(Route $route): bool
-    {
-        // O(1) Performance Check.
-        if (empty($route->forceJoinChannels)) {
-            return true;
-        }
-
-        $userId = $this->senderId();
-        if (!$userId) return false;
-
-        $allowedStatuses = ['creator', 'administrator', 'member'];
-        $accessGranted = true; // Assume loyalty until proven otherwise.
-
-        // --- PHASE 1: THE FAST GUARD (Performance) ---
-        // We check loyalty with ruthless efficiency. The moment one failure is found, we stop.
-        foreach ($route->forceJoinChannels as $channelId) {
-            $cacheKey = "forcejoin:{$userId}:in:{$channelId}";
-
-            // Check Amethyst memory first (The Just Caching).
-            if (AmethystMatrix::recall($cacheKey) === true) {
-                continue; // Loyalty confirmed from cache. Check next channel.
-            }
-
-            // Not in cache, we must verify with the source.
-            try {
-                $status = $this->core()->getChatMember($channelId, $userId)['result']['status'] ?? 'left';
-                if (in_array($status, $allowedStatuses, true)) {
-                    // Loyalty confirmed. Remember this success for 5 Minutes.
-                    AmethystMatrix::vault($cacheKey, true, 300);
-                } else {
-                    // FAILURE DETECTED!
-                    $accessGranted = false;
-                    break; // <-- THE DIVINE COMMAND! Halt all further checks.
-                }
-            } catch (\Throwable $e) {
-                AmethystMatrix::error('ForceJoin Guard API error.', ['user_id' => $userId, 'channel_id' => $channelId, 'error' => $e->getMessage()]);
-                $accessGranted = false;
-                break; // <-- On error, makes failure and HALT.
-            }
-        }
-
-        // --- PHASE 2: THE ALCHEMIST'S RESPONSE (Interactive Honesty) ---
-        // If access is still granted after all channels loop, it means the user is a member of all.
-        if ($accessGranted) {
-            return true;
-        }
-
-        // --- THE JUDGE'S CHAMBERS (NOW CENTRALIZED) ---
-        $payload = [
-            'requiredChannels' => $route->forceJoinChannels,
-            'channels'         => $route->forceJoinChannels,
-        ];
-        $verdict = $this->tryInvokeJudge($route, $route->forceJoinMessage, $payload);
-
-        // VERDICT ANALYSIS: Does the Judge grant clemency?
-        // A strict check for JUDGE_RESULT_PARDON is paramount. Only an explicit JUDGE_RESULT_PARDON
-        // constitutes an override to proceed.
-        if ($verdict === self::JUDGE_RESULT_PARDON) {
-            // Clemency granted. The guard stands down. The request shall pass.
-            return true;
-        }
-        
-        // If the verdict was JUDGE_RESULT_HALT,
-        // the judgement is to HALT. The guard's original duty is upheld.
-        if($verdict === self::JUDGE_RESULT_HALT)
-            return false;
-
-        // if $verdict === JUDGE_NOT_FOUND, so It should Render It's Deafult Messages Now ;)
-
-        // If we are here, it means access was denied and Judge Not accept his Defense/Submissions.
-        // Now, we provide the FULL and HONEST guide.
-        // We will use the ORIGINAL `$route->forceJoinChannels` list to build the message,
-        // ensuring the user gets the complete picture in one go.
-
-        // --- STANDARD RESPONSE (If no "Judge" was summoned or the request lacks a special recommendation) ---
-
-        // 1. Forge the PowerButtons using our new Platform-Aware Factory.
-        // This single line replaces the entire complex array_map block.
-        $buttons = $this->createPlatformAwareJoinButtons($route->forceJoinChannels);
-
-        // If no valid buttons could be created for this platform, don't send an empty keyboard.
-        if (empty($buttons)) {
-
-            // Fallback message to a simple text for platforms with no joinable buttons
-            $fallbackMessage = $this->resolveAndTranslateMessage(
-                $route->forceJoinMessage, // Still respect the custom message
-                '::krubot.errors.force_join_text_only|برای ادامه، عضویت در کانال‌های مورد نیاز الزامی است.'
-            );
-
-            $this->reply($fallbackMessage)->send();
-            return false;
-        }
-
-        // Resolve the master denial text using our new, powerful resolver.
-        $denialMessageText = $this->resolveAndTranslateMessage(
-            $route->forceJoinMessage,
-            // The default value is now a translation key itself, following the same pattern.
-            '::krubot.messages.force_join_denial|برای ادامه، عضویت در تمام کانال‌های زیر الزامی است. پس از عضویت، دوباره تلاش کنید:'
-            // Try to get the master text from config/lang files.
-        );
-
-        // 3. Send the final, powerful message with the interactive keyboard.
-        $this->reply($denialMessageText)
-            ->keyboard(
-                Keyboard::make()
-                    ->buttons($buttons)
-                    ->inline() // Command: Make it "شیشه‌ای" (Inline)
-                    ->chunk(1)  // Command: Ensure each button width is 100%
-            )
-            ->send();
-
-        // Signal the final failure.
-        return false;
-    }
-
     protected function validateRouteInput(Route|array $route): bool
     {
         $routeAttributes = $route instanceof Route
@@ -3457,606 +2266,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
         return false;
     }
 
-    // End Deprecation _ Area
-    // Welcome to New PowerFUL...
-    public function processUpdate(Message $message): void
-    {
-        $startedAt = microtime(true);
-        $before = JackPoint::fire('update.before', $message);
-
-        // Returning false is an explicit interception contract.
-        if ($before === false) {
-            $allowSkip = JackPoint::fire('update.skipped', $message);
-            if($allowSkip !== false)
-                return;
-        }
-
-        try {
-            $this->processUpdateKernel($message);
-            JackPoint::fire('update.after', $message, $this->response(), microtime(true) - $startedAt);
-        } catch (\Throwable $e) {
-            $allowReport = JackPoint::fire('update.failed', $message, $e, microtime(true) - $startedAt);
-            if($allowReport !== false)
-                throw $e;
-        } finally {
-            JackPoint::fire('update.finally', $message, $this->response(), microtime(true) - $startedAt);
-        }
-    }
-    /**
-     * =========================================================================
-     *  ⚡ THE ULTRA-POWERFUL ROUTING ENGINE v12.0 (MULTI-VERSE ULTIMATE CONSOLIDATED)
-     * =========================================================================
-     * 
-     * The definitive "Brain" of KrubiK.
-     * 
-     * 💎 PERFORMANCE ARCHITECTURE:
-     * 1. Normalization on-the-fly: Detects Route Object vs Array ONCE via `$isSmartRoute`.
-     * 2. Early Guards: Checks 'recipient' restrictions BEFORE expensive Regex engines.
-     * 3. Smart Matching: Exact Match (O(1)) -> Param Match (Fast String Search) -> Regex (Power).
-     * 4. Intelligent Assembly: Delegates middleware logic to Route Class #2 if available.
-     * 5. Dual-Pipeline: Laravel Pipeline (Preferred) -> Native Robust Fallback (with Aliases).
-     * 6. Now fully aware of the 4th Dimension: Glass Buttons (Callbacks) and Action-based Conversational Routing.
-     * 
-     * @param Message $message The incoming update message.
-    */
-    public function processUpdateKernel(Message $message): void
-    {
-        // =====================================================================
-        // PHASE 0: STATE INITIALIZATION & OPTIMIZATION
-        // =====================================================================
-        
-        // 1. Global State Injection
-        $this->currentMessage = $message;
-
-                // 2. Prime the fluent builder's chat_id from the message.
-        //
-        // WHY: CanSendFluentMessages::send() resolves the target via:
-        //   $targetChatId = $chatId ?? ($this->chat_id ?? null);
-        //   if (!$targetChatId) { $targetChatId = $this->builder_chat_id ?? throw ... }
-        //
-        // $this->chat_id is the NeonVitality / fluent builder's context property —
-        // it is NOT the same as $message->chat_id.  When Krubot::reply() calls
-        // $this->chat($this->chatId()), chatId() returns $message->chat_id which
-        // may be null if Message::fromInboundPayload() did not surface it.
-        //
-        // We prime all three sources from the heart DTO so send() always wins:
-        //   • $message->chat_id    → chatId() accessor used by reply()/say()
-        //   • $this->chat_id       → send() source 2
-        //   • $this->builder_chat_id → send() source 3 (last resort)
-        $heartChatId = (string) (
-            $message->chat_id
-            ?? $message->heart?->chatId
-            ?? $message->heart?->effectiveData['chat']['id']
-            ?? $message->heart?->coreData['message']['chat']['id']
-            ?? $message->heart?->coreData['callback_query']['message']['chat']['id']
-            ?? ''
-        );
-
-        if ($heartChatId !== '') {
-            // Surface on the Message object so chatId() accessor works
-            $message->chat_id ??= $heartChatId;
-
-            // Prime the fluent builder so send() finds it without chat() being called
-            $this->chat_id         = $heartChatId;
-            $this->builder_chat_id = $heartChatId;
-        }
-        
-        // 2. Primitive Extraction (Memory Optimization)
-        // Extract text once to avoid repeated property access. Ensure string type.
-        /// $text = $message->text ?? '';
-        
-        // 3. Reset Request State (Lazarus/Swoole/RoadRunner Compatibility)
-        // Crucial for long-running processes to prevent data leakage between requests.
-        $this->currentRouteParams = [];
-        $this->currentResolvedHandler = null;
-        $this->finalResponse = null;
-
-        $this->resetContextData(); // 🌋 THE ASYNC GUARDIAN: WIPE THE SLATE CLEAN! [bot->getX() && bot->setX() data]
-        $this->tunnelAmethyst($message); // We Can Auto-Fill it by $this->currentMessage, but not now!
-
-        // =========================================================================
-        // 🧠 SENSORY PRE-COMPUTATION (ONCE AND FOR ALL ROUTES)
-        // THE UNIFIED SIGNAL RESOLUTION ⚡️
-        // =========================================================================
-        // The call now unpacks 5 values. `resolveRoutingSignal` is now the
-        // Single Source of Truth for Every Signal detections.
-        [$routingType, $routingPayload, $actionParams, $envelopeSignal, $contentSignal] = $this->resolveRoutingSignal($message);
-
-        // Early exit if no signal and no fallback handler exists.
-        if ($routingType === self::RT_NONE && !$this->fallbackHandler) {
-            $this->tunnelAmethyst();
-            return;
-        }
-
-        $text = $routingPayload  ?? ''; // Fill $text from resolvedSignal
-
-        // =====================================================================
-        // PHASE 1: THE FINDER (MATCHING LOOP)
-        // =====================================================================
-        
-        $matchedRoute = null;
-        $finalRouteParams = [];
-        $isSmartRoute = false; // Optimization Flag
-        $isSmartRouteCandidate = false;
-
-        // The core of "The Great Filter". Defines which route types are valid for each signal.
-        $allowedMatches = [
-            // A text signal can match text, command, or regex routes.
-            self::RT_TEXT         => [self::RT_TEXT, self::RT_COMMAND, self::RT_REGEX],
-
-            // AN ACTION SIGNAL (from a callback_button OR web_app_data) can match a
-            // standard button Action or a WebAction. THIS IS OUR UNIFIED HIGHWAY.
-            self::RT_ACTION       => [self::RT_ACTION, self::RT_WEB_ACTION],
-
-            // ✨ NEW: An Inline Query signal can ONLY match an Inline Query route.
-            self::RT_INLINE       => [self::RT_INLINE],
-
-            // A message type signal (photo, video) matches type routes.
-            self::RT_SIGNAL         => [self::RT_SIGNAL],
-
-            // A direct Web Request signal can match a WebPage or a WebAction.
-            // This is for direct browser/AJAX calls to Laravel.
-            self::RT_WEB          => [self::RT_WEB_APP, self::RT_WEB_PAGE, self::RT_WEB_ACTION],  // A generic  WebApp signal can match ANY web route type        
-
-            /// self::RT_WEB_APP_DATA => [self::RT_WEB_ACTION], // But Data from JS `[TG||Bl].WebApp.sendData()` should trigger a WebAction
-            /// self::RT_WEB_ACTION   => [self::RT_WEB_ACTION],
-        ];
-
-        // This line finds the valid route types for the given signal.
-        $validRouteTypesForSignal = $allowedMatches[$routingType] ?? [];
-
-        /*
-        if(empty($validRouteTypesForSignal)) {
-            // If the signal type doesn't map to any valid route types, we can potentially exit early.
-            // However, the conversation interceptor logic below might still need to run, so we proceed.
-        }
-        */
-
-        // ⚔️ RESOLVE CURRENT PLATFORM ONCE - BEFORE THE LOOP ⚔️
-        // This value is constant for the entire request lifecycle.
-        $currentPlatform = $this->resolveCurrentPlatform();
-
-        // Iterate through all registered routes to find the FIRST match.
-        foreach ($this->routes as $pattern => $routeItem) {
-
-            // --- A) PRE-COMPUTATION & ATTRIBUTE EXTRACTION ---
-            $isSmartRouteCandidate = ($routeItem instanceof Route);
-            $attributes = $isSmartRouteCandidate ? $routeItem->getAttributes() : ($routeItem['attributes'] ?? []);
-            $routeTypeAttribute = $isSmartRouteCandidate ? $routeItem->type : ($attributes['_route_type'] ?? null);
-            $routeTypeAttribute ??= self::RT_TEXT;
-
-            // ⚡️ GREAT FILTER ⚡️
-            // If the route's type is not in the list of valid types for the current signal, skip it instantly.
-            if (!in_array($routeTypeAttribute, $validRouteTypesForSignal, true)) {
-                continue;
-            }
-            
-            // --- A) NORMALIZATION & TYPE DETECTION ---
-            // We determine the route type HERE to avoid `instanceof` checks in the critical execution path later.
-            
-            if (is_object($routeItem) && method_exists($routeItem, 'getPlatforms')) {
-                // MODERN: Route Object (Class #2)
-                // We call getAttributes() to handle Guard checks.
-                // $attributes = method_exists($routeItem, 'getAttributes') ? $routeItem->getAttributes() : [];
-                $isSmartRouteCandidate = true; 
-            } elseif (is_array($routeItem)) {
-                // LEGACY: Array Structure ['action' => ..., 'attributes' => ...]
-                $attributes = $routeItem['attributes'] ?? [];
-                $isSmartRouteCandidate = false;
-            } else {
-                // RAW: Callable fallback
-                $attributes = [];
-                $isSmartRouteCandidate = false;
-            }
-
-            // --- B) SECURITY GUARDS (PRE-REGEX OPTIMIZATION) ---
-            // strict conditions checked BEFORE running expensive Regex engine.
-
-            // 🛡️ ADVANCED GATES 🛡️
-            // This checks only runs on modern Route objects that support these features.
-            if ($isSmartRouteCandidate) {
-
-                // 🛡️ GATE 1: THE PLATFORM GUARD (CRITICAL ADDITION) 🛡️
-                // This is where we enforce #[RestrictTo] attributes.
-                if(!$routeItem->isAllowedOn($currentPlatform))
-                    // ❌ اجازه عبور نداری! به روت بعدی برو.
-                    continue; // SILENTLY DENY. The user on the wrong platform should not know this route exists.
-
-                // ✨🛡️ GATE 2: THE FORCEJOIN GUARD (THE DIVINE WILL) 🛡️✨
-                // BEFORE any other logic, we ensure the user has pledged their allegiance by joining the required channels.
-                if(!$this->handleForceJoinGuard($routeItem)) {
-                    // Access is denied. The guard has already informed the user.
-                    // We must halt all further processing for THIS request.
-                    // We clear the amethyst tunnel and exit the entire processUpdate method.
-                    $this->tunnelAmethyst();
-                    return;
-                }
-            }
-            
-            // GATE 3: Recipient / Channel Restriction
-            if (!empty($attributes['recipient'])) {
-                $allowedRecipients = (array) $attributes['recipient'];
-                $currentChatId = $this->chatId();
-                $currentSenderId = $this->senderId();
-                
-                // Logic: Must match EITHER the ChatID OR the SenderID.
-                if (!in_array($currentChatId, $allowedRecipients) && !in_array($currentSenderId, $allowedRecipients)) {
-                    continue; // Skip this route immediately
-                }
-            }
-            
-            // GATE 3: Driver/Platform Restriction (Future Proofing)
-            // if (!empty($attributes['driver']) && $attributes['driver'] !== 'rubika') { continue; }
-
-            // --- C) PATTERN MATCHING ENGINE ---
-            // ⚡ Now matching against $routingTarget instead of just $text
-            $isMatch = false;
-            $matches = [];
-
-            // Strategy 1: Exact String Match (Fastest - O(1))
-            if ($text === $pattern) {
-                $isMatch = true;
-            }
-            // STRATEGY 2: [NEW] PARAMETERIZED WEB PATH MATCHER (CURLY BRACE NOTATION)
-            // It runs ONLY for web signals on patterns that contain in-url parameters.
-            // It is now the primary engine for WebApp/WebAction routes.
-            elseif ($routingType === self::RT_WEB) {
-                // حذف پیشوندهای مربوط به وب
-                $webPrefixes = ['WAPP::', 'WACT::'];
-                $cleanPattern = $pattern;
-                foreach ($webPrefixes as $prefix) {
-                    if (str_starts_with($pattern, $prefix)) {
-                        $cleanPattern = substr($pattern, strlen($prefix));
-                        break;
-                    }
-                }
-            
-                // اگر الگوی تمیز دارای پارامتر باشد، از demystifyWebPath استفاده کن
-                if (
-                    method_exists($this, 'demystifyWebPath') &&     // if HasWebInterface Trait is Loaded
-                    str_contains($cleanPattern, '{')                // Only for patterns with potential parameters
-                ) {
-                    // We delegate the complex matching logic to a new, dedicated helper method.
-                    // This keeps the main loop clean and readable.
-                    [$isMatch, $matches] = $this->demystifyWebPath($cleanPattern, $text);
-                } else {
-                    // تطبیق ساده
-                    $isMatch = ($text === $cleanPattern);
-                    $matches = [];
-                }
-            }
-            // Strategy 3: NEW ✨ INLINE QUERY MATCH (HYPER-OPTIMIZED) ✨
-            // This block will only be evaluated if the Great Filter passed an RT_INLINE_QUERY signal.
-            elseif ($routeTypeAttribute === self::RT_INLINE) {
-                // Case A: Catch-all route. Matches any inline query.
-                if ($pattern === '__ANY__') {
-                    $isMatch = true;
-                }
-                // Case B: Regex/Prefix match. We already converted prefixes to regex in the `onInlineQuery` method.
-                // We trust the pattern is a valid regex here.
-                elseif (@preg_match($pattern, $text, $m)) {
-                    $isMatch = true;
-                    // Extract capture groups for parameter injection.
-                    // Slicing off the full match at index 0.
-                    $matches = array_slice($m, 1);
-                }
-            }
-            // 👁️ Strategy 4: SENSORY TYPE MATCH (TRUE O(1) HYPER-PERFORMANCE) ⚡
-            // Evaluates if the route is a Type route and matches our pre-calculated $detectedMediaType
-            elseif (str_starts_with($pattern, 'TYPE::')) {
-                // Determine actual type defined in route, e.g., 'TYPE::photo' -> 'photo'
-                $expectedType = substr($pattern, 6); 
-
-                // 1. Get the strategy flag injected into the Route during definition in onType().
-                // This is the "Strategy-Aware Route" Concept in Action.
-                $useEnvelopeStrategy = $route->getAttribute('_signal_class', false);
-
-                // 2. Select the correct, pre-computed signal based on the route's own preference.
-                $detectedMediaType = $useEnvelopeStrategy ? $envelopeSignal : $contentSignal;
-                
-                /// 👁️ Re-Awaken the Sensory Engine: Detect the physical type of this message.
-                /// $detectedMediaType = $this->detectMessageType($message); // This is now done in resolveRoutingSignal
-                
-                // 3. Perform a lightning-fast comparison. No more detectMessageType() calls here.
-                if ($expectedType === $detectedMediaType) {
-                    $isMatch = true;
-                }
-            }
-            // Strategy 5: Parameterized Match (e.g., "/cmd {param}")
-            // Optimization: `str_contains` is significantly faster than `preg_match` for pre-check.
-            elseif (str_contains($pattern, '{') && str_contains($pattern, '}')) {
-                // Escape literals, then convert {param} to Named Group (?<param>.*?)
-                // We strictly expect Start(^) and End($) anchors.
-                $safePattern = preg_quote($pattern, '/');
-                $regex = '/^' . preg_replace('/\\\{(\w+)\\\}/', '(?<$1>.*?)', $safePattern) . '$/iu';
-                
-                if (preg_match($regex, $text, $m)) {
-                    $isMatch = true;
-                    // Filter to keep ONLY named string keys for Dependency Injection
-                    $matches = array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY);
-                }
-            }
-            // Strategy 6: Explicit Regex Match (Power User)
-            // Heuristic: Starts/Ends with slash "/" and length > 2 (to avoid empty "//")
-            elseif (str_starts_with($pattern, '/') && str_ends_with($pattern, '/') && strlen($pattern) > 2) {
-                if (preg_match($pattern, $text, $m)) {
-                    $isMatch = true;
-                    // Extract named groups if exist, otherwise use positional matches (slicing off full match)
-                    $named = array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY);
-                    $matches = !empty($named) ? $named : array_slice($m, 1);
-                }
-            } 
-
-            // --- D) MATCH CONFIRMATION ---
-            if ($isMatch) {
-
-                // A pattern match was found. NOW, we consult the guards.
-                // This check only applies to modern, "smart" Route objects.
-                // We assume legacy routes do not have guards.
-                if ($isSmartRouteCandidate && ($routeItem instanceof Route)) {
-
-                    // Call our new gatekeeper.
-                    if ($this->evaluateRouteGuards($routeItem, $message)) {
-                        // ✅ GUARDS PASSED! This is our winner.
-                        // Lock in the route and break the loop.
-                        $matchedRoute = $routeItem;
-                        $finalRouteParams = $matches;
-                        $isSmartRoute = true; // Confirmed smart route
-                        break; // FIRST *VALID* MATCH WINS - Break the loop.
-                    } else {
-                        // ❌ GUARDS FAILED!
-                        // The user's strategy in action: Silently ignore this match.
-                        // Continue the loop to search for the next candidate.
-                        continue;
-                    }
-
-                } else {
-                    // This is a legacy route (array or simple callable) without guards.
-                    // A pattern match is enough.
-                    $matchedRoute = $routeItem;
-                    $finalRouteParams = $matches;
-                    $isSmartRoute = false;
-                    break; // FIRST MATCH WINS - Break the loop.
-                }
-        }
-        }
-
-        // Merge action params (from button payload) with route params
-        // Route params take precedence only if same key appears later:
-        // choose your policy. Here: action params first, route params overwrite.
-        $finalRouteParams = array_merge($actionParams, $finalRouteParams);
-                
-        $middlewareStack = [];
-        $finalHandler = null;
-
-        // =====================================================================
-        // PHASE 2: THE COMPILER (STACK ASSEMBLY)
-        // =====================================================================
-
-        if ($matchedRoute) {
-
-            // PATH 2-1: HAPPY PATH - A GLOBAL ROUTE WAS SUCCESSFULLY MATCHED
-            // Route exists. Compile the handler and its middleware stack here.
-
-            // 1. Save Context for Middleware Inspection
-            $this->currentResolvedHandler = $matchedRoute; // is_object($matchedRoute) && $matchedRoute instanceof Route ? $matchedRoute : null;
-            $this->currentRouteParams = $finalRouteParams;
-
-            // 2. Assemble Handler & Middleware Stack
-            // We leverage the `$isSmartRoute` flag computed in Phase 1.
-
-            if ($isSmartRoute && $matchedRoute instanceof Route) {
-                // === MODERN PATH (Route Class #2) ===
-                // Delegate logic to the Route object. It knows how to merge Global + Local
-                // and handle 'skipGlobalMiddlewares' intelligently.
-                
-                $finalHandler = $matchedRoute->getAction();
-                $middlewareStack = $matchedRoute->getMiddlewareStack($this->globalMiddlewares);
-                
-            } else {
-                // === LEGACY PATH (Backwards Compatibility) ===
-                // Manual extraction and merging.
-                
-                $routeItemArr = is_array($matchedRoute) ? $matchedRoute : ['action' => $matchedRoute];
-                $finalHandler = $routeItemArr['action'] ?? null;
-                
-                $attrs = $routeItemArr['attributes'] ?? [];
-                $routeMiddlewares = $attrs['middleware'] ?? [];
-                if (!is_array($routeMiddlewares)) $routeMiddlewares = [$routeMiddlewares];
-                
-                // Simulate 'withoutGlobalMiddleware' manually for arrays
-                if (($attrs['withoutGlobalMiddleware'] ?? false) === true) {
-                    $middlewareStack = $routeMiddlewares;
-                } else {
-                    // Standard Order: Global (Outer) -> Local (Inner)
-                    $middlewareStack = array_merge($this->globalMiddlewares, $routeMiddlewares);
-                }
-            }
-
-        }
-
-        // NO specific route was matched. Time to check for fallbacks.
-        else {
-
-            // PATH 2-2: NO GLOBAL ROUTE MATCHED. NOW WE INVESTIGATE WHY.
-            // No route matched. Handle interceptors, actions, and fallback scenarios here.
-
-            // Keep parameters available for any downstream interceptors or fallback handlers
-            $this->currentRouteParams = $finalRouteParams;
-
-            // An ORPHANED BUTTON CLICK was detected. Force it into the pipeline
-            // so ConversationMiddleware can check if it belongs to an active conversation.
-            if ($routingType === self::RT_ACTION) {
-                // Never drop callback actions directly.
-                // The Magic Interceptor must run to let ConversationMiddleware catch it.
-                // Force global middleware pipeline so ConversationMiddleware can consume #[Action].
-                $finalHandler = static function () use ($message) {
-                    // intentional no-op
-                    // This handler ideally never runs if ConversationMiddleware consumes action and does its job.
-                    // ConversationMiddleware, can stop the flow here.
-                    // It's a safety net logger.
-
-                    AmethystMatrix::warning(
-                        "Orphaned Callback Triggered: No global route caught this. ConversationMiddleware will now inspect.", 
-                        ['details' => $message, 'payload' => $message->button_id ?? 'N/A']
-                    );
-                };
-                // Force the global stack which includes ConversationMiddleware.
-                $middlewareStack = $this->globalMiddlewares;
-
-                // then continue to pipeline execution branch
-            }
-
-            else {
-
-                // Any other unmatched message. Check for our new fallback system.
-                // Prioritize Type-Specific Fallbacks first.
-
-                 // PHASE 2.5: DUAL-DETECTION FALLBACK RESOLUTION
-                // Executed ONLY if no specific route matched. This logic respects the developer's intent
-                // by checking for fallbacks against both Content-first and Envelope-first detection strategies.
-
-                $finalHandler = null;
-
-                // Step 1: Detect with standard priority (Content-first).
-                // This is the most common use case, e.g., fallback for any 'photo' or 'sticker'.
-                $contentFirstType = $this->detectMessageType($message, false); // $prioritizeEnvelopeDetection = false
-                if ($contentFirstType !== Signal::Void && isset($this->typeFallbackHandlers[$contentFirstType])) {
-                    $finalHandler = $this->typeFallbackHandlers[$contentFirstType];
-                }
-
-                // Step 2: If no match, re-detect with inverted priority (Envelope-first).
-                // This catches fallbacks for events like 'edited_message' or 'callback_query'
-                // even if the content-first detection identified something else (e.g., 'text' inside an edit).
-                if ($finalHandler === null) {
-                    $envelopeFirstType = $this->detectMessageType($message, true); // $prioritizeEnvelopeDetection = true
-                    // We also check if the detected type is different from the first pass to avoid redundant lookups.
-                    if ($envelopeFirstType !== Signal::Void &&
-                        $envelopeFirstType !== $contentFirstType &&
-                        isset($this->typeFallbackHandlers[$envelopeFirstType]))
-                    {
-                        $finalHandler = $this->typeFallbackHandlers[$envelopeFirstType];
-                    }
-                }
-
-                // Now, resolve the final handler based on the dual-detection results.
-                if ($finalHandler) {
-                    // A type-specific handler was found through one of the strategies.
-                    $middlewareStack = $this->globalMiddlewares;
-                }
-                // Step 3: Global Fallback as the ultimate safety net.
-                // This runs if neither Content-first nor Envelope-first detection inspected a specific fallback.
-                elseif ($this->fallbackHandler) {
-                    $finalHandler = $this->fallbackHandler;
-                    // Run Global Middlewares to ensure logging/security even on 404s.
-                    $middlewareStack = $this->globalMiddlewares;
-                }
-                // Step 4: Absolute Dead End. No route, no fallback.
-                else { // not found ?
-                    // # Dead End #
-                    $this->tunnelAmethyst(null); // clear AmethystMatrix working message entry; Then::
-                    return; // End of the line. — No PIPELINE RUNNER needed for nothin!
-                }
-            }
-
-        }
-
-        // =====================================================================
-        // PHASE 3: THE RUNNER (PIPELINE EXECUTION)
-        // =====================================================================
-        
-        // The final destination closure that executes the current matching handler.
-        $destination = function ($bot) use ($finalHandler, $message, $finalRouteParams, $matchedRoute) {
-
-            // ================================================================
-            // 🛡️ VALIDATION GATE
-            // ================================================================
-            if ($matchedRoute && (!$this->validateRouteInput($matchedRoute))) {
-                // Validation already rendered the proper response/reply.                
-                return null;   // DO NOT execute the Handler.
-            }
-
-            // Execute the action with dependency injection or parameters, retrieving the raw output of destianation method.
-            $actionResult = $this->callAction($finalHandler, $message, $finalRouteParams);
-
-            if(method_exists($this, 'response')) // if HasWebInterface Trait is Loaded,
-                $this->response($actionResult); // Standardize the raw output into a clean HTTP Response object immediately, save it into ?$finalResponse.
-
-            return $actionResult;
-        };
-
-        // OPTION A: LARAVEL PIPELINE (The Gold Standard)
-        // Used when running inside a Laravel Application (Artisan/Http).
-        if (class_exists(\Illuminate\Pipeline\Pipeline::class) && function_exists('app')) {
-            app(\Illuminate\Pipeline\Pipeline::class)
-                ->send($this)
-                ->through($middlewareStack)
-                ->then($destination);
-        } 
-        // OPTION B: NATIVE ROBUST FALLBACK (The Heavy Lifter)
-        // Used for standalone scripts or lightweight setups. 
-        // Enhanced to support Aliases, Invokables, and Standard Middleware methods.
-        else {
-            $pipeline = array_reduce(
-                array_reverse($middlewareStack),
-                function ($next, $middleware) {
-                    return function ($bot) use ($next, $middleware) {
-                        
-                        // --- 1. Resolve Aliases ---
-                        // Check if 'auth' maps to 'App\Middleware\Auth::class'
-                        if (is_string($middleware) && property_exists($this, 'middlewareAliases')) {
-                            if (isset($this->middlewareAliases[$middleware])) {
-                                $middleware = $this->middlewareAliases[$middleware];
-                            }
-                        }
-
-                        // --- 2. Instantiate & Execute ---
-                        
-                        // TYPE I: String Class Name
-                        if (is_string($middleware) && class_exists($middleware)) {
-                            $instance = new $middleware;
-                            
-                            // Prefer 'handle' method (Laravel Standard)
-                            if (method_exists($instance, 'handle')) {
-                                return $instance->handle($bot, $next);
-                            } 
-                            // Fallback to '__invoke' (Modern/Slim Standard)
-                            elseif (is_callable($instance)) {
-                                return $instance($bot, $next);
-                            }
-                            
-                            // Strict Failure if un-executable class is passed
-                            throw new \RuntimeException("Middleware [$middleware] is not executable (missing handle/__invoke).");
-                        }
-                        
-                        // TYPE II: Closure Middleware
-                        if ($middleware instanceof \Closure) {
-                             return $middleware($bot, $next);
-                        }
-                        
-                        // TYPE III: Object Instance
-                        if (is_object($middleware)) {
-                            if (method_exists($middleware, 'handle')) {
-                                return $middleware->handle($bot, $next);
-                            } elseif (is_callable($middleware)) {
-                                return $middleware($bot, $next);
-                            }
-                        }
-
-                        // Safety Net: Pass through if middleware is invalid/unrecognized
-                        return $next($bot);
-                    };
-                },
-                $destination
-            );
-
-            // Ignite the Native Pipeline
-            $pipeline($this);
-        }
-
-        $this->tunnelAmethyst(); // short syntax for `$this->tunnelAmethyst(null)` ; clears AmethystMatrix working message entry.
-    }
-
     /**
      * ⚡ THE ULTIMATE DISPATCHER v5.4
      * Dispatches the route using Laravel's Service Container (App::call) or Native PHP.
@@ -4095,9 +2304,9 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 ? $className 
                 : (function_exists('app') ? app($className) : new $className());
             $reflection = new ReflectionMethod($instance, $methodName);
-        } elseif ($action instanceof \Closure || is_callable($action)) {
-            $instance = is_object($action) && !$action instanceof \Closure ? $action : null;
-            $reflection = new ReflectionFunction($action instanceof \Closure ? $action : \Closure::fromCallable($action));
+        } elseif ($action instanceof Closure || is_callable($action)) {
+            $instance = is_object($action) && !$action instanceof Closure ? $action : null;
+            $reflection = new ReflectionFunction($action instanceof Closure ? $action : Closure::fromCallable($action));
         } else {
             throw new RuntimeException("Krubot Architect Error: Invalid action handler provided.");
         }
@@ -4225,8 +2434,8 @@ class Krubot implements Countable // ⚡️✅️⚡️
      * @param array $extraInjects Core objects for type-based injection, if requested. (like Answer DTOs)
      * @return array An associative array of [parameterName => resolvedValue].
      * @throws RuntimeException If a catastrophic dependency failure occurs, or a required parameter cannot be resolved.
-     */
-    private function _resolveActionDependencies(
+    */
+    protected function _resolveActionDependencies(
         ReflectionMethod|ReflectionFunction $method,
         array $payloadData,
         array $extraInjects = []
@@ -4278,9 +2487,67 @@ class Krubot implements Countable // ⚡️✅️⚡️
                 continue;
             }
 
-            // PRIORITY 4: Payload Data Injection by Name (The Metaphysical Cast)
+            // PRIORITY 4: Payload Data Injection (Implicit Model Binding & Scalar Casting)
             if (array_key_exists($name, $payloadData)) {
                 $val = $payloadData[$name];
+
+                // ⚡ SUPERCHARGED MODEL BINDING ⚡
+                // اگر نوع پارامتر یک مدل Eloquent است و مقدار پاس داده شده یک شناسه (ID) است
+                if ($typeName && !$type->isBuiltin() && is_subclass_of($typeName, \Illuminate\Database\Eloquent\Model::class)) {
+                    
+                    // اگر از قبل آبجکت مدل است، مستقیماً تزریق کن (Zero-cost)
+                    if ($val instanceof $typeName) {
+                        $dependencies[$name] = $val;
+                        continue;
+                    }
+
+                    // اگر مقدار یک رشته/عدد است (مثل '12' از روت وب)
+                    if (is_scalar($val) && $val !== '') {
+                        
+                        // 🔥 STATIC CACHE MEMORY 🔥
+                        // حل دغدغه شما: متادیتای کلاس (مثل اسم PrimaryKey) فقط یک بار در طول کل چرخه عمر پردازش می‌شود.
+                        static $modelMetaCache = [];
+                        if (!isset($modelMetaCache[$typeName])) {
+                            $dummy = new $typeName;
+
+                            // Ultra-fast static caching of Model metadata (Primary Key & Capabilities) to save memory/CPU
+                            $modelMetaCache[$typeName] = [
+                                'routeKeyName' => method_exists($dummy, 'getRouteKeyName') ? $dummy->getRouteKeyName() : $dummy->getKeyName(),
+                                'hasCustomResolve' => method_exists($dummy, 'resolveRouteBinding'),
+                            ];
+                        }
+
+                        $meta = $modelMetaCache[$typeName];
+                        $resolvedModel = null;
+
+                        // واکشی از دیتابیس بر اساس شناسه کش شده
+                        if ($meta['hasCustomResolve']) {
+                            $resolvedModel = (new $typeName)->resolveRouteBinding($val);
+                        } else {
+                            /** @var \Illuminate\Database\Eloquent\Model $typeName */
+                            $resolvedModel = $typeName::where($meta['routeKeyName'], $val)->first();
+                        }
+
+                        // اگر در دیتابیس پیدا شد، تزریق کن
+                        // Inject resolved model in params
+                        if ($resolvedModel) {
+                            $dependencies[$name] = $resolvedModel;
+                            continue;
+                        }
+
+                        // اگر پیدا نشد اما در پارامتر علامت سوال (?GamifyTimeRange) داشت، null بگذار
+                        if ($parameter->allowsNull()) {
+                            $dependencies[$name] = null;
+                            continue;
+                        }
+
+                        // در غیر این صورت پرتاب ارور استاندارد لاراول (تبدیل به 404 در وب)
+                        // Trigger proper 404 response for web or fail-gracefully for Bots
+                        throw (new ModelNotFoundException)->setModel($typeName, [$val]);
+                    }
+                }
+
+                // کستینگ اتوماتیک برای نوع‌های پایه (int, string, bool)
                 // Automatic type casting for scalar types based on reflection.
                 if ($type instanceof ReflectionNamedType && $type->isBuiltin()) {
                     $val = match ($type->getName()) {
@@ -4288,11 +2555,11 @@ class Krubot implements Countable // ⚡️✅️⚡️
                         'bool'   => filter_var($val, FILTER_VALIDATE_BOOLEAN),
                         'float'  => (float) $val,
                         'string' => (string) $val,
-                        // 'array'  => (array) $val,
-                        'array'  => is_array($value) ? $value : (json_decode((string) $value, true) ?? [(string) $value]),
+                        'array'  => is_array($val) ? $val : (json_decode((string) $val, true) ?? [(string) $val]),
                         default  => $val,
                     };
                 }
+                
                 $dependencies[$name] = $val;
                 continue;
             }
@@ -4418,12 +2685,44 @@ class Krubot implements Countable // ⚡️✅️⚡️
     }
 
     /**
+     * Resolve the authoritative admin ID list for the current context.
+     *
+     * Priority (highest → lowest):
+     * 1. AdminIds attribute on the matched Route (class + method OR-merged by scanner)
+     * 2. Classic driver-specific config / .env fallback
+     *
+     * This is a pure override mechanism — it does NOT block execution.
+     * It only changes who is considered "admin" for isAdmin() and broadcast helpers.
+     *
+     * @return list<string>
+    */
+    public function admin_ids(): array
+    {
+        // 1. Hyper-DX Attribute Override (zero config, zero JackPoint)
+        if (
+            $this->activeRoute &&
+            $this->activeRoute instanceof Route &&
+            !empty($this->activeRoute->adminIds)
+        )
+            return $this->activeRoute->adminIds;
+
+        // 2. Classic config path (legacy + multi-driver support)
+        $driver = $this->resolveTargetDriver();
+
+        return config(
+            "krubot.drivers.{$driver}.admin_ids",  // get admin ids for current platform
+            [env('RUBIKA_ADMIN_GUID')]
+        );
+    }
+
+    /**
      * Check if the update is from the Admin defined in .env
      * Add RUBIKA_ADMIN_GUID=... to your .env file.
     */
     public function isAdmin(?string $userId = null): bool
     {
-        $adminGuids = config('krubot.drivers.'.$this->resolveTargetDriver().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
+        $adminGuids = $this->admin_ids();
+
         $adminGuids = JackPoint::transform('identity.admin.list', $adminGuids, $this);
 
         $senderId = $userId ?? $this->senderId(); // we checking for who ?!
@@ -4438,7 +2737,7 @@ class Krubot implements Countable // ⚡️✅️⚡️
     */
     public function sendMessageToAdmins(string $text): array
     {
-        $configAdminGuids = config('krubot.drivers.'.$this->resolveTargetDriver().' .admin_ids', [env('RUBIKA_ADMIN_GUID')]); // get admin ids for current platform
+        $configAdminGuids = $this->admin_ids();
 
         $adminGuids    = JackPoint::transform('admin.broadcast.targets', $configAdminGuids, $text, $this);
         $resolvedText  = JackPoint::transform('admin.broadcast.text', $text, $adminGuids, $this);
@@ -4456,161 +2755,6 @@ class Krubot implements Countable // ⚡️✅️⚡️
 
         return $result;
     }
-
-    /**
-     * Sets, updates, or flushes a user's current state(s) for Narrative Programming.
-     * This is the primary "write" method for the #[When] attribute's "read" logic.
-     *
-     * It's designed to be a fluent, intuitive, and powerful interface for state management.
-     * Supports single key/value, batch operations (via array, Arrayable, or Traversable),
-     * and null-based deletion within batches.
-     *
-     * @param string|array|Arrayable|Traversable $stateKey The key for the state (e.g., 'level')
-     *                                                     OR an associative data structure of states to set or flush.
-     *                                                     e.g., collect(['level' => 10, 'class' => 'Mage', 'old_quest' => null])
-     *                                                     In this example, 'level' and 'class' are set, and 'old_quest' is forgotten.
-     * @param mixed $value The value to associate with the state if $stateKey is a string.
-     *                     - Provide a value (string, int, array, etc.) to set it.
-     *                     - Provide NO value (or true) to set a simple existence flag.
-     *                     - Provide NULL to completely flush/delete the state.
-     *                     This parameter is IGNORED if $stateKey is a batch data structure.
-     * @return self Returns the bot instance for method chaining ($this).
-    */
-    public function now(string|array|Arrayable|Traversable $stateKey, mixed $value = true): self
-    {
-        // ⚡ دروازه‌ی ورود — veto / reroute
-        $verdict = JackPoint::fire('state.now.before', $stateKey, $value, $this->userStorage(), $this);
-        if ($verdict === false) {
-            return $this;
-        }
-
-        // Case 1: Batch Operation (The most flexible path)
-        // We check if the input is a data structure intended for batch processing.
-        if (is_array($stateKey) || $stateKey instanceof Arrayable || $stateKey instanceof Traversable) {
-            
-            // --- Data Normalization ---
-            // The goal here is to convert any acceptable input type into a standard PHP array
-            // so the rest of the logic can work with it consistently.
-            $batchData = [];
-            if ($stateKey instanceof Arrayable) {
-                // Priority 1: If the object explicitly follows Laravel's Arrayable contract,
-                // we honor it by calling the toArray() method. This is the most reliable way
-                // for objects like Illuminate\Support\Collection.
-                $batchData = $stateKey->toArray();
-            } elseif (is_array($stateKey)) {
-                // Priority 2: A simple, plain array. No conversion needed.
-                $batchData = $stateKey;
-            } elseif ($stateKey instanceof Traversable) {
-                // Priority 3 (Fallback): For any other iterable object (like a custom iterator),
-                // we convert it to an array. Collections would also be caught here if not for the
-                // Arrayable check above, but checking Arrayable first is more explicit.
-                $batchData = iterator_to_array($stateKey);
-            }
-
-            // ⚡ پلاگین می‌تواند کل batch را بازنویسی کند
-            $batchData = JackPoint::transform('state.now.batch.put', $batchData, $this);
-
-            // --- The Separation Logic ---
-            // Now that we have a guaranteed array ($batchData), we can process it.
-            // We iterate through the batch data once and separate operations into two groups:
-            // 1. dataToSet: for keys that need a value.
-            // 2. keysToForget: for keys whose value is explicitly null, signaling deletion.
-            // We separate keys for setting/updating from keys for deletion.
-            $dataToSet = [];
-            $keysToForget = [];
-            foreach ($batchData as $key => $val) {
-                if ($val === null) {
-                    $keysToForget[] = $key;
-                } else {
-                    $dataToSet[$key] = $val;
-                }
-            }
-
-            // ⚡ پلاگین می‌تواند split را دستکاری کند (مثلاً key جدید اضافه کند)
-            [$dataToSet, $keysToForget] = JackPoint::transform(
-                'state.now.batch.split',
-                [$dataToSet, $keysToForget],
-                $batchData,
-                $this
-            );
-
-            // Step 1: Perform the batch update/set operation if there's anything to set.
-            // This is efficient as it calls `put` (and subsequently `save`) only once for all updates.
-            if (!empty($dataToSet)) {
-
-                $dataToSet = JackPoint::transform('state.put.before', $dataToSet, $this);
-
-                // verdict => transformer can clear the array entirely
-                if (!empty($dataToSet)) {
-                    $this->userStorage()->put($dataToSet);
-                    JackPoint::fire('state.put.after', $dataToSet, $this);
-                }
-
-            }
-
-            // Step 2: Perform deletions.
-            // Instead of a loop, we now make a single, efficient, {SRP|SoC}-Based call.
-            if (!empty($keysToForget)) {
-                $keysToForget = JackPoint::transform('state.forget.before', $keysToForget, $this);
-
-                // verdict => transformer can clear the array entirely
-                if (!empty($keysToForget)) {
-                    $this->userStorage()->forget($keysToForget);
-                    JackPoint::fire('state.forget.after', $keysToForget, $this);
-                }
-            }
-
-            JackPoint::fire('state.now.batch.completed', $dataToSet, $keysToForget, $batchData, $this);
-
-        } else {
-
-            // ⚡ کلید و مقدار هر دو قابل transform هستند (single path)
-            $stateKey = JackPoint::transform('resolve.state.key', $stateKey, $value, $this);
-            $value    = JackPoint::transform('resolve.state.value', $value, $stateKey, $this);
-
-            // Case 2: Single Key/Value Operation (Original Logic)
-            // This path remains for single, direct state modifications.
-            if ($value === null) {
-
-                $forgetKey = JackPoint::transform('state.forget.before', $stateKey, $this);
-
-                // for example prevent forget system keys
-                if ($forgetKey !== -1) {
-
-                    // e.g., $bot->now('is_registering', null); -> Deletes the state.
-                    $this->userStorage()->forget($forgetKey);
-                    JackPoint::fire('state.forgotten', $forgetKey, $stateKey, $this);
-
-                }
-
-            } else {
-
-                [$putKey, $putValue] = JackPoint::transform(
-                    'state.now.put.before',
-                    [$stateKey, $value],
-                    $this
-                );
-
-                if ($putKey !== -1) {
-
-                    // e.g., $bot->now('is_admin'); or $bot->now('level', 99); -> Sets the state.
-                    $this->userStorage()->put($putKey, $putValue);
-                    JackPoint::fire('state.put.after', $putKey, $putValue, $this);
-                    JackPoint::fire('state.written', $putKey, $putValue, $stateKey, $value, $this);
-
-                }
-
-            }
-        }
-
-        // ⚡ دروازه‌ی خروج — trace / metrics
-        JackPoint::fire('state.now.after', $stateKey, $value, $this->userStorage(), $this);
-
-        // Always return $this to maintain the beautiful fluent API.
-        // e.g., $bot->now('level', 10)->now('class', 'Mage')->reply('You are now a Level 10 Mage!')->send();
-        return $this;
-    }
-    
 
     /**
      * Quick check if message matches a pattern (Exact or Regex).
@@ -4631,6 +2775,40 @@ class Krubot implements Countable // ⚡️✅️⚡️
         }
 
         return false;
+    }
+
+    /**
+     * Dual-purpose accessor for the currently active action.
+     *
+     *  - Called with no arguments  → returns the current value  (GETTER).
+     *  - Called with any argument  → assigns the new value and
+     *                                returns `$this` for chaining (SETTER).
+     *
+     * `func_num_args()` is used instead of a `null` check on purpose:
+     * it allows `null` to be written explicitly without being mistaken
+     * for a read request — a subtlety most naive implementations miss.
+     *
+     * @param  Route  $action  Optional payload to persist. Omit to read.
+     * @return mixed|static    The stored action on read, `$this` on write.
+     *
+     * @example
+     *   $warlord->currentAction();            // → current Route|null
+     *   $warlord->currentAction($action);     // → $warlord  (chainable)
+    */
+    public function currentAction(Route $action = null): mixed
+    {
+        // ── GETTER ────────────────────────────────────────────────
+        // Zero arguments means the caller only wants the truth.
+        if (func_num_args() === 0) {
+            return $this->activeRoute;
+        }
+
+        // ── SETTER ────────────────────────────────────────────────
+        // Anything else is a write. Persist it, then hand back $this
+        // so the call site can keep flowing (fluent API, jQuery vibes).
+        $this->activeRoute = $action;
+
+        return $this;
     }
 
     /**

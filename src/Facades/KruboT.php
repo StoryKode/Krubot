@@ -2,7 +2,7 @@
 
 namespace KrubiK\Facades;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.9×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -25,21 +25,24 @@ use Illuminate\Support\Facades\Facade;
  * @method static \KrubiK\Krubot registerHandlers(object|string $target)
  * @method static mixed go(string $routeName, array $params = [], bool|array $middlewareStrategy = true)
  * @method static string|null resolvePattern(string $name, array $params = [])
- * @method static \KrubiK\Router\Route onCommand(string $command, array|callable $handler, array $attributes = [])
- * @method static \KrubiK\Router\Route onText(string $pattern, array|callable $handler, array $attributes = [])
+ * @method static \KrubiK\Routing\Route onCommand(string $command, array|callable $handler, array $attributes = [])
+ * @method static \KrubiK\Routing\Route onText(string $pattern, array|callable $handler, array $attributes = [])
  * // ... هر متد عمومی دیگری که در کلاس Krubot دارید را می‌توانید اینجا اضافه کنید
  *
  * @see \KrubiK\Krubot
  * 
  * @author DoKtor K.
  * @link https://StoryKo.de/Krubot Official website of engine.
- * @version Krubot: ×vRC.8×
+ * @version Krubot: ×vRC.9×
  * @license MIT
 */
 class KruboT extends Facade
 {
-    /****
-     * Get the registered name of the component.
+    /**
+     * Get the registered name of the component in the container.
+     *
+     * This is the "secret handshake". This string MUST match the alias
+     * or binding key we used in the service provider.
      *
      * ✨ جادوی اصلی اینجاست! ✨
      * این متد به لاراول می‌گوید که این نما (Facade) به کدام سرویس
@@ -47,23 +50,13 @@ class KruboT extends Facade
      * که در AppServiceProvider برای ثبت Singleton استفاده کردیم.
      *
      * @return string
-     * /
-     protected static function getFacadeAccessor(): string
-    {
-        // ما Krubot را با نام کلاس خودش در کانتینر ثبت کردیم.
-        return \KrubiK\Krubot::class;
-    } */
-
-    /**
-     * Get the registered name of the component in the container.
-     *
-     * This is the "secret handshake". This string MUST match the alias
-     * or binding key we used in the service provider.
-     *
-     * @return string
-     */
+    */
     protected static function getFacadeAccessor(): string
     {
+
+        // ما Krubot را با نام کلاس خودش در کانتینر ثبت کردیم.
+        // return \KrubiK\Krubot::class;
+
         // This is the "phone number" to the command center and "phone number" is enough.
         return 'krubot'; 
     }
@@ -75,7 +68,7 @@ class KruboT extends Facade
      *
      * @param string|array $aliases The target driver alias(es).
      * @return \KrubiK\Krubot
-     */
+    */
     public static function yow(string|array $aliases): \KrubiK\Krubot
     {
         // Get the singleton instance and enter the `via` command center.

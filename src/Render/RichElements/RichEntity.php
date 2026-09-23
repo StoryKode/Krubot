@@ -46,7 +46,11 @@ use KrubiK\Render\RichMan;
 use KrubiK\Enums\Platform;
 use KrubiK\Render\RenderAura;
 
-use function KrubiK\Render\Helpers\filterNulls;
+use function KrubiK\Render\Helpers\{
+    attributesToString,
+    filterNulls,
+    global_esc
+};
 
 /**
  * Class RichEntity
@@ -531,23 +535,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
     */
     protected function attributesToString(array $attributes): string
     {
-        $htmlParts = [];
-        foreach ($attributes as $key => $value) {
-            // Skip attributes that are null, false, or empty strings.
-            // This is useful for boolean attributes where their absence means 'false'.
-            if ($value === null || $value === false || $value === '') {
-                continue;
-            }
-
-            // For true boolean attributes, just output the key (e.g., 'disabled').
-            if ($value === true) {
-                $htmlParts[] = $this->esc($key);
-            } else {
-                // For all other attributes, create a "key="value"" pair, ensuring the value is escaped.
-                $htmlParts[] = $this->esc($key) . '="' . $this->esc((string)$value) . '"';
-            }
-        }
-        return implode(' ', $htmlParts);
+        return attributesToString($attributes);
     }
 
     /**
@@ -560,10 +548,7 @@ abstract class RichEntity implements Arrayable, Stringable, Htmlable, Renderable
     */
     protected function esc(?string $value): string
     {
-        // Using PHP's built-in htmlspecialchars is a robust default.
-        // ENT_QUOTES ensures both single and double quotes are escaped.
-        // false for $double_encode prevents double-escaping entities.
-        return htmlspecialchars($value ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', false);
+        return global_esc($value);
     }
 
     /**

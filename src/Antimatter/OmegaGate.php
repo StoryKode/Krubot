@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace KrubiK\Console\Utils;
+namespace KrubiK\Antimatter;
 
 /**
  * OmegaGate - Cross-platform utility to open URLs in the default system browser.

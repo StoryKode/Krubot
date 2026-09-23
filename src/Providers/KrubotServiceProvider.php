@@ -2,7 +2,7 @@
 
 namespace KrubiK\Providers;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.9×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -44,7 +44,7 @@ use KrubiK\Controllers\QuantumGatewayController; // Import the Web Renderers
  * =========================================================================
  *  KRUBIK GALACTIC COMMAND CENTER
  * =========================================================================
- *     v5.8.6 "The Galactic Titan"
+ *     v8.6.4 "The Galactic Titan"
  * 
  * This Service Provider is the heart of the KrubiK package. It bootstraps
  * the bot, discovers and integrates Nexuses, provides Artisan commands for
@@ -53,12 +53,17 @@ use KrubiK\Controllers\QuantumGatewayController; // Import the Web Renderers
  *
  * @author DoKtor K.
  * @link https://StoryKo.de/Krubot Official website of engine.
- * @version Krubot: ×RC.8×
+ * @version Krubot: ×RC.9×
  * @license MIT
 */
 class KrubotServiceProvider extends ServiceProvider implements DeferrableProvider
 {
     use PlatformConstantsRobustGen; // Quenchs `Platform::XXX` Constants from Config
+
+    /**
+     * Package view namespace identifier.
+    */
+    public const VIEW_NAMESPACE = 'krubot';
 
     /**
      * Register any application services.
@@ -107,9 +112,11 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
         /// if (config('krubot.locale'))
         ///  app()->setLocale(config('krubot.locale'));
 
-        // Load the translation files for our package
-        // The second argument is the "namespace" for our translations
-        $this->loadTranslationsFrom(__DIR__ . '/../lang', 'krubot');
+        // Bootstrapping custom package translations for Hyper-DX
+        $this->loadPackageTranslations();
+
+        // >>> BEST ARCHITECTURAL PLACEMENT: Boot package views right here <<<
+        $this->bootPackageViews();
 
         // Boot the Nexus integration engine.
         // This is done in the `boot` method to ensure all engine services are available.
@@ -354,11 +361,11 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
         $this->publishes([
             // مسیر فایل مبدأ (Source) => مسیر فایل مقصد (Destination)
             __DIR__ . '/../../config/krubot.php' => config_path('krubot.php'),
-            __DIR__ . '/../lang'       => $this->app->langPath('engine/krubot'),
+            __DIR__ . '/../../lang'              => $this->app->langPath('krubot'),
         ], 'krubot-config'); // تگ اختصاصی برای پابلیش
 
         $this->publishes([
-            __DIR__ . '/Client/Res/__main__/Krubot.js' => public_path('engine/krubot/Krubot.js'),
+            __DIR__ . '/../Client/Res/__main__/Krubot.js' => public_path('engine/krubot/Krubot.js'),
         ], 'public');
 
         // php artisan vendor:publish --tag=krubot-config
@@ -432,8 +439,145 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
     }
 
     /**
+     * Register & expose direct package views with zero-boilerplate hierarchy.
+    */
+    protected function bootPackageViews(): void
+    {
+
+        // Target: <package-root>/views/ (flat architecture)
+        /// $viewsPath = dirname(__DIR__, 2) . '/views';
+        
+        // Target: <package-root>/src/Client/Res/views/ (flat architecture)
+        $viewsPath = dirname(__DIR__) . '/Client/Res/views';
+
+        $customViewsPath = resource_path('views/' . self::VIEW_NAMESPACE);
+
+        // 1. Register host-side override layer FIRST (higher resolution priority)
+        //    -> resources/views/krubot/access-error.blade.php
+        $this->callAfterResolving('view', function ($view) use ($customViewsPath) {
+            $view->addNamespace(self::VIEW_NAMESPACE, $customViewsPath);
+        });
+
+        // 2. Mount namespaced Blade views resolver -> view('krubot::error')
+        $this->loadViewsFrom($viewsPath, self::VIEW_NAMESPACE);
+
+        // 3. Register CLI publish target for upstream host overrides
+        if ($this->app->runningInConsole()) {
+            // Expose zero-copy publish target for host app overriding
+            $this->publishes([
+                $viewsPath => $customViewsPath,
+            ], 'krubot-views');
+        }
+    }
+
+    /**
+     * Load package translations with full support for published overrides.
+     *
+     * Structure expected:
+     *   Package (fallback):  vendor/.../lang/{locale}.php   e.g. en.php, fa.php
+     *   Published (override): lang/krubot/{locale}.php
+     *
+     * Keys are registered so that __("krubot.auth.unauthenticated_web") resolves correctly.
+     * Missing keys in the published file automatically fall back to the package defaults.
+    */
+    protected function loadPackageTranslations(): void
+    {
+        // Resolve paths for package source and project-level overrides
+        $packageLangPath = __DIR__ . '/../../lang';
+        $projectLangPath = $this->app->langPath('krubot');
+
+        $this->registerLocaleTranslations($packageLangPath, $projectLangPath);
+    }
+
+    /**
+     * Discover every available locale from both package + published paths,
+     * deep-merge them (published wins), and inject into the Translator.
+    */
+    protected function registerLocaleTranslations(string $packageLangPath, string $projectLangPath): void
+    {
+        $translator = $this->app['translator'];
+
+        // Collect all locale files that exist either in the package or in the published folder.
+        $locales = [];
+
+        // Discover available language files in the package lang directory
+        foreach (glob($packageLangPath . '/*.php') ?: [] as $file) {
+            $locales[pathinfo($file, PATHINFO_FILENAME)] = true;
+        }
+
+        // Handle user-defined overrides if they exist in the app's lang folder
+        if (is_dir($projectLangPath)) {
+            foreach (glob($projectLangPath . '/*.php') ?: [] as $file) {
+                $locales[pathinfo($file, PATHINFO_FILENAME)] = true;
+            }
+        }
+
+        // Iterate through locales (assuming directory structure matches locale names)
+        foreach (array_keys($locales) as $locale) {
+            $packageFile  = $packageLangPath . DIRECTORY_SEPARATOR . $locale . '.php';
+            $projectFile  = $projectLangPath . DIRECTORY_SEPARATOR . $locale . '.php';
+
+            // Base = package defaults (complete set)
+            // Load base definitions and perform deep merge with local overrides
+            // Ensuring fallback mechanism remains intact for missing keys
+            $merged = file_exists($packageFile) ? (require $packageFile) : [];
+
+            // Overlay = published overrides (may be partial)
+            if (file_exists($projectFile)) {
+                $overrides = require $projectFile;
+                if (is_array($overrides)) {
+                    // Use array_replace_recursive to prioritize app-level config over package defaults
+                    // array_replace_recursive keeps nested keys that exist only in the package
+                    $merged = array_replace_recursive(
+                        is_array($merged) ? $merged : [],
+                        $overrides
+                    );
+                }
+            }
+
+            if (empty($merged) || ! is_array($merged)) {
+                continue;
+            }
+
+            // Flatten nested arrays into dotted keys prefixed with the group name "krubot"
+            // so that __("krubot.auth.unauthenticated_web") works out of the box.
+            $lines = $this->flattenTranslations($merged, 'krubot');
+
+            // Inject the merged translation set into the Translator registry
+            $translator->addLines($lines, $locale, '*');
+        }
+    }
+
+    /**
+     * Recursively convert a nested translation array into flat "group.key.sub" => value pairs.
+     * Example input:  ['auth' => ['unauthenticated_web' => '…']]
+     * Example output: ['krubot.auth.unauthenticated_web' => '…']
+    */
+    protected function flattenTranslations(array $lines, string $group, string $prefix = ''): array
+    {
+        // Recursively normalize nested arrays into flat dot-notation keys
+        $result = [];
+
+        foreach ($lines as $key => $value) {
+            $fullKey = $prefix !== '' ? $prefix . '.' . $key : $key;
+
+            if (is_array($value)) {
+                $result = array_merge(
+                    $result,
+                    $this->flattenTranslations($value, $group, $fullKey)
+                );
+            } else {
+                // "krubot.auth.unauthenticated_web" → group = krubot, item = auth.unauthenticated_web
+                $result[$group . '.' . $fullKey] = $value;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Registers the package's "Ammunition" - the Artisan commands.
-     */
+    */
     protected function registerCommands(): void
     {
         // [FEATURE MERGE] Full command list from Provider #3.
@@ -455,7 +599,7 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
      * this provider when one of its services is explicitly requested.
      *
      * @return array<int, string>
-     */
+    */
     public function provides(): array
     {
         $provided_dxkit = [

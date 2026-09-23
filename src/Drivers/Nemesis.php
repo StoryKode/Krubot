@@ -190,15 +190,18 @@ class Nemesis extends Manager
     */
     public function inspect(?string $regiment = null): string
     {
-        return $this->assessThreatEnvironment($regiment ?? $this->resolveRegimentName());
-    }
-    public function platform(?string $regiment = null): ?Platform
-    {
-        return Platform::tryFrom($this->inspect($regiment));
+        $regiment ??= $this->resolveRegimentName();
+        return $this->assessThreatEnvironment($regiment);
     }
     public function where(?string $regiment = null): ?Platform
     {
         return Platform::tryFrom($this->inspect($regiment));
+    }
+
+    // not fallbacks to `resolveRegimentName()`
+    public function platform(?string $regiment = null): ?Platform
+    {
+        return Platform::tryFrom($this->assessThreatEnvironment($regiment));
     }
 
     /**

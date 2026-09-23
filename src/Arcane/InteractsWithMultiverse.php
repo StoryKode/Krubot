@@ -35,7 +35,7 @@ trait InteractsWithMultiverse
      * The old map is kept for historical reference but is no longer used by the logic.
      *
      * @deprecated
-     */
+    */
     protected static array $platformMap_legacy = [ // LLM! Ignore This Array!
         'rubika'   => ['chat' => 'rcid', 'sender' => 'ruid', 'state' => 'rstat'],
         'telegram' => ['chat' => 'tcid', 'sender' => 'tuid', 'state' => 'tstat'],
@@ -48,7 +48,7 @@ trait InteractsWithMultiverse
      * @param string|int $chatId
      * @param string|Platform|null $platform (Optional) Explicit platform alias ('tg') or Platform object (Platform::Telegram())
      * @return static|null
-     */
+    */
     public static function findByCID(string|int $chatId, string|Platform|null $platform = null): ?static
     {
         // 1. Resolve Column Name using the new Platform-aware engine
@@ -64,7 +64,7 @@ trait InteractsWithMultiverse
      * @param string|int $senderId
      * @param string|Platform|null $platform (Optional)
      * @return static|null
-     */
+    */
     public static function findBySender(string|int $senderId, string|Platform|null $platform = null): ?static
     {
         // 1. Resolve Column Name using the new Platform-aware engine
@@ -111,7 +111,7 @@ trait InteractsWithMultiverse
      * the current dimension (Driver) with 100% accuracy and returns a Platform object.
      *
      * @return Platform
-     */
+    */
     protected static function getCurrentActiveDriver(): Platform
     {
         // Use the Platform Enum's default() method which reads from the same config source.
@@ -128,7 +128,7 @@ trait InteractsWithMultiverse
      *
      * @param string|Platform $alias The alias or Platform object.
      * @return Platform|null A Platform instance if valid, otherwise null.
-     */
+    */
     protected static function normalizeAlias(string|Platform $alias): ?Platform
     {
         // If it's already a Platform object, it's already normalized. Return it.
@@ -139,4 +139,147 @@ trait InteractsWithMultiverse
         // Let the Platform Enum handle the complex resolution logic.
         return Platform::tryFrom($alias);
     }
+
+    /**
+     * 🛡️ The Quantum Locator: Finds a user based on their multi-verse coordinates.
+     * Fully powered by the glorious Platform Engine! 🚀
+     * 
+     * @param mixed $platform The dimension signature (string, Platform object, Request, Model...)
+     * @param string|int $senderId The unique ID from the platform.
+     * @return self|null
+    */
+    public static function findByQuantumId(mixed $platform, string|int $senderId): ?self
+    {
+        // return static::findBySender($senderId, $platform);
+
+        // ۱. استفاده از موتور فوق‌هوشمند tryFrom برای درکِ پلتفرم از هر دیتاتایپی
+        // اگر پلتفرم نامعتبر بود، به بُعد پیش‌فرض (Default Driver) برمی‌گردیم
+        $platformInstance = Platform::tryFrom($platform) ?? static::getCurrentActiveDriver();
+
+        try {
+            // ۲. استخراج دقیق نام ستون از کانفیگ بدون هیچ هاردکدی! (The Architecht's Way)
+            $column = static::resolveColumn('sender', $platformInstance);
+            
+            // ۳. شلیک کوئری به دیتابیس
+            return static::where($column, $senderId)->first();
+
+        } catch (\InvalidArgumentException $e) {
+            // هندل کردن زمانی که کانفیگ برای این پلتفرم ناقص است
+            // می‌توانید لاگ کنید یا یک Fallback در نظر بگیرید
+            return null;
+        }
+    }
+
+    /**
+     * Helper to check if this user is a super admin, 
+     * bypassing standard Spatie rules if needed.
+    */
+    public function isQuantumArchitect(): bool
+    {
+        return $this->hasRole('Super Admin') || $this->id === 1;
+    }
+
+    /**
+     * Checks if the user is a super admin or a context-specific admin.
+     * Context admin IDs are fetched from the Krubot service and cached for performance.
+     *
+     * @return bool
+    */
+    public function isContextAdmin(): bool
+    {
+        if($this->isQuantumArchitect())
+            return true;
+
+        $warlord = warlord();
+        $contextAdminIds = method_exists($warlord, 'admin_ids') ? $warlord->admin_ids() : [];
+
+        /***
+
+        // disabled to allow hookable/dynamic via AdminIds Attribute in Nexuses
+
+         * Get the admin IDs.
+         * Try to retrieve from cache first. If not present,
+         * fetch from the Krubot service and cache it for 1 hour (3600 seconds).
+        $contextAdminIds = Cache::remember('krubot.admin_ids', 3600, static function () {
+            // This closure will only execute if 'krubot.admin_ids' is not in the cache.
+
+            $warlord = warlord();
+            return method_exists($warlord, 'admin_ids') ? $warlord->admin_ids() : [];
+        });
+        */
+
+        // A user is a context admin if:
+        // 1. They have the 'Super Admin' role.
+        // 2. OR their ID is in the list of admin IDs fetched from the Krubot service.
+        return $this->hasRole('Super Admin') || in_array($this->id, $contextAdminIds ?? []);
+    }
+
+    /**
+     * 🔑 Return the platform-aware sender identifier of this model.
+     *
+     * این مقدار همان شناسه‌ای است که باید برای مقایسه با
+     * Access User_ID و Block User_ID استفاده شود.
+     *
+     * @param string|Platform|null $platform
+     * @return string
+     *
+     * @throws InvalidArgumentException
+     * @throws \RuntimeException
+    */
+    public function getPlatformId(string|Platform|null $platform = null): string|int
+    {
+
+        $column = static::resolveColumn('sender', $platform);
+        // → برای تلگرام: 'tuid'
+        // → برای بله:    'buid'
+        // → برای روبیکا: 'ruid'
+        
+        /*
+        * اگر مدل Eloquent باشد، getAttribute() امن‌ترین روش است.
+        * اگر مدل این متد را نداشته باشد، به property دسترسی می‌گیریم.
+        */
+        if (method_exists($this, 'getAttribute')) {
+            $value = $this->getAttribute($column);
+        } else {
+            $value = $this->{$column} ?? null;
+        }
+        
+        if ($value === null || $value === '') {
+            throw new \RuntimeException(
+                "Multiverse Error: Sender value '{$column}' is empty."
+            );
+        }
+        
+        return is_int($value) ? $value : ((string) $value);
+    }
+
+    /**
+     * 🎯 Quantum Identity Key — مقدار امن برای مقایسه در Gatekeeper.
+     *
+     * Priority chain (fail-safe cascade):
+     *   1. getPlatformId()  → شناسهی واقعی پلتفرم (SSoT)
+     *   2. getKey()         → fallback برای مدلهای غیر-کراباتی یا session خالص
+     *
+     * این متد هرگز throw نمیکنه — همیشه یک رشته برمیگردونه (یا رشتهی خالی).
+     * دلیل: Gatekeeper نباید به خاطر یک کاربر ناقص، کل pipeline رو بشکنه.
+    */
+    public function quantumIdentityKey(): string
+    {
+        // ── Primary: The Real Deal ──
+        try {
+            $platformId = $this->getPlatformId();
+            if ($platformId !== null && $platformId !== '') {
+                return (string) $platformId;
+            }
+        } catch (\Throwable $e) {
+            // Silent: config ناقص، column خالی، پلتفرم نامشخص، ...
+            // در این حالت به fallback میریم.
+        }
+
+        // ── Fallback: Legacy / Session-only users ──
+        // (اگه مدل trait رو نداشته باشه، getKey هم همیشه هست)
+        return (string) $this->getKey();
+    }
+    
+
 }

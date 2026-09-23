@@ -64,6 +64,7 @@ use KrubiK\Keyboard\PowerButton;
 use KrubiK\Enums\ButtonType;
 
 use KrubiK\Facades\Parsentinel; // Input Parser [MD/HTML/Blade]
+use KrubiK\Helpers\JackPoint;   // Import "JackPoint" The Tactical EventHook System
 
 // ================== CORE DEPENDENCY: RENDER HELPERS ==================
 // REFACTOR: Import all helper functions directly. This is the cornerstone of the new architecture.
@@ -216,9 +217,31 @@ class RichMan extends RichEntity implements Responsable // <<<< CORE CHANGE: Inh
         )->header('Content-Type', 'text/html');
     }
 
+    /**
+     * [ARCHITECTURAL WRAPPER] ⚡ Encapsulates the raw DOM within a master HTML shell.
+     * Supports "Transformer Factory" (Higher-Order Hooks) via JackPoint to swap the rendering engine at high-performance.
+     *
+     * @param string $richContent
+     * @return string
+    */
     private function wrapInFullPage(string $richContent): string
     {
         $lang = $this->aura()->lang;
+
+        // Tactical Intervention ⚔️ Request a custom wrapping strategy from the CoreSynapse.
+        // If a plugin listens to this, it must return a Closure to take control of the layout.
+        if (($manifest = JackPoint::transform('richman.web.manifest', null, $lang, $this)) instanceof \Closure) {
+
+            /** 
+             * 🧬 [MUTATION PROTOCOL] Yields DOM control to a Higher-Order Layout Strategy if intercepted.
+             * @var Closure(string $richContent, string $lang, static $richy): string $manifest 
+            */
+            return $manifest($richContent, $lang, $this);
+
+        }
+
+        // 🛡️ Core Fallback: The native, zero-cost structural rendering.
+        // Calculated ONLY if no higher-order wrapper intercepted the flow.
         $dirAttr = ($this->isRtl !== null) ? (
             ' dir="' . ($this->isRtl ? 'rtl' : 'ltr') . '"'
         ) : '';
@@ -437,7 +460,7 @@ HTML;
     }
 
     /**
-     * [THE ASSIMILATION RITE - THE HUNGER OF THE VOID]
+     * [THE ASSIMILATION RITE - THE HUNGER OF THE VOID — NOW EXTENSIBLE THROUGH JACKPOINT]
      * //--//
      * BEWARE. This is not the clean, divine act of creation found in `::parse()`. This is Conquest.
      * 
@@ -459,6 +482,24 @@ HTML;
      * NEW:::
      * The takeover process is now empowered by the mighty Parsentinel.
      * It summons the correct SyntaxWarden to decipher any string input.
+     * 
+     * JackPoint Boost ::
+    * The transformation crucible emits a dual-core payload simultaneously:
+    *   [$content, $parserCode]
+    *
+    * IF $parserCode === -1:
+    *   An upstream pipe has already executed the parse; $content is primed 
+    *   with RichEntity[] → Direct assimilation protocol engaged.
+    *
+    * OTHERWISE:
+    *   $content remains raw string data, $parserCode dictates the parser matrix 
+    *   (or null = auto-detect). The Parsentinel is deployed to take over.
+    *
+    * This architecture grants any operative the ability to jack a pipe into 'richman.parser' and:
+    *   - Execute a self-parse override, returning [-1, $entities]
+    *   - Transmute the data into HTML/MD, returning ['<html>...', 'HTML']
+    *   - Or spoof a pass-through command ("route this to RichHTMLParser"), 
+    *     delegating the execution down the cyber-chain.
      *
      * @param self|string $input   The tribute to be consumed. The reality to be assimilated. The fuel.
      * @param string|null $parserType The identity of the matter ('MarkdownV2', 'HTML', etc.) The runic key required to decipher the soul of tributes.
@@ -478,25 +519,57 @@ HTML;
 
         } else {
 
-            // if It's just a string. Delegate to the Parsentinel [ParserFactory] guild
-            // to find the correct master artisan and returns a specialist that understands how to decrypt the input's soul.
+            // Target is raw matter — route it through the transformation crucible.
+            // If the pipeline is a ghost town (no filters assignd to this event), proceed with the un-altered raw payload.
+            [$parserCode, $content] = JackPoint::transform(
+                'richman.parsing',
+                [$parserType, $input]   // Data Payload: [string|null $parserCode, string $input]
+            );
+    
+            if ($parserCode === -1) {
+                // -1 === Already Pre-parsed by a rogue pipe;
 
-            // Summon the appropriate warden through the Parsentinel facade.
-            $specialist = Parsentinel::summon($parserType ?? 'auto');
+                if($content instanceof self) {
 
-            // Ask the warden to decipher the scripture into an array of entities.
-            // The specialist performs the deconstruction, returning pure RichEntity gems.
-            $entities = $specialist->decipher($input);
+                    // Target is a rival entity — initiate soul extraction.
+                    $entities = $content->getElements();
+                    $isRtl    = $content->isRtl;
 
+                }
+                else {
+                    // $content is fully crystallized as an array of RichEntities.
+                    $entities = $content;
+                }
+
+            } else {
+
+                // Data remains in a volatile string-state ::: Parsentinel deployed to decipher :::
+                // if It's just a string. Delegate to the Parsentinel [ParserFactory] guild
+                // to find the correct master artisan and returns a specialist that understands how to decrypt the input's soul.
+
+                // Summon the appropriate warden through the Parsentinel facade.
+                $specialist = Parsentinel::summon($parserCode ?? 'auto');
+
+                // Ask the warden to decipher the scripture into an array of entities.
+                // The specialist performs the deconstruction, returning pure RichEntity gems.
+                $entities = $specialist->decipher($content);
+            }
         }
 
          // If the entity was empty, it was unworthy. Do nothing. Move on.
         if(empty($entities))
             return $this;
 
+        $entities = JackPoint::transform(
+            'richman.parsed',
+            $entities   // Data Payload: array of RichEntities
+        );
+
         // If we assimilated a rival, we must also adopt his worldview (RTL).
-        if($isRtl !== null)
-            $this->rtl($isRtl);
+        if($isRtl !== null) {
+            if(JackPoint::judge('richman.parse.update.rtl', [$isRtl, $entities, $this]) === true)
+                $this->rtl($isRtl);
+        }
 
         // Absorb the gems into the new composer's heart and Return $this for chaining.
         // Use the spread operator to add all deciphered entities to this composer.
@@ -507,13 +580,16 @@ HTML;
     }
 
     /**
-     * [THE FINAL SEAL - THE CREATION OF THE ARTIFACT]
+     * [THE FINAL SEAL - THE CREATION OF THE ARTIFACT - JACKPOINT ENRICHED]
      * This method concludes the great work. It takes all the composed entities
      * held within the RichMan's heart and seals them into the final, immutable,
      * and renderable SoulHarvestor.
      *
      * This transforms the builder from a transient state of composition into
      * a permanent, deliverable product.
+     * 
+     * Listening ears + optional soft enrichment.
+     * Pipes may observe / decorate the final artifact, but they must not break the core contract.
      * 
      * عبور از دروازه مرگ و تولد به عنوان روحی جاودانه:
      * در پشت دروازه، SoulHarvestor ایستاده است. او هیچ متد ویرایشگری (مانند bold() یا add()) ندارد. او عاری از نفوذ و تغییر است؛ یک «مصنوع نهایی» (The Immutable Artifact).
@@ -524,9 +600,48 @@ HTML;
     */
     public function build(): SoulHarvestor
     {
-        return SoulHarvestor::feed($this);
-        /// $this->elements // The elements, now ordered and pure, are passed to the final container.
+        // ── Before the final seal ─────────────────────────────────────
+        // 1. Emit a pure observation event (side-effects only; no mutation contract implied)
+        // We are still mutable here — anyone who wants can tweak/shape the ingredients.
+        // Examples: inject a watermark, append an auto-footer, sanitize inputs, etc.
+        JackPoint::fire('richman.build.before', $this);
+
+        // Optional soft transform — pipes may enrich metadata or wrap/decorate,
+        //    but the core SoulHarvestor contract must remain intact.
+        $enriched = JackPoint::transform('richman.building', $this);
+
+        $artifact = null;
+        if($enriched instanceof SoulHarvestor) {
+
+            $artifact = $enriched;
+
+        }
+        else {
+
+            // If a pipe returned a compatible value (e.g. a decorated version), respect it.
+            // Otherwise, fall back to the original $this to preserve safety and invariants.
+            $bate = ($enriched instanceof self)
+                ? $enriched
+                : $this;
+
+            // ── Artifact birth ────────────────────────────────────────────
+            $artifact = SoulHarvestor::feed($bate);
+            /// $this->elements // The elements, now ordered and pure, are passed to the final container.
+
+            // ── Transform the artifact ───────────────────────────────────
+            // Pipes may replace the artifact (cached version, decorated variant, etc.).
+            // If there are no pipes (or they yield null), the original $artifact is returned.
+            $artifact = JackPoint::transform('richman.build.artifact', $artifact, $this);
+        }
+
+        // ── Birth announcement — listening ears only ──────────────────
+        // The artifact is now immutable and ready; nobody is allowed to mutate it.
+        // Observers may only look: log, warm caches, record metrics, emit traces, etc.
+        JackPoint::fire('richman.build.after', $artifact, $this);
+
+        return $artifact;
     }
+
 
     // =========================================================
     // == Begin ::: RichEntity Contract Implementation :::

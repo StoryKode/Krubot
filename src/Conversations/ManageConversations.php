@@ -160,7 +160,7 @@ trait ManageConversations
     protected function getMrYesMan(): \Closure
     {
         if (!self::$mrYesMan) {
-            self::$mrYesMan = function (Krubot $bot) { return true; };
+            self::$mrYesMan = static function (Krubot $bot) { return true; };
         }
         return self::$mrYesMan;
     }

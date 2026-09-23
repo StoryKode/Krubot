@@ -1,6 +1,6 @@
 <?php
 
-namespace KrubiK\Router;
+namespace KrubiK\Routing;
 /*
 | Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
 |--------------------------------------------------------------------------
@@ -19,7 +19,7 @@ namespace KrubiK\Router;
  * @version Krubot: ×RC.8×
  * @license MIT
 */
-class RouteGroup
+class RouteBox
 {
     /** @var Route[] */
     protected array $routes = [];
@@ -31,7 +31,7 @@ class RouteGroup
 
     /**
      * Apply middleware to ALL routes in this group.
-     */
+    */
     public function middleware(string|array $middleware): self
     {
         foreach ($this->routes as $route) {
@@ -42,7 +42,7 @@ class RouteGroup
 
     /**
      * Apply tag to ALL routes in this group.
-     */
+    */
     public function tag(string $tag): self
     {
         foreach ($this->routes as $route) {
@@ -53,7 +53,7 @@ class RouteGroup
     
     /**
      * Scope logic (Mock for now, can be expanded for Chat Types).
-     */
+    */
     public function scope(mixed $scope): self
     {
         // Implementation depends on Scope logic requirements
