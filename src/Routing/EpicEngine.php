@@ -50,7 +50,9 @@ use Illuminate\Pipeline\Pipeline;
 use KrubiK\Routing\Arcane\StormJusticeTurbine;
 use KrubiK\Helpers\AmethystMatrix; // ⚡ Import the Sorceress
 use KrubiK\Helpers\JackPoint;      // Import "JackPoint" - The Tactical EventHook System
+use KrubiK\Extensions\ToxicOverlord;
 
+use Attribute;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionException;
@@ -275,7 +277,39 @@ trait EpicEngine
      * Temporary storage to track routes added within a group closure.
      * Used to return a RouteBox object.
     */
-    protected ?array $currentGroupRoutes = null;    
+    protected ?array $currentGroupRoutes = null;
+
+    /**
+     * ⚡ PLUGIN REGISTRY VERSION STAMP
+     * Zero-overhead snapshot & revision stamp
+     *
+     * Cached at the moment integrateNexus last built its manifest.
+     * If ToxicOverlord::revision() differs, the manifest cache is stale
+     * and EpicEngine will re-scan on the next integrateNexus call.
+     *
+     * This gives us hot-plugin-swap safety in test environments and
+     * zero overhead in production (revision never changes after boot).
+    */
+    protected int $cachedPluginRegistryRevision = -1;
+
+    /**
+     * ⚡ PER-NEXUS PLUGIN ATTRIBUTE SNAPSHOT
+     *
+     * [className][methodName] => list of markerClass that actually exist
+     * Used to avoid calling ToxicOverlord::loadout() in hot path.
+     *
+     * Stores which plugin-attributes were found on each class, keyed by
+     * $className. Populated during integrateNexus and read during dispatch.
+     *
+     * Structure:
+     *   [ 'App\Nexuses\ShopNexus' => [ 'methodName' => [ attrFQCN, ... ] ] ]
+     *
+     * This means the dispatch loop never calls ToxicOverlord::loadout() —
+     * it only iterates the exact attributes that are actually present on
+     * the matched route's method. True O(1) per route, O(k) per plugin call
+     * where k = number of plugin attributes on that method (usually 0–2).
+    */
+    protected array $nexusPluginAttributeSnapshot = []; /// nexusPluginMarkerSnapshot
 
     /**
      * 🛡️ Resolve the user across Web and Bot dimensions perfectly utilizing AxiomCore.
@@ -926,6 +960,36 @@ trait EpicEngine
                     AdminIds::class   => $reflection->getAttributes(AdminIds::class),
                 ];
 
+                // ⚡ PLUGIN SYSTEM: Class-level markers — scanned ONCE per class
+                $classLevelPluginArgs = [];
+                $methodCapableMarkers = [];   // فقط پلاگین‌هایی که TARGET_METHOD دارند
+                if (ToxicOverlord::revision() > 0) {
+                    foreach (ToxicOverlord::cryptonCodex() as $cryptonKey) {
+                        $breachMatrix = ToxicOverlord::targetTopology($cryptonKey);
+                        $isRepeatable = $breachMatrix['repeatable'];
+
+                        // Class-level (یک‌بار)
+                        if ($breachMatrix['targets'] & Attribute::TARGET_CLASS) {
+                            $argsList = [];
+
+                            foreach ($reflection->getAttributes($cryptonKey) as $refAttr) {
+                                $argsList[] = $refAttr->getArguments();
+                                if (!$isRepeatable) {
+                                    break; // Singular → فقط اولین کافی است
+                                }
+                            }
+                            if ($argsList !== []) {
+                                $classLevelPluginArgs[$cryptonKey] = $argsList;
+                            }
+                        }
+
+                        // فقط آن‌هایی که می‌توانند روی متد باشند را برای حلقهٔ متدها نگه می‌داریم
+                        if ($breachMatrix['targets'] & Attribute::TARGET_METHOD) {
+                            $methodCapableMarkers[] = $cryptonKey;
+                        }
+                    }
+                }
+
                 // Cache Method-Level Attributes
                 foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
                     $manifest['methods'][$method->getName()] = [
@@ -935,7 +999,7 @@ trait EpicEngine
                         OnText::class     => $method->getAttributes(OnText::class),
                         OnRegEx::class    => $method->getAttributes(OnRegEx::class),
                         Receive::class    => $method->getAttributes(Receive::class),
-                        When::class       => $method->getAttributes(When::class), // , \Attribute::IS_REPEATABLE
+                        When::class       => $method->getAttributes(When::class), // , Attribute::IS_REPEATABLE
                         ForceJoin::class  => $method->getAttributes(ForceJoin::class),
                         Fallback::class   => $method->getAttributes(Fallback::class),      // ✨ NEW: Scan for the global fallback
                         FallbackOn::class => $method->getAttributes(FallbackOn::class),    // ✨ NEW: Scan for type-specific fallbacks
@@ -951,6 +1015,71 @@ trait EpicEngine
                         RestrictTo::class => $method->getAttributes(RestrictTo::class),  // ✨ NEW,
                         OnInlineQuery::class => $method->getAttributes(OnInlineQuery::class)
                     ];
+
+                    // ⚡ PLUGIN SYSTEM: Method-level markers only (class-level already collected)
+                    if ($methodCapableMarkers !== []) {
+                        $methodPluginMarkers = [];
+
+                        // Method-level only
+                        // فقط روی لیست از پیش فیلترشده حلقه می‌زنیم
+                        foreach ($methodCapableMarkers as $cryptonKey) {   // ← دیگر cryptonCodex() صدا زده نمی‌شود
+                            $breachMatrix = ToxicOverlord::targetTopology($cryptonKey); // حتی این هم کش شده است
+                            $isRepeatable = $breachMatrix['repeatable'];
+
+                            $argsList = [];
+                            foreach ($method->getAttributes($cryptonKey) as $refAttr) {
+                                $argsList[] = $refAttr->getArguments();
+                                if (!$isRepeatable) {
+                                    break; // Singular → only first
+                                }
+                            }
+
+                            $hasMethodLevel = $argsList !== [];
+
+                            // 2. Inherit / Merge with class-level
+                            // Inherit class-level if this marker supports TARGET_CLASS
+                            // ارث‌بری از کلاس‌لول (اگر وجود داشته باشد)
+                            if (isset($classLevelPluginArgs[$cryptonKey])) {
+                                if ($isRepeatable) {
+                                    // Repeatable → همیشه merge کن
+                                    $argsList = array_merge($argsList, $classLevelPluginArgs[$cryptonKey]);
+                                } elseif (!$hasMethodLevel) {
+                                    // Singular + متد چیزی ندارد → از کلاس ارث ببر
+                                    $argsList = $classLevelPluginArgs[$cryptonKey];
+                                }
+                                // else: Singular + متد دارد → متد برنده است (هیچ کاری نکن)
+                            }
+                    
+                            // 3. ذخیره نهایی
+                            if ($argsList !== []) {
+                                $manifest['methods'][$method->getName()][$cryptonKey] = $argsList;
+                                $methodPluginMarkers[] = $cryptonKey;
+                            }
+
+                            /*** had potential redundant merge
+                            if (isset($classLevelPluginArgs[$cryptonKey])) {
+                                $existing = $manifest['methods'][$method->getName()][$cryptonKey] ?? [];
+                                $merged   = array_merge($existing, $classLevelPluginArgs[$cryptonKey]);
+
+                                if (!$isRepeatable && $merged !== []) {
+                                    $merged = [reset($merged)];
+                                }
+
+                                if ($merged !== []) {
+                                    $manifest['methods'][$method->getName()][$cryptonKey] = $merged;
+                                    if (!in_array($cryptonKey, $methodPluginMarkers, true)) {
+                                        $methodPluginMarkers[] = $cryptonKey;
+                                    }
+                                }
+                            }
+                            ***/
+
+                        }
+
+                        if ($methodPluginMarkers !== []) {
+                            $this->nexusPluginMarkerSnapshot[$className][$method->getName()] = $methodPluginMarkers;
+                        }
+                    }
                 }
                 self::$nexusManifestCache[$className] = $manifest;
             }
@@ -1421,184 +1550,28 @@ trait EpicEngine
                 // If a name attribute exists, resolve it. Otherwise dont waste your power, it's null head.
                 $routeName = $rawRouteName ? $this->_resolveRelativePathName($rawRouteName, $nexusNamePrefix) : null;
 
+                $routeConfig = compact(
+                    'routeName',
+                    'finalMiddlewareStack',
+                    'finalPlatformRestrictions',
+                    'whenGuardInstances',
+                    'finalAdminIds',
+                    'finalAccessRoles',
+                    'finalAccessUserIds',
+                    'finalBlockRoles',
+                    'finalBlockUserIds',
+                    'finalValidationRules',
+                    'finalForceJoinChannels',
+                    'finalForceJoinFailMessage',
+                    'handlerCallback',
+                    'className',
+                    'manifest',
+                    'reflection'
+                );
+
                 // Step D.1: Dynamic Parameter Discovery & Pattern Enrichment Closure 🧠
-                $enrichRoutePatternAndParams = function(Route $route) use ($className, $methodName) {
-                    if (!$route) return;
-
-                    $pattern = $route->getPattern();
-                    
-                    try {
-                        $reflectionMethod = new ReflectionMethod($className, $methodName);
-                        $requiredParamsToAppend = [];
-                        $allPathParams = [];
-
-                        // Match placeholders already declared in the route pattern (e.g. {productId} or {productId?})
-                        preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $pattern, $matches);
-                        $existingPlaceholders = $matches[1] ?? [];
-
-                        foreach ($reflectionMethod->getParameters() as $param) {
-                            $paramName = $param->getName();
-                            $paramType = $param->getType();
-
-                            // Skip dependency-injected system classes (e.g. Krubot, Request)
-                            if ($paramType instanceof ReflectionNamedType && !$paramType->isBuiltin()) {
-                                continue;
-                            }
-
-                            // Handle union/intersection types of classes (skip if no primitive types are present)
-                            if ($paramType instanceof ReflectionUnionType || $paramType instanceof ReflectionIntersectionType) {
-                                $hasBuiltin = false;
-                                foreach ($paramType->getTypes() as $type) {
-                                    if ($type->isBuiltin()) {
-                                        $hasBuiltin = true;
-                                        break;
-                                    }
-                                }
-                                if (!$hasBuiltin) {
-                                    continue;
-                                }
-                            }
-
-                            $allPathParams[] = $paramName;
-
-                            if (!in_array($paramName, $existingPlaceholders, true)) {
-                                // Only auto-append to path if the parameter is required (no default value)
-                                if (!$param->isDefaultValueAvailable()) {
-                                    $requiredParamsToAppend[] = $paramName;
-                                }
-                            }
-                        }
-
-                        // Append required implicit parameters to the pattern
-                        if (!empty($requiredParamsToAppend)) {
-                            $pattern = rtrim($pattern, '/');
-                            foreach ($requiredParamsToAppend as $reqPam) {
-                                $pattern .= '/{' . $reqPam . '}';
-                                $existingPlaceholders[] = $reqPam;
-                            }
-                            $route->pattern = $pattern;
-                        }
-
-                        // Save identified path parameters onto the Route instance
-                        $route->pathParameters = array_values(array_unique(array_merge($existingPlaceholders, $allPathParams)));
-
-                    } catch (ReflectionException $e) {
-                        // Fallback: extract placeholders from pattern directly if Reflection fails
-                        preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $pattern, $matches);
-                        $route->pathParameters = $matches[1] ?? [];
-                    }
-                };
 
                 // Step D.2: The Configuration Helper Closure 🛠 //To-Do:: Support PlatformRestricion Here
-                $_configureRoute = function (?Route $route = null, ?string $accessPolicy = null) use ($routeName, $finalMiddlewareStack, $finalPlatformRestrictions, $whenGuardInstances, $finalAdminIds, $finalAccessRoles, $finalBlockRoles, $finalAccessUserIds, $finalBlockUserIds, $finalValidationRules, $finalForceJoinChannels, $finalForceJoinFailMessage, $enrichRoutePatternAndParams, $handlerCallback) {
-                    if (!$route) return;
-
-                    // [THE BRAIN] enrichmentation central decision point. Clean, simple, and powerful.
-                    if (in_array($route->type, [self::RT_WEB_APP, self::RT_WEB_PAGE, self::RT_WEB_ACTION], true)) {
-
-                        // Dynamically discover parameter needs and enrich the Route Pattern for Route registration
-                        /// $enrichRoutePatternAndParams($route); // Apply enrichment HERE
-
-                        // 🔥 THE NEW CENTRAL DECISION POINT 🔥
-                        // Instead of checking the route type, we check the explicit `autoEnrichment` flag.
-                        // This is the core of the new architecture: the developer's intent, carried from
-                        // the attribute, directly controls the "magic" of route modification.
-                        if ($route->autoEnrichPattern === true) {
-                            $enrichRoutePatternAndParams($route);
-                        } else {
-                            // If enrichment is disabled, we still need to detect existing placeholders.
-                            preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $route->getPattern(), $matches);
-                            $route->pathParameters = $matches[1] ?? [];
-                        }
-
-                        // ✨ NEW: Apply access policy passed as an argument, if the route object supports it.
-                        if (method_exists($route, 'accessPolicy')) {
-                            // Use the specific sent policy for THIS route, or fall back to system default
-
-                            // ✨ OPTIMIZED: Use the pre-cached static property as the fallback.
-                            // This avoids hitting the config system for every single web route.
-
-                            $policyToApply = $accessPolicy ?? WebApp::$systemDefaultAccessPolicy;
-                            $route
-                                ->accessPolicy($policyToApply);
-
-                        }
-
-                        /// 3. REGISTER & BRIDGE using the FINAL pattern
-                        /// $this->_registerAndBridgeHttpRoute($route, $httpMethods); // OBSOLETE, NOT NEEDED
-
-                    }
-
-                    if ($routeName) $route->name($routeName);
-                    if (!empty($finalMiddlewareStack)) $route->middleware($finalMiddlewareStack);
-
-                    // Only apply platform restrictions if the final merged list is not empty.
-                    // An empty list means no restrictions were specified anywhere, so it's universally available in WarLord Grade.
-                    if (!empty($finalPlatformRestrictions)) {
-                        $route->platforms($finalPlatformRestrictions);
-                    }
-
-                    // Attach the pre-compiled guards to the Route object.
-                    if (!empty($whenGuardInstances)) {
-                        $route->guards($whenGuardInstances);
-                    }
-
-                    if (!empty($finalValidationRules)) {
-                        $route->attributes['_validation'] = $finalValidationRules;
-                    }
-
-                    // ✨♥️ THE UNIFIED ENERGY IS CHANNELED ♥️✨
-                    // We now endow the Route object with the final list of ForceJoin channels.
-                    // The Dispatcher will later access this property to perform its magic.
-                    if (!empty($finalForceJoinChannels)) {
-                        $route->forceJoinChannels = $finalForceJoinChannels; // + ✨ این خط، انرژی را به مسیر تزریق می‌کند
-
-                        // --- THE FINAL ASSIGNMENT ---
-                        // We now burn the final message string onto the Route object itself.
-                        $route->forceJoinMessage = $finalForceJoinFailMessage;
-
-                    }
-
-                    if (!empty($finalAdminIds)) {
-                        $route->adminIds = $finalAdminIds;
-                    }
-
-                    // 🛡️ THE QUANTUM CLEARANCE LEVEL IS BURNED INTO THE ROUTE 🛡️
-                    if (!empty($finalAccessRoles)) {
-                        $route->accessRoles = $finalAccessRoles;
-                    }
-                    if (!empty($finalAccessUserIds)) {
-                        $route->accessUserIds = $finalAccessUserIds;
-                    }
-
-                    // 🚫 THE ABSOLUTE VETO IS BURNED INTO THE ROUTE 🚫
-                    if (!empty($finalBlockRoles)) {
-                        $route->blockRoles = $finalBlockRoles;
-                    }
-                    if (!empty($finalBlockUserIds)) {
-                        $route->blockUserIds = $finalBlockUserIds;
-                    }
-
-                    // Map Class::method key to the Route instance
-                    if (is_array($handlerCallback) && count($handlerCallback) === 2) {
-                        $handlerKey = $handlerCallback[0] . '::' . $handlerCallback[1];
-                        $this->handlerToRouteMap[$handlerKey] = $route;
-                    }
-
-                    // Populate type-specific fast-lookup maps
-                    switch ($route->type) {
-                        case self::RT_COMMAND:
-                            $this->commandToRouteMap[trim($route->getPattern(), '/')] = $route;
-                            break;
-                        case self::RT_WEB_APP:
-                        case self::RT_WEB_PAGE:
-                        case self::RT_WEB_ACTION:
-                            // The pattern for web routes is prefixed, e.g., 'WAPP::game.dashboard'
-                            $webPathKey = substr($route->getPattern(), strpos($route->getPattern(), '::') + 2);
-                            $this->webPathToRouteMap[$webPathKey] = $route;
-                            break;
-                    }
-                };
 
                 // -------------------------------------------------------------
                 // PHASE E: Attribute-Based Route Registration (Optimized Manifest Loop)
@@ -1611,11 +1584,11 @@ trait EpicEngine
                  */
 
                 foreach ($attributesMap[OnCommand::class] ?? [] as $attr) {
-                    $_configureRoute($this->onCommand($attr->newInstance()->command, $handlerCallback));
+                    $this->configureRoute($this->onCommand($attr->newInstance()->command, $handlerCallback), $routeConfig);
                 }
 
                 foreach ($attributesMap[OnText::class] ?? [] as $attr) {
-                    $_configureRoute($this->onText($attr->newInstance()->pattern, $handlerCallback));
+                    $this->configureRoute($this->onText($attr->newInstance()->pattern, $handlerCallback), $routeConfig);
                 }
 
                 foreach ($attributesMap[OnRegEx::class] ?? [] as $attr) {
@@ -1623,7 +1596,7 @@ trait EpicEngine
                     if (!preg_match('/^\/.*\/[a-zA-Z]*$/', $pattern)) {
                         $pattern = '/' . $pattern . '/';
                     }
-                    $_configureRoute($this->onText($pattern, $handlerCallback));
+                    $this->configureRoute($this->onText($pattern, $handlerCallback), $routeConfig);
                 }
 
                 // Handle #[Receive] Attribute 👁️
@@ -1636,9 +1609,9 @@ trait EpicEngine
                     
                     // If it returned an array of Routes (multi-type), configure all of them
                     if (is_array($resultingRoutes)) {
-                        foreach ($resultingRoutes as $r) $_configureRoute($r);
+                        foreach ($resultingRoutes as $r) $this->configureRoute($r, $routeConfig);
                     } else {
-                        $_configureRoute($resultingRoutes);
+                        $this->configureRoute($resultingRoutes, $routeConfig);
                     }
                 }
 
@@ -1648,7 +1621,7 @@ trait EpicEngine
                     $instance = $attr->newInstance();
                     // We call our new, intelligent public method.
                     // This keeps the logic centralized and the scanner clean.
-                    $_configureRoute($this->onInlineQuery($instance->pattern, $handlerCallback));
+                    $this->configureRoute($this->onInlineQuery($instance->pattern, $handlerCallback), $routeConfig);
                 }
 
                 // ✨ NEW: Handle #[Fallback] Attribute (Global)
@@ -1680,7 +1653,7 @@ trait EpicEngine
 
                 foreach ($attributesMap[Action::class] ?? [] as $attr) {
                     // ⚡ [FIXED]: Action uses 'name' not 'command'.
-                    $_configureRoute($this->onAction($attr->newInstance()->name, $handlerCallback)); 
+                    $this->configureRoute($this->onAction($attr->newInstance()->name, $handlerCallback), $routeConfig); 
                 }
 
                 // ✨ NEW: Handle #[WebApp] Attribute (IS_REPEATABLE / multi-url mapping)
@@ -1697,7 +1670,7 @@ trait EpicEngine
 
                     // Read policy from the specific attribute data and pass it to the _configureRoute closure
                     $routeSpecificAccessPolicy = $instance->getAccessPolicy();
-                    $_configureRoute($route, $routeSpecificAccessPolicy);
+                    $this->configureRoute($route, $routeConfig, $routeSpecificAccessPolicy);
                 }
 
                 // ✨ NEW: Handle Register WebPage Routes (IS_REPEATABLE / multi-url mapping)
@@ -1718,7 +1691,7 @@ trait EpicEngine
 
                     // Read policy from the specific attribute data and pass it to the _configureRoute closure
                     $routeSpecificAccessPolicy = $instance->getAccessPolicy();
-                    $_configureRoute($route, $routeSpecificAccessPolicy);
+                    $this->configureRoute($route, $routeConfig, $routeSpecificAccessPolicy);
                 }
 
                 // ✨ NEW: Handle Register WebAction Routes (IS_REPEATABLE / multi-url mapping)
@@ -1739,7 +1712,7 @@ trait EpicEngine
 
                     // Read policy from the specific attribute data and pass it to the _configureRoute closure
                     $routeSpecificAccessPolicy = $instance->getAccessPolicy();
-                    $_configureRoute($route, $routeSpecificAccessPolicy);
+                    $this->configureRoute($route, $routeConfig, $routeSpecificAccessPolicy);
                 }
             }
 
@@ -2112,6 +2085,14 @@ trait EpicEngine
                     // Call our new gatekeeper from StormJusticeTurbine
                     if ($this->evaluateRouteGuards($routeItem, $message)) {
                         // ✅ GUARDS PASSED! This is our winner.
+
+                        // ⚡ PLUGIN MATCH GATE (بعد از When/ForceJoin و قبل از قفل کردن مسیر)
+                        if ($routeItem instanceof Route
+                            && !$routeItem->survivesToxicHijack($message)) /// ToxicOverlord::
+                        {
+                            continue; // silent veto — همان فلسفه Guardها
+                        }
+
                         // Lock in the route and break the loop.
                         $matchedRoute = $routeItem;
                         $finalRouteParams = $matches;
@@ -2308,6 +2289,13 @@ trait EpicEngine
                 }
             }
 
+            // ⚡ Final Plugin Gate (برای مسیرهایی که از Fallback آمده‌اند)
+            if ($matchedRoute instanceof Route
+                && !$matchedRoute->survivesToxicHijack($message))
+            {
+                return null;
+            }
+
             // Execute the action with dependency injection or parameters, retrieving the raw output of destianation method.
             $actionResult = $this->callAction($finalHandler, $message, $finalRouteParams);
 
@@ -2387,5 +2375,410 @@ trait EpicEngine
         }
 
         $this->tunnelAmethyst(); // short syntax for `$this->tunnelAmethyst(null)` ; clears AmethystMatrix working message entry.
+    }
+
+    /**
+     * Dynamic Parameter Discovery & Pattern Enrichment Method 🧠
+     *
+     * Enriches route pattern with auto-discovered method parameters.
+     *
+     * Scans the target method's signature and appends required non-DI parameters
+     * as route placeholders, preserving existing pattern structure and optional markers.
+     *
+     * @param Route             $route           Route instance to enrich with dynamic parameters
+     * @param ReflectionMethod  $reflectionMethod Reflected target method
+     *
+     * @return void
+    */
+    protected function enrichRoutePatternAndParams(
+        Route $route,
+        ReflectionMethod $reflectionMethod
+    ): void {
+        $pattern = $route->getPattern();
+
+        // 🔥 STATIC CACHE: Extract placeholders ONCE per unique pattern.
+        static $patternPlaceholdersCache = [];
+        $existingPlaceholders = [];
+
+        try {
+
+            if (isset($patternPlaceholdersCache[$pattern])) {
+                $existingPlaceholders = $patternPlaceholdersCache[$pattern];
+            } else {
+                // Match placeholders already declared in the route pattern (e.g. {productId} or {productId?})
+                preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $pattern, $matches);
+                $existingPlaceholders = $matches[1] ?? [];
+                $patternPlaceholdersCache[$pattern] = $existingPlaceholders;
+            }
+
+            $routeParameters = $this->_resolveActionDependencies(
+                method: $reflectionMethod,
+                payloadData: [],
+                extraInjects: [],
+                discoverOnly: true
+            );
+
+            $pathParams = [];
+
+            foreach ($existingPlaceholders as $name) {
+                $pathParams[$name] = true;
+            }
+
+            $requiredParamsToAppend = [];
+
+            foreach ($routeParameters as $paramName => $required) {
+                if (isset($pathParams[$paramName])) {
+                    continue;
+                }
+
+                $pathParams[$paramName] = true;
+
+                // Only auto-append to path if the parameter is required (no default value)
+                if ($required) {
+                    $requiredParamsToAppend[] = $paramName;
+                }
+            }
+
+            // Append required implicit parameters to the pattern
+            if ($requiredParamsToAppend !== []) {
+                $pattern = rtrim($pattern, '/');
+
+                foreach ($requiredParamsToAppend as $reqPam) {
+                    $pattern .= '/{' . $reqPam . '}';
+                }
+
+                $route->pattern = $pattern;
+
+                /// Cache the enriched pattern's final placeholder set as well.
+                /// preg_match_all('/\{([a-zA-Z0-9_]+)\}?\??/', $pattern, $matches);
+            }
+
+            // Save identified path parameters onto the Route instance
+            $route->pathParameters = array_keys($pathParams);
+
+        } catch (ReflectionException $e) {
+            // Fallback: extract placeholders from pattern directly if Reflection fails
+            preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $pattern, $matches);
+            $route->pathParameters = $matches[1] ?? [];
+        }
+    }
+
+    /**
+     * A specialized, high-performance path matcher for web routes.
+     * Converts user-friendly patterns like 'game.users.{id}.profile' into a
+     * regular expression to match incoming paths and extract parameters.
+     * 
+     * ⚡ SUPERCHARGED ⚡ with Ultra-fast regex caching & parameter extraction.
+     *
+     * @param string $pattern The route pattern from Nexus scanner (e.g., 'users.{id}.edit').
+     * @param string $path    The incoming path from WebRequest DTO (e.g., 'users.123.edit').
+     * @return array{0: bool, 1: array<string, string>} A tuple: [isMatch, extractedParameters].
+    */
+    protected function demystifyWebPath(string $pattern, string $path): array
+    {
+        // 🔥 STATIC CACHE: Compile the regex ONCE per lifecycle, not per-request!
+        static $compiledPatterns = [];
+
+        if (!isset($compiledPatterns[$pattern])) {
+
+            // STEP 1: PREPARE THE REGEX - Escape all literal dots in the pattern.
+            // This ensures 'game.users' is treated as literal text, not a regex wildcard.
+            $regex = preg_quote($pattern, '/');
+
+            // STEP 2: CONVERT PARAMETERS TO NAMED CAPTURE GROUPS
+            // Finds all occurrences of {param} (e.g., '\{id\}') and converts them
+            // into a regex named capture group: '(?<id>[^\.]+)'.
+            // The [^\.]+ part is critical: it means "match one or more characters that are NOT a dot".
+            // This correctly captures '123' in 'users.123.profile' but stops at the next dot.
+            $regex = preg_replace('/\\\{([a-zA-Z0-9_]+)\\\}/', '(?<$1>[^\.]+)', $regex);
+
+            // STEP 3: ANCHOR THE REGEX FOR A FULL MATCH
+            // Wraps the final regex with '^' (start of string) and '$' (end of string)
+            // to ensure the *entire* path must match the pattern.
+            $compiledPatterns[$pattern] = '/^' . $regex . '$/u';
+        }
+
+        // STEP 4: EXECUTE AND CHECK FOR A MATCH
+        if (!preg_match($compiledPatterns[$pattern], $path, $matches)) {
+
+            // If there's no match, we return immediately to grain performance.
+            return [false, []];
+        }
+
+        // STEP 5: CLEAN UP AND RETURN ONLY NAMED PARAMETERS
+        // The $matches array from preg_match contains both numeric and string keys.
+        // We filter it to keep only the named capture groups, which are our route parameters.
+        // e.g., from ['0' => 'users.123.edit', 'id' => '123', '1' => '123'], we get ['id' => '123'].
+        /// $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
+        // + FAST EXTRACTION ⚡: foreach + is_string is drastically faster than array_filter callback
+        $params = [];
+        foreach ($matches as $key => $value) {
+            if (is_string($key)) {
+                $params[$key] = $value;
+            }
+        }
+
+        // STEP 6: MISSION ACCOMPLISHED
+        // Return a successful match result along with the clean, extracted parameters.
+        return [true, $params];
+    }
+
+    /**
+     * Dynamic Parameter Discovery & Pattern Enrichment Method 🧠
+     * Enriches route pattern with auto-discovered method parameters.
+     * 
+     * Scans the target method's signature and appends required non-DI parameters
+     * as route placeholders, preserving existing pattern structure and optional markers.
+     * 
+     * @param Route  $route      Route instance to enrich with dynamic parameters
+     * @param string $className  Fully qualified class name containing the method
+     * @param string $methodName Method name to reflect and extract parameters from
+     * 
+     * @return void
+    */
+    protected function enrichRoutePatternAndParamsX(Route $route, string $className, string $methodName): void {
+        if (!$route) return;
+
+        $pattern = $route->getPattern();
+        
+        try {
+            $reflectionMethod = new ReflectionMethod($className, $methodName);
+            $requiredParamsToAppend = [];
+            $allPathParams = [];
+
+            // Match placeholders already declared in the route pattern (e.g. {productId} or {productId?})
+            preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $pattern, $matches);
+            $existingPlaceholders = $matches[1] ?? [];
+
+            foreach ($reflectionMethod->getParameters() as $param) {
+                $paramName = $param->getName();
+                $paramType = $param->getType();
+
+                // Skip dependency-injected system classes (e.g. Krubot, Request)
+                if ($paramType instanceof ReflectionNamedType && !$paramType->isBuiltin()) {
+                    continue;
+                }
+
+                // Handle union/intersection types of classes (skip if no primitive types are present)
+                if ($paramType instanceof ReflectionUnionType || $paramType instanceof ReflectionIntersectionType) {
+                    $hasBuiltin = false;
+                    foreach ($paramType->getTypes() as $type) {
+                        if ($type->isBuiltin()) {
+                            $hasBuiltin = true;
+                            break;
+                        }
+                    }
+                    if (!$hasBuiltin) {
+                        continue;
+                    }
+                }
+
+                $allPathParams[] = $paramName;
+
+                if (!in_array($paramName, $existingPlaceholders, true)) {
+                    // Only auto-append to path if the parameter is required (no default value)
+                    if (!$param->isDefaultValueAvailable()) {
+                        $requiredParamsToAppend[] = $paramName;
+                    }
+                }
+            }
+
+            // Append required implicit parameters to the pattern
+            if (!empty($requiredParamsToAppend)) {
+                $pattern = rtrim($pattern, '/');
+                foreach ($requiredParamsToAppend as $reqPam) {
+                    $pattern .= '/{' . $reqPam . '}';
+                    $existingPlaceholders[] = $reqPam;
+                }
+                $route->pattern = $pattern;
+            }
+
+            // Save identified path parameters onto the Route instance
+            $route->pathParameters = array_values(array_unique(array_merge($existingPlaceholders, $allPathParams)));
+
+        } catch (ReflectionException $e) {
+            // Fallback: extract placeholders from pattern directly if Reflection fails
+            preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $pattern, $matches);
+            $route->pathParameters = $matches[1] ?? [];
+        }
+    }
+
+    // The Configuration Helper Method 🛠 //To-Do:: Support PlatformRestricion Here
+    /**
+     * Configures and registers a route with all merged attributes and middleware.
+     * 
+     * Central orchestration point: applies access policies, middleware stacks, validation rules,
+     * platform restrictions, when-guards, ForceJoin channels, admin/role constraints, and
+     * integrates with the plugin system before final registration.
+     * 
+     * @param Route|null    $route        Route instance to configure (null for fallback routes)
+     * @param array         $routeConfig  Bundled configuration context from method analysis
+     * @param string|null   $accessPolicy Route-specific access policy override
+     * 
+     * @return void
+    */
+    protected function configureRoute(?Route $route, array $routeConfig, ?string $accessPolicy = null): void {
+        if (!$route) return;
+
+        extract($routeConfig, EXTR_OVERWRITE);
+        /* use (
+            $routeName,
+            $finalMiddlewareStack,
+            $finalPlatformRestrictions,
+            $whenGuardInstances,
+            $finalAdminIds,
+            $finalAccessRoles,
+            $finalBlockRoles,
+            $finalAccessUserIds,
+            $finalBlockUserIds,
+            $finalValidationRules,
+            $finalForceJoinChannels,
+            $finalForceJoinFailMessage,
+            $handlerCallback,
+            $className,          // ← add
+            $manifest,           // ← add
+            $reflection          // ← already available in outer scope
+        ); */
+        $methodName = is_array($handlerCallback) ? ($handlerCallback[1] ?? null) : null; // Extract method name from callback
+        $methodRef = null;
+        
+        // [THE BRAIN] enrichmentation central decision point. Clean, simple, and powerful.
+        if (in_array($route->type, [self::RT_WEB_APP, self::RT_WEB_PAGE, self::RT_WEB_ACTION], true)) {
+
+            // Dynamically discover parameter needs and enrich the Route Pattern for Route registration
+            /// $this->enrichRoutePatternAndParams($route); // Apply enrichment HERE
+
+            // 🔥 THE NEW CENTRAL DECISION POINT 🔥
+            // Instead of checking the route type, we check the explicit `autoEnrichment` flag.
+            // This is the core of the new architecture: the developer's intent, carried from
+            // the attribute, directly controls the "magic" of route modification.
+            if ($route->autoEnrichPattern === true) {
+                // Re-use the already-built ReflectionClass — never new again
+                $methodRef = $reflection->getMethod($methodName);
+                $this->enrichRoutePatternAndParams($route, $methodRef); /// $className, $methodName);
+            } else {
+                // If enrichment is disabled, we still need to detect existing placeholders.
+                preg_match_all('/\{([a-zA-Z0-9_]+)\??\}/', $route->getPattern(), $matches);
+                $route->pathParameters = $matches[1] ?? [];
+            }
+
+            // ✨ NEW: Apply access policy passed as an argument, if the route object supports it.
+            if (method_exists($route, 'accessPolicy')) {
+                // Use the specific sent policy for THIS route, or fall back to system default
+
+                // ✨ OPTIMIZED: Use the pre-cached static property as the fallback.
+                // This avoids hitting the config system for every single web route.
+
+                $policyToApply = $accessPolicy ?? $manifest['webAppAccessPolicy'] ?? WebApp::$systemDefaultAccessPolicy;
+                if($policyToApply !== null) {
+                    $route->accessPolicy($policyToApply);
+                }
+
+            }
+
+            /// 3. REGISTER & BRIDGE using the FINAL pattern
+            /// $this->_registerAndBridgeHttpRoute($route, $httpMethods); // OBSOLETE, NOT NEEDED
+
+        }
+
+        if ($routeName) $route->name($routeName);
+        if (!empty($finalMiddlewareStack)) $route->middleware($finalMiddlewareStack);
+
+        // Only apply platform restrictions if the final merged list is not empty.
+        // An empty list means no restrictions were specified anywhere, so it's universally available in WarLord Grade.
+        if (!empty($finalPlatformRestrictions)) {
+            $route->platforms($finalPlatformRestrictions);
+        }
+
+        // Attach the pre-compiled guards to the Route object.
+        if (!empty($whenGuardInstances)) {
+            $route->guards($whenGuardInstances);
+        }
+
+        if (!empty($finalValidationRules)) {
+            $route->attributes['_validation'] = $finalValidationRules;
+        }
+
+        // ✨♥️ THE UNIFIED ENERGY IS CHANNELED ♥️✨
+        // We now endow the Route object with the final list of ForceJoin channels.
+        // The Dispatcher will later access this property to perform its magic.
+        if (!empty($finalForceJoinChannels)) {
+            $route->forceJoinChannels = $finalForceJoinChannels; // + ✨ این خط، انرژی را به مسیر تزریق می‌کند
+
+            // --- THE FINAL ASSIGNMENT ---
+            // We now burn the final message string onto the Route object itself.
+            $route->forceJoinMessage = $finalForceJoinFailMessage;
+
+        }
+
+        if (!empty($finalAdminIds)) {
+            $route->adminIds = $finalAdminIds;
+        }
+
+        // 🛡️ THE QUANTUM CLEARANCE LEVEL IS BURNED INTO THE ROUTE 🛡️
+        if (!empty($finalAccessRoles)) {
+            $route->accessRoles = $finalAccessRoles;
+        }
+        if (!empty($finalAccessUserIds)) {
+            $route->accessUserIds = $finalAccessUserIds;
+        }
+
+        // 🚫 THE ABSOLUTE VETO IS BURNED INTO THE ROUTE 🚫
+        if (!empty($finalBlockRoles)) {
+            $route->blockRoles = $finalBlockRoles;
+        }
+        if (!empty($finalBlockUserIds)) {
+            $route->blockUserIds = $finalBlockUserIds;
+        }
+
+        // ⚡ PLUGIN SYSTEM: ROUTE ASSEMBLY (cold path — zero extra Reflection)
+        if ($methodName
+            && !empty($this->nexusPluginMarkerSnapshot[$className][$methodName] ?? [])
+        ) {
+            // Re-use the already-built ReflectionClass — never new again
+            $methodRef ??= $reflection->getMethod($methodName);
+
+            foreach ($this->nexusPluginMarkerSnapshot[$className][$methodName] as $cryptonKey) {
+                $plugin = ToxicOverlord::traceBeacon($cryptonKey);
+                if ($plugin === null) {
+                    continue;
+                }
+
+                $argsList = $manifest['methods'][$methodName][$cryptonKey] ?? [];
+                foreach ($argsList as $args) {
+                    $plugin->analyse($route, $args, $methodRef, $reflection);
+                }
+
+                JackPoint::fire('plugin.scanned', [
+                    'plugin' => $plugin::class,
+                    'route'  => $route,
+                    'method' => $methodName,
+                    'nexus'  => $className,
+                    'count'  => count($argsList),
+                ], $this);
+            }
+
+            $route->toxicityLevel = ToxicOverlord::revision();
+        }
+
+        // Map Class::method key to the Route instance
+        if (is_array($handlerCallback) && count($handlerCallback) === 2) {
+            $handlerKey = $handlerCallback[0] . '::' . $handlerCallback[1];
+            $this->handlerToRouteMap[$handlerKey] = $route;
+        }
+
+        // Populate type-specific fast-lookup maps
+        switch ($route->type) {
+            case self::RT_COMMAND:
+                $this->commandToRouteMap[trim($route->getPattern(), '/')] = $route;
+                break;
+            case self::RT_WEB_APP:
+            case self::RT_WEB_PAGE:
+            case self::RT_WEB_ACTION:
+                // The pattern for web routes is prefixed, e.g., 'WAPP::game.dashboard'
+                $webPathKey = substr($route->getPattern(), strpos($route->getPattern(), '::') + 2);
+                $this->webPathToRouteMap[$webPathKey] = $route;
+                break;
+        }
     }
 }

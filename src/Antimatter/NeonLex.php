@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace KrubiK\Antimatter;
 
 use KrubiK\Arcane\InspectsAppLocale;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
 use KrubiK\Enums\Platform;
 

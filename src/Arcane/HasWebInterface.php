@@ -2,7 +2,7 @@
 
 namespace KrubiK\Arcane;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.9×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -17,6 +17,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Contracts\View\View;
+use JsonSerializable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response as LaravelResponse;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
@@ -82,12 +83,12 @@ trait HasWebInterface
             is_array($result) ||
             $result instanceof Arrayable ||
             $result instanceof Jsonable ||
-            $result instanceof \JsonSerializable ||
+            $result instanceof JsonSerializable ||
             $result instanceof \stdClass
         ) {
             $data = match (true) {
                 $result instanceof Arrayable        => $result->toArray(),
-                $result instanceof \JsonSerializable => $result->jsonSerialize(),
+                $result instanceof JsonSerializable => $result->jsonSerialize(),
                 default                             => $result,
             };
 
@@ -176,83 +177,6 @@ trait HasWebInterface
         $this->finalResponse = $this->toHttpResponse(func_get_arg(0));  /// $content = func_get_arg(0);
         
         return $this;
-    }
-
-    /**
-     * ⚡ SUPERCHARGED: Ultra-fast regex caching & parameter extraction.
-    */
-    protected function demystifyWebPath(string $pattern, string $path): array
-    {
-        // 🔥 STATIC CACHE: Compile the regex ONCE per lifecycle, not per-request!
-        static $compiledPatterns = [];
-
-        if (!isset($compiledPatterns[$pattern])) {
-            $regex = preg_quote($pattern, '/');
-            $regex = preg_replace('/\\\{([a-zA-Z0-9_]+)\\\}/', '(?<$1>[^\.]+)', $regex);
-            $compiledPatterns[$pattern] = '/^' . $regex . '$/u';
-        }
-
-        if (!preg_match($compiledPatterns[$pattern], $path, $matches)) {
-            return [false, []];
-        }
-
-        // ⚡ FAST EXTRACTION: foreach + is_string is drastically faster than array_filter callback
-        $params = [];
-        foreach ($matches as $key => $value) {
-            if (is_string($key)) {
-                $params[$key] = $value;
-            }
-        }
-
-        return [true, $params];
-    }
-
-    /**
-     * A specialized, high-performance path matcher for web routes.
-     * Converts user-friendly patterns like 'game.users.{id}.profile' into a
-     * regular expression to match incoming paths and extract parameters.
-     *
-     * @param string $pattern The route pattern from Nexus scanner (e.g., 'users.{id}.edit').
-     * @param string $path    The incoming path from WebRequest DTO (e.g., 'users.123.edit').
-     * @return array{0: bool, 1: array<string, string>} A tuple: [isMatch, extractedParameters].
-    */
-    protected function demystifyWebPathX(string $pattern, string $path): array
-    {
-        // STEP 1: PREPARE THE REGEX - Escape all literal dots in the pattern.
-        // This ensures 'game.users' is treated as literal text, not a regex wildcard.
-        $regex = preg_quote($pattern, '/');
-
-        // STEP 2: CONVERT PARAMETERS TO NAMED CAPTURE GROUPS
-        // Finds all occurrences of {param} (e.g., '\{id\}') and converts them
-        // into a regex named capture group: '(?<id>[^\.]+)'.
-        // The [^\.]+ part is critical: it means "match one or more characters that are NOT a dot".
-        // This correctly captures '123' in 'users.123.profile' but stops at the next dot.
-        $regex = preg_replace('/\\\{([a-zA-Z0-9_]+)\\\}/', '(?<$1>[^\.]+)', $regex);
-
-        // STEP 3: ANCHOR THE REGEX FOR A FULL MATCH
-        // Wraps the final regex with '^' (start of string) and '$' (end of string)
-        // to ensure the *entire* path must match the pattern.
-        $fullRegex = '/^' . $regex . '$/u';
-
-        // STEP 4: EXECUTE AND CHECK FOR A MATCH
-        $isMatch = (bool) preg_match($fullRegex, $path, $matches);
-
-        if (!$isMatch) {
-            // If there's no match, we return immediately to grain performance.
-            return [false, []];
-        }
-
-        // STEP 5: CLEAN UP AND RETURN ONLY NAMED PARAMETERS
-        // The $matches array from preg_match contains both numeric and string keys.
-        // We filter it to keep only the named capture groups, which are our route parameters.
-        // e.g., from ['0' => 'users.123.edit', 'id' => '123', '1' => '123'], we get ['id' => '123'].
-
-        $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
-
-        // STEP 6: MISSION ACCOMPLISHED
-        // Return a successful match result along with the clean, extracted parameters.
-        return [true, $params];
-
     }
 
 }

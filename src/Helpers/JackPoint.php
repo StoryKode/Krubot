@@ -40,6 +40,8 @@ use KrubiK\Extensions\NeonWarp;
 use KrubiK\Extensions\KarAgah;
 use BadMethodCallException;
 
+use KrubiK\Extensions\ToxicOverlord;
+
 /**
  * ╔═══════════════════════════════════════════════════════════════════════════╗
  * ║  K R U B I K   C Y B E R C I T A D E L  ---  JACKPOINT EVENT-HOOKING CORE ║
@@ -450,5 +452,24 @@ class JackPoint
             'name_injectors' => static::extrapolate(static::$paramNameInjectors, 'injectors', $hasOrigins),
             'internal_links' => method_exists(static::class, 'allLinks') ? static::allLinks() : []
         ];
+    }
+
+    /**
+     * ⚡ JackPoint::install() — Hyper-DX Plugin Installer
+     *
+     * Usage:
+     *   JackPoint::install(MockPlugin::class);
+     *   JackPoint::install(new MockPlugin());
+     *
+     * Rules (ToxicOverlord::inject'z deliberate & performance-first):
+     *   • string  → فقط new می‌کند، هیچ بررسی قراردادی انجام نمی‌دهد
+     *   • object  → فقط اگر Plugin باشد اجازه عبور می‌دهد
+    */
+    public static function install(string|array|object $plugin): void
+    {
+
+        ToxicOverlord::inject($plugin);
+
+        // Silent reject (no exception — pure speed philosophy)
     }
 }

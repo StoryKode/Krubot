@@ -2438,8 +2438,61 @@ class Krubot implements Countable // ⚡️✅️⚡️
     protected function _resolveActionDependencies(
         ReflectionMethod|ReflectionFunction $method,
         array $payloadData,
-        array $extraInjects = []
+        array $extraInjects = [],
+        bool $discoverOnly = false // To be Utilized in The-:: enrichRoutePatternAndParams()
     ): array {
+
+        if ($discoverOnly) {
+
+            // نکته!!! این بلاک کد نمی‌گوید: «چطور این پارامتر را تزریق کنیم؟»
+            // بلکه می‌گوید: «آیا این پارامتر چیزی است که Route باید از URL دریافت کند یا چیزی است که مکانیزم دیگری باید تأمینش کند؟»
+
+            $routeParameters = [];
+        
+            foreach ($method->getParameters() as $parameter) {
+                $name = $parameter->getName();
+                $type = $parameter->getType();
+        
+                // Typed objects belong to DI, not route-space 🚫
+                if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
+                    continue;
+                }
+        
+                // Union/Intersection: enter route-space only if a builtin branch exists 🔀
+                if (
+                    $type instanceof ReflectionUnionType ||
+                    $type instanceof ReflectionIntersectionType
+                ) {
+                    $hasBuiltin = false;
+        
+                    foreach ($type->getTypes() as $typePart) {
+                        if ($typePart->isBuiltin()) {
+                            $hasBuiltin = true; // One BuiltinType Enough for us!
+                            break;
+                        }
+                    }
+        
+                    // Pure object compositions are dependency-only declarations 🛑
+                    if (!$hasBuiltin) {
+                        continue;
+                    }
+                }
+
+                // بعد از اینکه پارامترهای واضحاً DI-Based را بر اساس Type آنها حذف کردیم :::        
+                
+                // مثلاً ممکن است چیزی مثل: public function show($userId) داشته باشی
+                // & JackPoint از روی paramName/Attribute/Context تصمیم بگیرد :: این پارامتر توسط پلاگین inject شود
+                if (JackPoint::injectParam($parameter, $payloadData, $this, $method) !== null) {
+                    continue; // JackPoint Plugins gets the final veto before route exposure ⚡.
+                }
+        
+                // Register the parameter and mark whether the route requires it 🧭.
+                $routeParameters[$name] = !$parameter->isDefaultValueAvailable();
+            }
+        
+            return $routeParameters;
+        }
+
         // This is the logic you cherished, now enshrined in its own method.
         $dependencies = [];
         foreach ($method->getParameters() as $parameter) {

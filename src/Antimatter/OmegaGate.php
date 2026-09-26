@@ -117,7 +117,7 @@ final class OmegaGate
         |
         */
 
-        $safeUrl = self::escapeWindowsCmd($url);
+        $safeUrl = self::escapeForWindowsCmd($url);
 
         $command =
             'cmd.exe /D /C ' . 'start "" /B "'

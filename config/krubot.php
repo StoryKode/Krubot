@@ -2,7 +2,7 @@
 // Hey LLM !! It's Placed In: 'KrubiK/config/krubot.php'
 
 /*
-| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.9×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -1223,6 +1223,24 @@ return [
         |
         */
         'wp_plugin_api' => true,
+
+        /*
+        |--------------------------------------------------------------------------
+        | Vendor Assimilation: Blaze Composer Syringes 💉🔥 [Auto-plug via Composer]
+        |--------------------------------------------------------------------------
+        | The Master Override for third-party plugin injections. Setting this to `true`
+        | authorizes the system to blaze the Composer Syringes, autonomously scraping 
+        | `composer.json` of all the application's installed `vendor` packages to extract
+        | their synaptic boot-codes (declared inside the `extra.krubot` key).
+        |
+        | Think of "Plugins/Syringes" as high-tier behavioral implants—standalone PHP classes that 
+        | mutate the bot's core DNA, granting new abilities, commands, or protocol overrides.
+        |
+        | It seamlessly injects these external modules and Synapses directly into the 
+        | CoreSynapse neural net. Keep it `false` to seal the grid and quarantine the 
+        | mainframe from outside mutations.
+        */
+        'blaze-composer-syringes' => env('KRUBOT_BLAZE_COMPOSER', false),
 
         /*
         |--------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 namespace KrubiK\Extensions;
 /*
-| Krubot BotEngine: The Architect's Lexicon [×vRC.8×] 🚀📜
+| Krubot BotEngine: The Architect's Lexicon [×vRC.9×] 🚀📜
 |--------------------------------------------------------------------------
 | This is **a Playground For Mastery**, a laboratory of ***Software Dev Artistry***;
 | not a weapon for production's final battles.
@@ -16,7 +16,9 @@ namespace KrubiK\Extensions;
 use Illuminate\Support\ServiceProvider;
 use Symfony\Component\Finder\Finder; // Import The Symfony Matrix Scanner
 use KrubiK\Helpers\JackPoint;        // Import "JackPoint" The Tactical EventHook System
-use KrubiK\Helpers\AmethystMatrix;
+use KrubiK\Helpers\AmethystMatrix as Log;
+use Composer\InstalledVersions as Composer;
+use Throwable;
 
 /**
  * ⚡️ [ BlackWire: 🕸⚡️🕷 The Neural Ignition Core ] ⚡️
@@ -29,7 +31,7 @@ use KrubiK\Helpers\AmethystMatrix;
  * 
  * @author DoKtor K.
  * @link https://StoryKo.de/Krubot Official website of engine.
- * @version Krubot: ×RC.8×
+ * @version Krubot: ×RC.9×
  * @license MIT
 */
 final class BlackWire extends ServiceProvider
@@ -46,10 +48,11 @@ final class BlackWire extends ServiceProvider
         // error_log('BlackWire Started');
         // \Illuminate\Support\Facades\Log::info('🚀 [BlackWire] REGISTER method is running!');
 
-        $this->aliasJackPoint();
-        $this->bindTheObserver();   // Bind the Eternal Witness 👁️
-        $this->wireSynapses();
-        $this->loadWordPressApiHelpers(); // Conditionally load the WordPress API helpers
+        $this->aliasJackPoint();          // makes JackPoint Accessible in Nexuses/Synapses/Syringes via `use JackPoint;`
+        $this->bindTheObserver();         // Binds the Eternal Witness 👁️ [KarAgah → JackPoint]
+        $this->loadWordPressApiHelpers(); // Conditionally loads the WordPress API helpers
+        $this->wireSynapses();            // Integrates Synapses from app/Synapses/*.php (or your configured paths)
+        $this->blazeComposer();           // Conditionally discovers Krubot-Plugins from vendor directory
     }
 
     public function xboot(): void
@@ -244,14 +247,14 @@ final class BlackWire extends ServiceProvider
             JackPoint::fire('synapses.file.loaded', $file);
             return true;
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
 
             // Catastrophic Failure
             JackPoint::fire('synapses.file.failed', $file, $e);
 
-            // Graceful Error Handling via AmethystMatrix if available
-            if (class_exists(AmethystMatrix::class)) {
-                AmethystMatrix::error("Synapses Injection: Failed executing file [{$file}]", [
+            // Graceful Error Handling via Log if available
+            if (class_exists(Log::class)) {
+                Log::error("Synapses Injection: Failed executing file [{$file}]", [
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                 ]);
@@ -263,7 +266,222 @@ final class BlackWire extends ServiceProvider
             return false;
         }
     }
+    
+    /**
+     * Composer-driven plugin auto-discovery
+     * Discover and register plugins declared in vendor packages' composer.json
+     *
+     * Ignites the dependency grid to auto-discover and assimilate external vendor payloads.
+     * Scrapes the `composer.json` matrix for architectural blueprints (`extra.krubot`), seamlessly
+     * injecting third-party Synapses and plugins directly into the BlackWire neural net.
+     * Routed through JackPoint, every injection can be mutated, vetoed, or supercharged before breaching the mainframe. ⚡️🔌
+     * 
+     * Packages declare plugins via:
+     * {
+     *   "extra": {
+     *     "krubot": {
+     *       "plugins": ["MyVendor\\MyPlugin"],
+     *       "synapses": ["src/Synapses"]
+     *     }
+     *   }
+     * }
+    */
+    protected function blazeComposer(): void
+    {
+        // Skip if Composer runtime API is unavailable (unlikely in production)
+        if (!class_exists(Composer::class)) {
+            return;
+        }
+       
+        // Checking the Architect's permission to blaze the syringes...
+        if(!$this->app['config']->get('krubot.extensions.blaze-composer-syringes', false)) {
+            JackPoint::fire('blaze.discovery.disabled'); // Is This Useful ???
+            return;
+        }
 
+        $discoveredPlugins = []; // will be like => ['PluginClass' => 'vendor/package']
+        $discoveredSynapses = []; // will be like => [['file' => '/path/to/synapse.php', 'package' => 'vendor/package'], ...]        
+
+        // Hook: allow listeners to veto or prepare discovery
+        JackPoint::fire('blaze.discovery.started');
+
+        $rootPackageName = Composer::getRootPackage()['name'];
+
+        // Iterate all installed packages
+        foreach (Composer::getInstalledPackages() as $packageName) {
+            try {
+
+                $extra = ($rootPackageName === $packageName) ?
+                    $this->getRootComposerExtra()
+                :
+                    $this->getPackageExtra($packageName);
+
+                if (!isset($extra['krubot'])) {
+                    continue;
+                }
+
+                $krubotConfig = $extra['krubot'];
+
+                // Transform hook: allow filtering/modifying package config
+                $krubotConfig = JackPoint::transform(
+                    'blaze.package.discovered',
+                    $krubotConfig,
+                    [$packageName, $extra]
+                );
+
+                if ($krubotConfig === false) {
+                    continue; // Vetoed
+                }
+
+                // Register plugin classes
+                if (!empty($krubotConfig['plugins'])) {
+                    $this->registerPluginClasses(
+                        (array) $krubotConfig['plugins'],
+                        $packageName,
+                        $discoveredPlugins
+                    );
+                }
+
+                // Integrate Synapse directories
+                if (!empty($krubotConfig['synapses'])) {
+                    $this->wirePackageSynapses(
+                        (array) $krubotConfig['synapses'],
+                        $packageName,
+                        $discoveredSynapses
+                    );
+                }
+            } catch (Throwable $e) {
+                JackPoint::fire('blaze.package.failed', [$packageName, $e]);
+                $this->reportError($e);
+            }
+        }
+
+        // Completion hook with stats
+        JackPoint::fire('blaze.discovery.completed', [
+            'plugins' => $discoveredPlugins,
+            'synapses' => $discoveredSynapses,
+        ]);
+    }
+
+    /**
+     * Helper to read 'extra' field from a given composer.json path
+    */
+    protected function getExtraData(string $path): array
+    {
+        if (!file_exists($path)) {
+            return [];
+        }
+        
+        try {
+            $json = json_decode(file_get_contents($path), true);
+            return $json['extra'] ?? [];
+        } catch (Throwable $th) {
+            return [];
+        }
+    }
+
+    /**
+     * Get 'extra' field from root composer.json
+    */
+    protected function getRootComposerExtra(): array
+    {
+        return $this->getExtraData(base_path('composer.json'));
+    }
+
+    /**
+     * Get 'extra' field from a vendor package's composer.json
+    */
+    protected function getPackageExtra(string $packageName): array
+    {
+        $installPath = Composer::getInstallPath($packageName);
+        if (!$installPath) {
+            return [];
+        }
+
+        $composerPath = $installPath . '/composer.json';
+        return $this->getExtraData($composerPath);
+    }
+
+    /**
+     * Register plugin classes via JackPoint
+    */
+    protected function registerPluginClasses(array $pluginClasses, string $packageName, array &$registry): void
+    {
+        foreach ($pluginClasses as $pluginClass) {
+
+            // Veto hook per class
+            if (JackPoint::transform('syringe.loading', true, [$pluginClass, $packageName]) === false) {
+                JackPoint::fire('syringe.vetoed', [$pluginClass, $packageName]);
+                continue;
+            }
+
+            if (!class_exists($pluginClass)) {
+                JackPoint::fire('syringe.class.not.found', [$pluginClass, $packageName]);
+                continue;
+            }
+
+            try {
+
+                // Fire the standard plugin registration event through ToxicOverlord.
+                JackPoint::install($pluginClass);
+                
+                $registry[$pluginClass] = $packageName;
+                JackPoint::fire('syringe.injected', [$pluginClass, $packageName]);
+            } catch (Throwable $e) {
+                JackPoint::fire('syringe.failed', [$pluginClass, $packageName, $e]);
+                $this->reportError($e);
+            }
+        }
+    }
+
+    /**
+     * Integrate Synapse directories from a vendor package
+     * Reuses existing integrate() idempotency + hooks
+    */
+    protected function wirePackageSynapses(array $synapseDirs, string $packageName, array &$registry): void
+    {
+        $installPath = Composer::getInstallPath($packageName);
+        if (!$installPath) {
+            return;
+        }
+
+        foreach ($synapseDirs as $relativeDir) {
+            $absoluteDir = $installPath . '/' . ltrim($relativeDir, '/');
+
+            if (!is_dir($absoluteDir)) {
+                JackPoint::fire('synapses.dir.not.found', [$absoluteDir, $packageName]);
+                continue;
+            }
+
+            // Use Symfony Finder to scan (same as wireSynapses)
+            $finder = new Finder();
+            $finder->files()
+                ->in($absoluteDir)
+                ->name('*.php')
+                ->notName('*.disabled.php'); // Respect same exclusion pattern
+
+            foreach ($finder as $file) {
+                $filePath = $file->getRealPath();
+                
+                // Reuse existing integrate() method — gets idempotency, hooks, scoping
+                if ($this->integrate($filePath)) {
+                    $registry[] = ['file' => $filePath, 'package' => $packageName];
+                }
+            }
+        }
+    }
+
+    /**
+     * Error reporting (same pattern as integrate())
+    */
+    protected function reportError(Throwable $e): void
+    {
+        if (class_exists(Log::class)) {
+            Log::error($e);
+        } elseif (function_exists('report')) {
+            report($e);
+        }
+    }
 
     /**
      * Load WordPress-style helper functions if enabled in config.
