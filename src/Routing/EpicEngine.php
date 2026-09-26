@@ -280,6 +280,31 @@ trait EpicEngine
     protected ?array $currentGroupRoutes = null;
 
     /**
+     * TOXIC OVERLORD OPERATION MAP ☠️ 🗺 // BATTLEFIELD TELEMETRY & ATTACK BLUEPRINT
+     * A pre-cut kill-list — target methods wired to injected syringes. [Attributes from Plugins]
+     *
+     * [NEXUS TACTICAL PROTOCOL]
+     * Pre-compiled combat matrix linking target methods directly to lethal plugin payloads.
+     *
+     * Exiles ToxicOverlord::loadout() out of the hot-path / dispatch-loop via ruthless zero-drag dispatch:
+     * executes only activated cyberware syringes without scanning the Overlord's dormant arsenal.
+     * Dispatch pulls the trigger only on cyberware syringes that’s actually grafted onto the matched method.
+     * Result: zero-drag routing, surgical strikes, nothing extra bleeds into runtime.
+     *
+     * Built once in integrateNexus(); read in dispatch like a combat HUD.
+     * Shape: [ 'App\Nexuses\ShopNexus' => [ 'order' => ['XVendor\KrubotTraffic\Attributes\Throttle', 'ZVendor\SmartKrubot\Attributes\RegisterAsCommand'] ] ]
+     * Structure:  [NexusClassFQCN => [methodName => [attrFQCN, ...]]]
+     *
+     * [CORE ENGINE SCHEMATICS & COMPLEXITY PROFILE - SENIOR LEVEL EXPLANATION]
+     * Compiled once during integrateNexus() boot (After Caching Core Attributes);
+     * Read by EpicEngine on live route dispatch (used in configureRoute() to store injected-attributes payloads on their relevant 'Route' objects).
+     *
+     * Direct lookup: O(1) route hit;+ Tight & Predictable O(k) syringes execution (typically k is usually 0-2, the number of injected-attributes on the method).
+     * Topology: [Target_Class][Method] => [payload_markerA, payload_markerB, ...]
+    */
+    protected array $toxicOverlordOperationMap = [];
+
+    /**
      * ⚡ PLUGIN REGISTRY VERSION STAMP
      * Zero-overhead snapshot & revision stamp
      *
@@ -291,25 +316,6 @@ trait EpicEngine
      * zero overhead in production (revision never changes after boot).
     */
     protected int $cachedPluginRegistryRevision = -1;
-
-    /**
-     * ⚡ PER-NEXUS PLUGIN ATTRIBUTE SNAPSHOT
-     *
-     * [className][methodName] => list of markerClass that actually exist
-     * Used to avoid calling ToxicOverlord::loadout() in hot path.
-     *
-     * Stores which plugin-attributes were found on each class, keyed by
-     * $className. Populated during integrateNexus and read during dispatch.
-     *
-     * Structure:
-     *   [ 'App\Nexuses\ShopNexus' => [ 'methodName' => [ attrFQCN, ... ] ] ]
-     *
-     * This means the dispatch loop never calls ToxicOverlord::loadout() —
-     * it only iterates the exact attributes that are actually present on
-     * the matched route's method. True O(1) per route, O(k) per plugin call
-     * where k = number of plugin attributes on that method (usually 0–2).
-    */
-    protected array $nexusPluginAttributeSnapshot = []; /// nexusPluginMarkerSnapshot
 
     /**
      * 🛡️ Resolve the user across Web and Bot dimensions perfectly utilizing AxiomCore.
@@ -961,8 +967,8 @@ trait EpicEngine
                 ];
 
                 // ⚡ PLUGIN SYSTEM: Class-level markers — scanned ONCE per class
-                $classLevelPluginArgs = [];
-                $methodCapableMarkers = [];   // فقط پلاگین‌هایی که TARGET_METHOD دارند
+                $nexusLevelPluginArgs = [];
+                $methodCapableArsenal = [];   // فقط پلاگین‌هایی که TARGET_METHOD دارند
                 if (ToxicOverlord::revision() > 0) {
                     foreach (ToxicOverlord::cryptonCodex() as $cryptonKey) {
                         $breachMatrix = ToxicOverlord::targetTopology($cryptonKey);
@@ -979,20 +985,23 @@ trait EpicEngine
                                 }
                             }
                             if ($argsList !== []) {
-                                $classLevelPluginArgs[$cryptonKey] = $argsList;
+                                $nexusLevelPluginArgs[$cryptonKey] = $argsList;
                             }
                         }
 
                         // فقط آن‌هایی که می‌توانند روی متد باشند را برای حلقهٔ متدها نگه می‌داریم
                         if ($breachMatrix['targets'] & Attribute::TARGET_METHOD) {
-                            $methodCapableMarkers[] = $cryptonKey;
+                            $methodCapableArsenal[] = $cryptonKey;
                         }
                     }
                 }
 
                 // Cache Method-Level Attributes
                 foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-                    $manifest['methods'][$method->getName()] = [
+
+                    $methodName = $method->getName();
+
+                    $manifest['methods'][$methodName] = [
                         Middleware::class => $method->getAttributes(Middleware::class),
                         Name::class       => $method->getAttributes(Name::class),
                         OnCommand::class  => $method->getAttributes(OnCommand::class),
@@ -1017,12 +1026,12 @@ trait EpicEngine
                     ];
 
                     // ⚡ PLUGIN SYSTEM: Method-level markers only (class-level already collected)
-                    if ($methodCapableMarkers !== []) {
-                        $methodPluginMarkers = [];
+                    if ($methodCapableArsenal !== []) {
+                        $methodArmedExploits = [];
 
                         // Method-level only
                         // فقط روی لیست از پیش فیلترشده حلقه می‌زنیم
-                        foreach ($methodCapableMarkers as $cryptonKey) {   // ← دیگر cryptonCodex() صدا زده نمی‌شود
+                        foreach ($methodCapableArsenal as $cryptonKey) {   // ← دیگر cryptonCodex() صدا زده نمی‌شود
                             $breachMatrix = ToxicOverlord::targetTopology($cryptonKey); // حتی این هم کش شده است
                             $isRepeatable = $breachMatrix['repeatable'];
 
@@ -1038,37 +1047,38 @@ trait EpicEngine
 
                             // 2. Inherit / Merge with class-level
                             // Inherit class-level if this marker supports TARGET_CLASS
-                            // ارث‌بری از کلاس‌لول (اگر وجود داشته باشد)
-                            if (isset($classLevelPluginArgs[$cryptonKey])) {
+                            // ارث‌بری از کلاس‌لول (اگر این اتربیوت برایش مجاز شده باشد)
+                            // @see Extensions\Syringe::scanHorizon(): int bitmaskMesh;
+                            if (isset($nexusLevelPluginArgs[$cryptonKey])) {
                                 if ($isRepeatable) {
                                     // Repeatable → همیشه merge کن
-                                    $argsList = array_merge($argsList, $classLevelPluginArgs[$cryptonKey]);
+                                    $argsList = array_merge($argsList, $nexusLevelPluginArgs[$cryptonKey]);
                                 } elseif (!$hasMethodLevel) {
                                     // Singular + متد چیزی ندارد → از کلاس ارث ببر
-                                    $argsList = $classLevelPluginArgs[$cryptonKey];
+                                    $argsList = $nexusLevelPluginArgs[$cryptonKey];
                                 }
                                 // else: Singular + متد دارد → متد برنده است (هیچ کاری نکن)
                             }
                     
                             // 3. ذخیره نهایی
                             if ($argsList !== []) {
-                                $manifest['methods'][$method->getName()][$cryptonKey] = $argsList;
-                                $methodPluginMarkers[] = $cryptonKey;
+                                $manifest['methods'][$methodName][$cryptonKey] = $argsList;
+                                $methodArmedExploits[] = $cryptonKey;
                             }
 
                             /*** had potential redundant merge
-                            if (isset($classLevelPluginArgs[$cryptonKey])) {
-                                $existing = $manifest['methods'][$method->getName()][$cryptonKey] ?? [];
-                                $merged   = array_merge($existing, $classLevelPluginArgs[$cryptonKey]);
+                            if (isset($nexusLevelPluginArgs[$cryptonKey])) {
+                                $existing = $manifest['methods'][$methodName][$cryptonKey] ?? [];
+                                $merged   = array_merge($existing, $nexusLevelPluginArgs[$cryptonKey]);
 
                                 if (!$isRepeatable && $merged !== []) {
                                     $merged = [reset($merged)];
                                 }
 
                                 if ($merged !== []) {
-                                    $manifest['methods'][$method->getName()][$cryptonKey] = $merged;
-                                    if (!in_array($cryptonKey, $methodPluginMarkers, true)) {
-                                        $methodPluginMarkers[] = $cryptonKey;
+                                    $manifest['methods'][$methodName][$cryptonKey] = $merged;
+                                    if (!in_array($cryptonKey, $methodArmedExploits, true)) {
+                                        $methodArmedExploits[] = $cryptonKey;
                                     }
                                 }
                             }
@@ -1076,8 +1086,8 @@ trait EpicEngine
 
                         }
 
-                        if ($methodPluginMarkers !== []) {
-                            $this->nexusPluginMarkerSnapshot[$className][$method->getName()] = $methodPluginMarkers;
+                        if ($methodArmedExploits !== []) {
+                            $this->toxicOverlordOperationMap[$className][$methodName] = $methodArmedExploits;
                         }
                     }
                 }
@@ -2733,12 +2743,12 @@ trait EpicEngine
 
         // ⚡ PLUGIN SYSTEM: ROUTE ASSEMBLY (cold path — zero extra Reflection)
         if ($methodName
-            && !empty($this->nexusPluginMarkerSnapshot[$className][$methodName] ?? [])
+            && !empty($this->toxicOverlordOperationMap[$className][$methodName] ?? [])
         ) {
             // Re-use the already-built ReflectionClass — never new again
             $methodRef ??= $reflection->getMethod($methodName);
 
-            foreach ($this->nexusPluginMarkerSnapshot[$className][$methodName] as $cryptonKey) {
+            foreach ($this->toxicOverlordOperationMap[$className][$methodName] as $cryptonKey) {
                 $plugin = ToxicOverlord::traceBeacon($cryptonKey);
                 if ($plugin === null) {
                     continue;
