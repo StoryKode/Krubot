@@ -180,6 +180,14 @@ class RichMan extends RichEntity implements Responsable // <<<< CORE CHANGE: Inh
     */
     private string $inline_text = '';
 
+    /**
+     * The sovereign string dictating the <title> node, OpenGraph (og:title), and JSON-LD.
+     * This single scalar value controls our SERP CTR and frontend hydration state.
+     * 
+     * @var string|null
+    */
+    private ?string $title = null;
+
 
     // ================== CONSTRUCTOR & ENTRY POINT ==================
     private function __construct(?string $initialText = null, ?bool $isRtl = null)
@@ -240,6 +248,9 @@ class RichMan extends RichEntity implements Responsable // <<<< CORE CHANGE: Inh
 
         }
 
+        // 👑 Hydrate the SEO <title> node via JackPoint transformation if a state exists.
+        $titleTag = $this->title !== null ? "\n    <title>" . JackPoint::transform('richman.title.manifest', $this->getTitle(), $this) . "</title>" : '';
+
         // 🛡️ Core Fallback: The native, zero-cost structural rendering.
         // Calculated ONLY if no higher-order wrapper intercepted the flow.
         $dirAttr = ($this->isRtl !== null) ? (
@@ -251,7 +262,7 @@ class RichMan extends RichEntity implements Responsable // <<<< CORE CHANGE: Inh
 <html lang="{$lang}"{$dirAttr}>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">{$titleTag}
 </head>
 <body>
 
@@ -430,6 +441,111 @@ HTML;
     public function getElements(): array
     {
         return $this->elements;
+    }
+
+    /**
+     * TITLE ACT I: THE PROPAGANDA (SSR & CRAWLER FEED)
+     * 
+     * Intercepts the title immediately before the SSR engine or frontend (Blade/Inertia/React)
+     * requests it for rendering. The Ministry of Historiography gets one final chance to 
+     * dynamically append branding (e.g., " | Brand") or enforce exact-match intent.
+     * 
+     * [Full-Stack & SEO Guard]: Output must precisely match the SSR payload during DOM 
+     * hydration to prevent CLS (Cumulative Layout Shift) and crawler confusion. Ensure 
+     * contextual HTML-escaping to prevent XSS injection in the <head> block.
+     *
+     * @return string|null
+    */
+    public function getTitle(): ?string
+    {
+        // ─── REWRITING HISTORY FOR THE SERP ──────────────────────────────────
+        return JackPoint::transform(
+            'richman.title.render',
+            $this->title,
+            $this
+        );
+    }
+
+    /**
+     * TITLE ACT II: THE ASSASSINATION (SEO RISK & APM TELEMETRY)
+     * 
+     * The `title` state is intentionally purged. The king is dead.
+     * 
+     * [HyperDX / Observability]: Purging a title is an SEO catastrophe (forces Googlebot 
+     * to auto-generate snippets from H1/anchor texts, destroying CTR). We fire a critical 
+     * tactical hook here so the Observers (APM) witness the exact microsecond the SEO state 
+     * was dropped, allowing instant distributed tracing.
+     * 
+     * @return void
+    */
+    public function clearTitle(): void
+    {
+        $fallenTitle = $this->title;
+        $this->title = null;
+
+        // ─── BLOOD & ASH: The Title is Purged ────────────────────────────────
+        JackPoint::fire(
+            'richman.title.clear',
+            $fallenTitle,
+            $this
+        );
+    }
+
+    /**
+     * TITLE ACT III: THE CORONATION (MUTATION & SERP HYPNOSIS)
+     * 
+     * Hydrates the `title` property with strict SEO validation guards. Raw strings are 
+     * subjected to mutation, judgment, and structural SEO limits before claiming power.
+     *
+     * @param string|null $title The raw keyword payload destined for the SERP.
+     * @return void
+    */
+    public function setTitle(?string $title): void
+    {
+        // ─── THE SHADOW JUDGE: Null Routing ──────────────────────────────────
+        // Gracefully route null payloads to the teardown protocol, maintaining a 
+        // single source of truth for telemetry generation and SEO alerts.
+        if ($title === null) {
+            $this->clearTitle();
+            return;
+        }
+
+        // ─── LIVE PROTOCOL HYPNOSIS: SEO Mutation ────────────────────────────
+        // Intercept mid-flight: sanitize, strip excessive whitespaces, or translate.
+        // JackPoint transforms the payload into a crawler-friendly format before storage.
+        $mutatedTitle = JackPoint::transform(
+            'richman.title.resolve',
+            $title,
+            $this
+        );
+
+        // ─── THE WATCHERS' WARNING (HyperDX / SEO Telemetry) ─────────────────
+        // We monitor SERP limits. Titles > 60 chars risk SERP truncation (ellipses),
+        // and titles < 10 chars waste keyword potential. We emit precise telemetry 
+        // (payload, length) for HyperDX/Datadog dashboards without logger bloat.
+        $length = mb_strlen($mutatedTitle);
+        
+        if ($length > 60) {
+            JackPoint::fire(
+                'richman.title.serp_warn',
+                $mutatedTitle,
+                $length,
+                $this
+            );
+        } elseif ($length > 0 && $length < 10) {
+            JackPoint::fire(
+                'richman.title.serp_under_optimized',
+                $mutatedTitle,
+                $length,
+                $this
+            );
+        }
+
+        // ─── THE THRONE IS CLAIMED ───────────────────────────────────────────
+        $this->title = $mutatedTitle;
+        
+        // Broadcast victorious ascension (Triggers sitemap bumps or cache purges)
+        JackPoint::fire('richman.title.put', $this->title, $this);
     }
 
     /**

@@ -865,11 +865,6 @@ trait EpicEngine
 
     }
 
-    // #####################
-
-
-    
-
     /**
      * Scans a "Nexus" (Controller/Logic Class) using the O(1) Manifest Engine and integrates it.
      * Rewritten for PHP 8.2.30 with Extreme DX & Zero Redundant Reflection.
@@ -1241,7 +1236,7 @@ trait EpicEngine
 
                 if ($webAppHandler) {
                     $webAppAttrInstance = $manifest['class_attributes'][WebApp::class][0]->newInstance();
-                    $finalPath = $this->_resolveRelativePathName($webAppAttrInstance->path ?? $webAppAttrInstance->name, null); // WebApp is top-level
+                    $finalPath = $this->resolveRelativePathName($webAppAttrInstance->path ?? $webAppAttrInstance->name, null); // WebApp is top-level
                     
                     $route = $this->onWebApp(
                         $finalPath, 
@@ -1345,7 +1340,7 @@ trait EpicEngine
                     $route->autoEnrichPattern = $webAppAttrInstance->autoEnrich;
             
                     // Apply name if it exists, relative to nexus prefix
-                    $finalName = $webAppAttrInstance->name ? $this->_resolveRelativePathName($webAppAttrInstance->name, $nexusNamePrefix) : null;
+                    $finalName = $webAppAttrInstance->name ? $this->resolveRelativePathName($webAppAttrInstance->name, $nexusNamePrefix) : null;
                     if ($finalName)
                         $route->name($finalName);
             
@@ -1558,7 +1553,7 @@ trait EpicEngine
                     ? $attributesMap[Name::class][0]->newInstance()->name 
                     : null;                
                 // If a name attribute exists, resolve it. Otherwise dont waste your power, it's null head.
-                $routeName = $rawRouteName ? $this->_resolveRelativePathName($rawRouteName, $nexusNamePrefix) : null;
+                $routeName = $rawRouteName ? $this->resolveRelativePathName($rawRouteName, $nexusNamePrefix) : null;
 
                 $routeConfig = compact(
                     'routeName',
@@ -1687,7 +1682,7 @@ trait EpicEngine
                 foreach ($attributesMap[WebPage::class] ?? [] as $attr) {
                     /** @var \App\Attributes\WebPage $instance */
                     $instance = $attr->newInstance();
-                    $finalPath = $this->_resolveRelativePathName($instance->path ?? $instance->name, $webAppPrefix); // Smart Path Resolution: Prepend prefix if path is relative (starts with '.')
+                    $finalPath = $this->resolveRelativePathName($instance->path ?? $instance->name, $webAppPrefix); // Smart Path Resolution: Prepend prefix if path is relative (starts with '.')
                     
                     $route = $this->onWebPage($finalPath, $handlerCallback, ['methods' => $instance->methods]);
 
@@ -1695,7 +1690,7 @@ trait EpicEngine
                     $route->autoEnrichPattern = $instance->autoEnrich;
 
                     // Apply name if it exists, relative to nexus prefix
-                    $finalName = $instance->name ? $this->_resolveRelativePathName($instance->name, $nexusNamePrefix) : null;
+                    $finalName = $instance->name ? $this->resolveRelativePathName($instance->name, $nexusNamePrefix) : null;
                     if ($finalName)
                         $route->name($finalName);
 
@@ -1708,7 +1703,7 @@ trait EpicEngine
                 foreach ($attributesMap[WebAction::class] ?? [] as $attr) {
                     /** @var \KrubiK\Attributes\WebAction $instance */
                     $instance = $attr->newInstance();
-                    $finalPath = $this->_resolveRelativePathName($instance->getName(), $webAppPrefix); // Smart Path Resolution: Prepend prefix if path is relative (starts with '.')
+                    $finalPath = $this->resolveRelativePathName($instance->getName(), $webAppPrefix); // Smart Path Resolution: Prepend prefix if path is relative (starts with '.')
                     
                     $route = $this->onWebAction($finalPath, $handlerCallback, $instance->getMethods(), ['description' => $instance->getDescription()]);
 
@@ -1716,7 +1711,7 @@ trait EpicEngine
                     $route->autoEnrichPattern = $instance->autoEnrich;
 
                     // Apply name if it exists, relative to nexus prefix
-                    $finalName = $this->_resolveRelativePathName($instance->getName(), $nexusNamePrefix);
+                    $finalName = $this->resolveRelativePathName($instance->getName(), $nexusNamePrefix);
                     if ($finalName)
                         $route->name($finalName);
 
@@ -2386,6 +2381,38 @@ trait EpicEngine
 
         $this->tunnelAmethyst(); // short syntax for `$this->tunnelAmethyst(null)` ; clears AmethystMatrix working message entry.
     }
+    
+    /**
+     * Resolves a potentially relative attribute name against a class-level prefix.
+     *
+     * @param string $name The name from the method attribute (e.g., '.show_product').
+     * @param string|null $prefix The name from the class attribute (e.g., 'game.dashboard').
+     * @return string The fully resolved name (e.g., 'game.dashboard.show_product').
+     */
+    protected function resolveRelativePathName(?string $name, ?string $prefix): string
+    {
+        if ($name === null) {
+            return null;
+        }
+
+        // Check if the name is intended to be relative. 
+        // If the name starts with '.', it's relative to the prefix.
+        if (str_starts_with($name, '.')) {
+            // If a class-level prefix exists, the method name is a child of it.
+            // The method's identity is completed by its parent's identity.
+            if ($prefix) {
+                // Concatenate prefix and the name(without the redundant dots).
+                return rtrim($prefix, '.') . '.' . ltrim($name, '.');
+            }
+            
+            // If no prefix exists, the name stands on its own, but the '.' is just a convention.
+            // It asserts its identity independently.
+            return ltrim($name, '.');
+        }
+        
+        // Otherwise, it's an absolute name, defining its own complete path in the universe of routes.
+        return $name;
+    }
 
     /**
      * Dynamic Parameter Discovery & Pattern Enrichment Method 🧠
@@ -2613,7 +2640,68 @@ trait EpicEngine
         }
     }
 
-    // The Configuration Helper Method 🛠 //To-Do:: Support PlatformRestricion Here
+    /**
+     * Internal method to create and store Route.
+    */
+    protected function addRoute(string $pattern, mixed $handler, string $routeType, array $attributes = []): Route
+    {
+        // Apply Group Attributes (Prefix, Middlewares)
+        $attrs = array_merge($this->getGroupAttributes(), $attributes);
+
+        $definition = JackPoint::transformRouteAdding([
+            'pattern'    => $pattern,
+            'handler'    => $handler,
+            'type'       => $routeType,
+            'attrs'      => $attrs,
+            'attributes' => $attrs,
+        ], $this);
+
+        if($definition) {
+            $pattern    = (string) ($definition['pattern'] ?? $pattern);
+            $handler    = $definition['handler'] ?? $handler;
+            $routeType  = (string) ($definition['type'] ?? $routeType);
+            $attrs      = (array) ($definition['attributes'] ?? $definition['attrs'] ?? $attrs);        
+        }
+        
+        // Handle Prefix
+        if (isset($attrs['prefix'])) {
+            // Logic to prepend prefix. If regex, it's complex, assuming simple string or simple regex start.
+            // Simple command implementation:
+            if (str_starts_with($pattern, '/')) {
+                 $cleanPattern = substr($pattern, 1);
+                 $pattern = '/' . $attrs['prefix'] . '/' . $cleanPattern;
+            }
+        }
+
+        // Create the Route Object (Class Signature #1)
+        /// $route = new Route($pattern, $handler, $attrs); ///
+
+        // Create the Route Object (Class Signature #2)
+        $route = new Route($pattern, $handler, $attrs); //|// , $registrar
+
+        // [THE UPGRADE] The Route becomes self-aware of its type upon birth.
+        $route->type = $routeType;
+        
+        // Store in routes array
+        $this->routes[$pattern] = $route;
+
+        // ⚡ NAME REGISTRAR BRIDGE:
+        // We pass a name string to the Route object via $attrs['route_name']. When $route->name('xyz') is called,
+        // this closure fires and registers the route in our fast lookup table ($this->namedRoutes).
+
+        if(isset($attributes['route_name']))
+            $this->namedRoutes[$attributes['route_name']] = $route;
+        
+        // Track for group chaining ($bot->group()->middleware())
+        $this->registerRouteToGroup($route);
+
+        // 🔥 EVENT: route.added — post-registration, e.g., audit / docs generator.
+        JackPoint::fireRouteAdded($route, $this);
+        
+        return $route;
+    }
+
+    // The Configuration Helper Method 🛠
     /**
      * Configures and registers a route with all merged attributes and middleware.
      * 
@@ -2749,18 +2837,20 @@ trait EpicEngine
             $methodRef ??= $reflection->getMethod($methodName);
 
             foreach ($this->toxicOverlordOperationMap[$className][$methodName] as $cryptonKey) {
-                $plugin = ToxicOverlord::traceBeacon($cryptonKey);
-                if ($plugin === null) {
+                
+                /** @var \KrubiK\Extensions\Extension $extension */
+                $extension = ToxicOverlord::traceBeacon($cryptonKey);
+                if ($extension === null) {
                     continue;
                 }
 
                 $argsList = $manifest['methods'][$methodName][$cryptonKey] ?? [];
                 foreach ($argsList as $args) {
-                    $plugin->analyse($route, $args, $methodRef, $reflection);
+                    $extension->analyse($route, $args, $methodRef, $reflection);
                 }
 
                 JackPoint::fire('plugin.scanned', [
-                    'plugin' => $plugin::class,
+                    'plugin' => $extension::class,
                     'route'  => $route,
                     'method' => $methodName,
                     'nexus'  => $className,
