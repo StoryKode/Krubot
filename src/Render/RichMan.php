@@ -248,8 +248,11 @@ class RichMan extends RichEntity implements Responsable // <<<< CORE CHANGE: Inh
 
         }
 
+        // Laravel ⚡ CSRF token meta for universal consumer consumption (Axios, Fetch, Nano-Net, Vanilla JS).
+        $csrfMeta = function_exists('csrf_token') && ($token = csrf_token()) ? "\n    <meta name=\"csrf-token\" content=\"{$token}\">" : '';
+
         // 👑 Hydrate the SEO <title> node via JackPoint transformation if a state exists.
-        $titleTag = $this->title !== null ? "\n    <title>" . JackPoint::transform('richman.title.manifest', $this->getTitle(), $this) . "</title>" : '';
+        $titleTag = $this->title !== null ? "\n    <title>" . JackPoint::transform('richman.title.render', $this->getTitle(), $this) . "</title>" : '';
 
         // 🛡️ Core Fallback: The native, zero-cost structural rendering.
         // Calculated ONLY if no higher-order wrapper intercepted the flow.
@@ -262,7 +265,7 @@ class RichMan extends RichEntity implements Responsable // <<<< CORE CHANGE: Inh
 <html lang="{$lang}"{$dirAttr}>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">{$titleTag}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">{$csrfMeta}{$titleTag}
 </head>
 <body>
 
@@ -458,12 +461,13 @@ HTML;
     */
     public function getTitle(): ?string
     {
+        return $this->title;
         // ─── REWRITING HISTORY FOR THE SERP ──────────────────────────────────
-        return JackPoint::transform(
+        /*return JackPoint::transform(
             'richman.title.render',
             $this->title,
             $this
-        );
+        );*/
     }
 
     /**
@@ -526,14 +530,14 @@ HTML;
         $length = mb_strlen($mutatedTitle);
         
         if ($length > 60) {
-            JackPoint::fire(
+            $mutatedTitle = JackPoint::transform(
                 'richman.title.serp_warn',
                 $mutatedTitle,
                 $length,
                 $this
             );
         } elseif ($length > 0 && $length < 10) {
-            JackPoint::fire(
+            $mutatedTitle = JackPoint::transform(
                 'richman.title.serp_under_optimized',
                 $mutatedTitle,
                 $length,
@@ -619,12 +623,14 @@ HTML;
      *
      * @param self|string $input   The tribute to be consumed. The reality to be assimilated. The fuel.
      * @param string|null $parserType The identity of the matter ('MarkdownV2', 'HTML', etc.) The runic key required to decipher the soul of tributes.
+     * @param bool $tryUpdateTitle Update $this->title if $input has a direct or parsable one.
      * @return self                 ITSELF. The same instance in memory, now more powerful, more complex. A monster gorged on the essence of another.
     */
-    public function takeOver(self|string $input, ?string $parserType = null): self
+    public function takeOver(self|string $input, ?string $parserType = null, bool $tryUpdateTitle = false): self
     {
         $isRtl = null;
         $entities = [];
+        $title = null;
 
         // Check if the target is another consciousness or just raw matter.
         if($input instanceof self) {
@@ -633,23 +639,32 @@ HTML;
             $isRtl = $input->isRtl;
             $entities = $input->getElements();
 
+            if($tryUpdateTitle)
+                $title = $input->getTitle() ?? $title;
+
         } else {
 
             // Target is raw matter — route it through the transformation crucible.
             // If the pipeline is a ghost town (no filters assignd to this event), proceed with the un-altered raw payload.
-            [$parserCode, $content] = JackPoint::transform(
+            [$parserCode, $content, $newTitle] = JackPoint::transform(
                 'richman.parsing',
-                [$parserType, $input]   // Data Payload: [string|null $parserCode, string $input]
+                [$parserType, $input, $tryUpdateTitle]   // Data Payload: [string|null $parserCode, string $input]
             );
     
             if ($parserCode === -1) {
                 // -1 === Already Pre-parsed by a rogue pipe;
+
+                if($newTitle && is_string($newTitle)) /// && $newTitle !== $tryUpdateTitle
+                    $title = $newTitle;
 
                 if($content instanceof self) {
 
                     // Target is a rival entity — initiate soul extraction.
                     $entities = $content->getElements();
                     $isRtl    = $content->isRtl;
+
+                    if($tryUpdateTitle)
+                        $title    = $title ?? $content->getTitle();
 
                 }
                 else {
@@ -686,6 +701,9 @@ HTML;
             if(JackPoint::judge('richman.parse.update.rtl', [$isRtl, $entities, $this]) === true)
                 $this->rtl($isRtl);
         }
+
+        if($tryUpdateTitle && $title !== null) /// $tryUpdateTitle || $this->title === null
+            $this->setTitle($title);
 
         // Absorb the gems into the new composer's heart and Return $this for chaining.
         // Use the spread operator to add all deciphered entities to this composer.
@@ -963,6 +981,34 @@ HTML;
     // =========================================================
     /// == End:: Advanced Brain Manipulation ==
     // =========================================================
+
+    /**
+     * Renders a compact, terminal-style Cross-platform progress bar.
+     *
+     * The progress value is safely clamped to the [0.0, 1.0] range:
+     * values below 0 become empty, and values above 1 become fully filled.
+     * The filled portion is rounded to the nearest glyph, so the bar
+     * always contains exactly $len glyphs in total.
+     *
+     * By default, the bar uses U+2588 FULL BLOCK for the filled portion
+     * and U+2591 LIGHT SHADE for the remainder. These glyphs usually look
+     * clear and align well in monospace fonts across TG, WebApps, and even Telegraph!
+     *
+     * Keep this as the single source of truth for progress-bar rendering—
+     * one consistent bar style, wherever the application needs it.
+     * And yes: those blocky bars bring a delightful DOS-dashboard vibe! 😄
+    */
+    public function asciiBar(
+        float $progress,
+        int $len = 2,
+        string $full =  '█',
+        string $empty = '░'
+    ): string {
+        $clampedProgress = max(0.0, min(1.0, $progress));
+        $filled          = (int) round($clampedProgress * $len);
+
+        return str_repeat($full, $filled) . str_repeat($empty, $len - $filled);
+    }
 
     // =================================================================================
     // ================= HYPER-DX FLUENT METHODS (INLINE ELEMENTS) =====================

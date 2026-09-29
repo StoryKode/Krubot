@@ -385,8 +385,11 @@ class QuantumGatewayController extends Controller
             . '/engine/krubot/'.self::$webRenderFileName.'.css?v='
             . filemtime($cssPath);
 
+        $jsnUrl = $base . '/engine/krubot/nano-net.js';
+
         $jsUrl  = json_encode($jsUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $cssUrl = json_encode($cssUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $jsnUrl = json_encode($jsnUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return response(
             <<<JS
@@ -400,8 +403,12 @@ class QuantumGatewayController extends Controller
 
     var script = document.createElement('script');
     script.src = {$jsUrl};
-    script.defer = true;
-    document.head.appendChild(script);
+    document.body.appendChild(script);
+
+    var nn_script = document.createElement('script');
+    nn_script.src = {$jsnUrl};
+    nn_script.defer = true;
+    document.body.appendChild(nn_script);
 })();
 JS,
             200,

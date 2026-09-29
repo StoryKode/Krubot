@@ -366,6 +366,7 @@ class KrubotServiceProvider extends ServiceProvider implements DeferrableProvide
 
         $this->publishes([
             __DIR__ . '/../Client/Res/__main__/Krubot.js' => public_path('engine/krubot/Krubot.js'),
+            __DIR__ . '/../Client/Res/utils/krubot-nano-net.js' => public_path('engine/krubot/nano-net.js'),
         ], 'public');
 
         // php artisan vendor:publish --tag=krubot-config
